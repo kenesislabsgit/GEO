@@ -1,0 +1,399 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import re
+import time
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+
+DEFAULT_API_BASE = "https://api.openai.com/v1"
+DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_ANTHROPIC_API_BASE = "https://api.anthropic.com"
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_OPENAI_SEARCH_MODEL = "gpt-5-mini"
+# How much searching and reading one web-search question may do. "low" keeps a
+# question predictable; the paid audit can raise it.
+DEFAULT_SEARCH_CONTEXT_SIZE = "low"
+# Requests sharing a cache key reuse the cached copy of their system prompt.
+PROMPT_CACHE_KEY = "geo-audit-v1"
+DEFAULT_BEDROCK_REGION = "us-east-1"
+DEFAULT_BEDROCK_MODELS = {
+    "bedrock_claude": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "bedrock_nova": "amazon.nova-lite-v1:0",
+    "bedrock_llama": "us.meta.llama3-1-70b-instruct-v1:0",
+    "bedrock_mistral": "mistral.mistral-large-2402-v1:0",
+}
+
+
+class LLMNotConfigured(RuntimeError):
+    pass
+
+
+def build_chat_payload(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str | None = None,
+    temperature: float = 0.2,
+    json_response: bool = False,
+) -> dict[str, Any]:
+    load_dotenv()
+    payload = {
+        "model": model or os.environ.get("LLM_MODEL", DEFAULT_MODEL),
+        "temperature": temperature,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        # Every audit re-sends the same long instructions. Sharing a cache key
+        # lets the provider reuse them instead of billing the full prefix again.
+        "prompt_cache_key": PROMPT_CACHE_KEY,
+    }
+    if json_response:
+        payload["response_format"] = {"type": "json_object"}
+    return payload
+
+
+def call_chat_completion(payload: dict[str, Any]) -> str:
+    load_dotenv()
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise LLMNotConfigured(
+            "Set LLM_API_KEY or OPENAI_API_KEY to run LLM generation."
+        )
+
+    api_base = os.environ.get("LLM_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    request = Request(
+        f"{api_base}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=120) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"LLM request failed: {exc.code} {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"LLM request failed: {exc}") from exc
+
+    return body["choices"][0]["message"]["content"]
+
+
+def build_openai_response_payload(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str | None = None,
+    use_web_search: bool = True,
+    search_context_size: str | None = None,
+    cache_key: str | None = None,
+) -> dict[str, Any]:
+    """The system prompt is always first and identical between calls, which is
+    what lets the provider reuse a cached copy of it instead of charging for it
+    on every question. cache_key groups requests that share that prefix."""
+    load_dotenv()
+    payload: dict[str, Any] = {
+        "model": model or os.environ.get("OPENAI_SEARCH_MODEL", DEFAULT_OPENAI_SEARCH_MODEL),
+        "input": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    if use_web_search:
+        tool: dict[str, Any] = {"type": "web_search"}
+        # Bound how much searching and reading one question may do. Without this
+        # the provider decides, and a single question can stall a whole run.
+        size = (
+            search_context_size
+            or os.environ.get("OPENAI_SEARCH_CONTEXT_SIZE")
+            or DEFAULT_SEARCH_CONTEXT_SIZE
+        ).strip().lower()
+        if size in {"low", "medium", "high"}:
+            tool["search_context_size"] = size
+        country = os.environ.get("OPENAI_SEARCH_COUNTRY", "").strip()
+        if country:
+            # Pins results to one market so repeat runs stay comparable.
+            tool["user_location"] = {"type": "approximate", "country": country}
+        payload["tools"] = [tool]
+    if cache_key:
+        payload["prompt_cache_key"] = cache_key
+    return payload
+
+
+def call_openai_response(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    load_dotenv()
+    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY")
+    if not api_key:
+        raise LLMNotConfigured(
+            "Set OPENAI_API_KEY or LLM_API_KEY to run OpenAI Responses generation."
+        )
+
+    api_base = os.environ.get("OPENAI_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    request = Request(
+        f"{api_base}/responses",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=180) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"OpenAI Responses request failed: {exc.code} {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"OpenAI Responses request failed: {exc}") from exc
+
+    return extract_openai_response_text(body), body
+
+
+def extract_openai_response_text(body: dict[str, Any]) -> str:
+    if body.get("output_text"):
+        return str(body["output_text"])
+    chunks = []
+    for output in body.get("output", []):
+        for content in output.get("content", []):
+            if content.get("type") in {"output_text", "text"} and content.get("text"):
+                chunks.append(str(content["text"]))
+    return "\n".join(chunks)
+
+
+def extract_openai_response_source_urls(body: dict[str, Any]) -> list[str]:
+    urls = []
+    for output in body.get("output", []):
+        for content in output.get("content", []):
+            for annotation in content.get("annotations", []):
+                url = annotation.get("url")
+                if url:
+                    urls.append(str(url))
+    return list(dict.fromkeys(urls))
+
+
+def call_bedrock_converse(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    provider: str,
+    model: str | None = None,
+    temperature: float = 0.2,
+    max_tokens: int = 2000,
+) -> tuple[str, dict[str, Any]]:
+    load_dotenv()
+    try:
+        import boto3
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError as exc:
+        raise LLMNotConfigured("Install boto3 to use AWS Bedrock providers.") from exc
+
+    selected_model = model or os.environ.get(
+        f"{provider.upper()}_MODEL",
+        DEFAULT_BEDROCK_MODELS.get(provider, ""),
+    )
+    if not selected_model:
+        raise LLMNotConfigured(f"No Bedrock model configured for {provider}.")
+
+    region = os.environ.get("AWS_REGION") or os.environ.get(
+        "AWS_DEFAULT_REGION", DEFAULT_BEDROCK_REGION
+    )
+    client = boto3.client("bedrock-runtime", region_name=region)
+    try:
+        response = client.converse(
+            modelId=selected_model,
+            system=[{"text": system_prompt}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"text": user_prompt}],
+                }
+            ],
+            inferenceConfig={
+                "temperature": temperature,
+                "maxTokens": max_tokens,
+            },
+        )
+    except (BotoCoreError, ClientError) as exc:
+        raise RuntimeError(f"Bedrock {provider} request failed: {exc}") from exc
+
+    text = "\n".join(
+        part.get("text", "")
+        for part in response.get("output", {}).get("message", {}).get("content", [])
+        if part.get("text")
+    )
+    metadata = {
+        "model": selected_model,
+        "region": region,
+        "usage": response.get("usage", {}),
+        "metrics": response.get("metrics", {}),
+    }
+    return text, metadata
+
+
+def build_anthropic_payload(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str | None = None,
+    temperature: float = 0.2,
+    max_tokens: int = 2000,
+) -> dict[str, Any]:
+    load_dotenv()
+    return {
+        "model": model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "system": system_prompt,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+
+
+def call_anthropic_message(payload: dict[str, Any]) -> str:
+    load_dotenv()
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
+    if not api_key:
+        raise LLMNotConfigured(
+            "Set ANTHROPIC_API_KEY or CLAUDE_API_KEY to run Claude generation."
+        )
+
+    api_base = os.environ.get("ANTHROPIC_API_BASE", DEFAULT_ANTHROPIC_API_BASE).rstrip("/")
+    request = Request(
+        f"{api_base}/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": os.environ.get("ANTHROPIC_VERSION", "2023-06-01"),
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=120) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Claude request failed: {exc.code} {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"Claude request failed: {exc}") from exc
+
+    return "\n".join(
+        part.get("text", "")
+        for part in body.get("content", [])
+        if part.get("type") == "text"
+    )
+
+
+def build_gemini_payload(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.2,
+    json_response: bool = False,
+    use_google_search: bool = True,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": temperature},
+    }
+    if json_response:
+        payload["generationConfig"]["responseMimeType"] = "application/json"
+    if use_google_search:
+        payload["tools"] = [{"google_search": {}}]
+    return payload
+
+
+def call_gemini_generate_content(
+    payload: dict[str, Any],
+    *,
+    model: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        raise LLMNotConfigured(
+            "Set GEMINI_API_KEY or GOOGLE_API_KEY to run Gemini generation."
+        )
+
+    selected_model = model or os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    api_base = os.environ.get("GEMINI_API_BASE", DEFAULT_GEMINI_API_BASE).rstrip("/")
+    request = Request(
+        f"{api_base}/models/{selected_model}:generateContent",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-goog-api-key": api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=120) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        retry_seconds = parse_retry_delay(detail)
+        if exc.code == 429 and retry_seconds and retry_seconds <= 20:
+            time.sleep(retry_seconds + 1)
+            try:
+                with urlopen(request, timeout=120) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+            except HTTPError as retry_exc:
+                retry_detail = retry_exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    f"Gemini request failed: {retry_exc.code} {retry_detail}"
+                ) from retry_exc
+        else:
+            raise RuntimeError(f"Gemini request failed: {exc.code} {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"Gemini request failed: {exc}") from exc
+
+    candidates = body.get("candidates", [])
+    if not candidates:
+        return "", body
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "\n".join(part.get("text", "") for part in parts if "text" in part)
+    return text, body
+
+
+def parse_retry_delay(detail: str) -> int | None:
+    match = re.search(r'"retryDelay"\s*:\s*"(\d+)s"', detail)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"retry in ([0-9.]+)s", detail, flags=re.IGNORECASE)
+    if match:
+        return int(float(match.group(1)))
+    return None
+
+
+def load_dotenv(path: str = ".env") -> None:
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name not in os.environ:
+            os.environ[name] = value

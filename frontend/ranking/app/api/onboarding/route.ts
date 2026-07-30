@@ -1,0 +1,229 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getSessionUser } from "@/lib/auth/session";
+import { getAccountEntitlements } from "@/lib/billing/account";
+import { isPaidSubscription } from "@/lib/billing/is-paid";
+import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { createInitialOnboardingState } from "@/lib/onboarding/state";
+import {
+  getBrandById,
+  getCompetitors,
+  getUserOnboarding,
+  listAllPrompts,
+  listBrandsForOwner,
+  upsertUserOnboarding,
+} from "@/lib/db/repository";
+import type { OnboardingState } from "@/types/onboarding";
+import type { ProviderId } from "@/types/database";
+
+const providerSchema = z.enum([
+  "openai",
+  "openai_search",
+  "claude",
+  "gemini",
+  "perplexity",
+  "bedrock_claude",
+  "bedrock_nova",
+  "bedrock_llama",
+  "bedrock_mistral",
+]);
+
+const patchSchema = z.object({
+  currentStep: z.number().int().min(1).max(8).optional(),
+  brandId: z.string().min(8).optional(),
+  company: z
+    .object({
+      name: z.string().min(1),
+      category: z.string(),
+      description: z.string(),
+      domain: z.string().min(1),
+    })
+    .optional(),
+  competitors: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        domain: z.string().nullable(),
+      }),
+    )
+    .optional(),
+  activePromptIds: z.array(z.string()).optional(),
+  providers: z
+    .array(providerSchema)
+    .min(1)
+    .optional(),
+  country: z.string().length(2).optional(),
+  language: z.string().length(2).optional(),
+  monitoringFrequency: z.enum(["weekly", "daily"]).optional(),
+  alerts: z
+    .object({
+      scoreDrop: z.boolean(),
+      competitor: z.boolean(),
+      citation: z.boolean(),
+    })
+    .optional(),
+});
+
+async function loadOrInitOnboarding(
+  userId: string,
+): Promise<OnboardingState | null> {
+  const existing = await getUserOnboarding(userId);
+  if (existing) return existing;
+
+  const entitlements = await getAccountEntitlements(userId);
+  if (!isPaidSubscription(entitlements)) return null;
+
+  const brands = await listBrandsForOwner(userId);
+  const brand = brands[0];
+  if (!brand) return null;
+
+  const [competitors, prompts] = await Promise.all([
+    getCompetitors(brand.id),
+    listAllPrompts(brand.id),
+  ]);
+
+  const initial = createInitialOnboardingState({
+    brand,
+    plan: entitlements.plan,
+    competitors: competitors.map((c) => ({
+      name: c.name,
+      domain: c.domain,
+    })),
+    promptIds: prompts.filter((p) => p.active).map((p) => p.id),
+  });
+  return upsertUserOnboarding(userId, initial);
+}
+
+export async function GET() {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const entitlements = await getAccountEntitlements(user.id);
+  if (!isPaidSubscription(entitlements)) {
+    return NextResponse.json({ error: "Paid plan required" }, { status: 403 });
+  }
+
+  const state = await loadOrInitOnboarding(user.id);
+  if (!state) {
+    return NextResponse.json(
+      { error: "Add a brand before starting onboarding." },
+      { status: 400 },
+    );
+  }
+
+  const plan = PLAN_CONFIG[entitlements.plan];
+  return NextResponse.json({
+    state,
+    plan: {
+      id: entitlements.plan,
+      name: entitlements.planName,
+      providers: plan.features.providers,
+      competitorsPerBrand: plan.features.competitorsPerBrand,
+      countries: plan.features.countries,
+      languages: plan.features.languages,
+      weeklyMonitoring: plan.features.weeklyMonitoring,
+      dailyMonitoring: plan.features.dailyMonitoring,
+      emailAlerts: plan.features.emailAlerts,
+    },
+  });
+}
+
+export async function PATCH(request: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const entitlements = await getAccountEntitlements(user.id);
+    if (!isPaidSubscription(entitlements)) {
+      return NextResponse.json({ error: "Paid plan required" }, { status: 403 });
+    }
+
+    const body = patchSchema.parse(await request.json());
+    const current = await loadOrInitOnboarding(user.id);
+    if (!current) {
+      return NextResponse.json(
+        { error: "Add a brand before starting onboarding." },
+        { status: 400 },
+      );
+    }
+
+    const plan = PLAN_CONFIG[entitlements.plan];
+    const nextBrandId = body.brandId ?? current.brandId;
+    if (nextBrandId) {
+      const brand = await getBrandById(nextBrandId);
+      if (!brand || brand.owner_id !== user.id) {
+        return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+      }
+    }
+
+    if (body.competitors && body.competitors.length > plan.features.competitorsPerBrand) {
+      return NextResponse.json(
+        {
+          error: `Your plan allows up to ${plan.features.competitorsPerBrand} competitors.`,
+        },
+        { status: 402 },
+      );
+    }
+
+    if (body.providers) {
+      const invalid = body.providers.filter(
+        (p) => !plan.features.providers.includes(p),
+      );
+      if (invalid.length > 0) {
+        return NextResponse.json(
+          { error: `${invalid.join(", ")} is not available on your plan.` },
+          { status: 402 },
+        );
+      }
+    }
+
+    if (
+      body.monitoringFrequency === "daily" &&
+      !plan.features.dailyMonitoring
+    ) {
+      return NextResponse.json(
+        { error: "Daily monitoring is not available on your plan." },
+        { status: 402 },
+      );
+    }
+
+    const merged: OnboardingState = {
+      ...current,
+      ...(body.currentStep !== undefined ? { currentStep: body.currentStep } : {}),
+      ...(body.brandId !== undefined ? { brandId: body.brandId } : {}),
+      ...(body.company !== undefined ? { company: body.company } : {}),
+      ...(body.competitors !== undefined ? { competitors: body.competitors } : {}),
+      ...(body.activePromptIds !== undefined
+        ? { activePromptIds: body.activePromptIds }
+        : {}),
+      ...(body.providers !== undefined
+        ? { providers: body.providers as ProviderId[] }
+        : {}),
+      ...(body.country !== undefined
+        ? { country: body.country.toLowerCase() }
+        : {}),
+      ...(body.language !== undefined
+        ? { language: body.language.toLowerCase() }
+        : {}),
+      ...(body.monitoringFrequency !== undefined
+        ? { monitoringFrequency: body.monitoringFrequency }
+        : {}),
+      ...(body.alerts !== undefined ? { alerts: body.alerts } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await upsertUserOnboarding(user.id, merged);
+    return NextResponse.json({ state: saved });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid onboarding update." }, { status: 400 });
+    }
+    const message =
+      error instanceof Error ? error.message : "Failed to save onboarding";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}

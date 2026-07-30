@@ -1,0 +1,1911 @@
+{
+  "schema_version": "geo_audit.frontend_export.v3",
+  "generated_at": "2026-07-30T08:49:27.435134+00:00",
+  "brand": {
+    "name": "Stripe",
+    "domain": "stripe.com",
+    "category": "Financial services platform",
+    "description": "Financial infrastructure to grow your revenue. Accept payments, offer financial services, and implement custom revenue models—from your first transaction to your billionth.",
+    "target_audience": "Businesses of all sizes",
+    "aliases": [
+      "Stripe"
+    ]
+  },
+  "scan": {
+    "status": "completed",
+    "methodology_version": "v1.1.0",
+    "provider_ids": [
+      "openai_search"
+    ],
+    "prompt_count": 5,
+    "response_count": 5,
+    "provider_coverage": {
+      "openai_search": {
+        "responses": 5,
+        "recommendations": 11,
+        "rejections": 0
+      }
+    },
+    "partial_providers": [],
+    "preview_mode": true,
+    "data_confidence": "standard"
+  },
+  "score": {
+    "overall_score": 22.4,
+    "mention_score": 20.0,
+    "position_score": 20.0,
+    "citation_score": 100,
+    "source_quality_score": 80.0,
+    "data_confidence_score": 68.0,
+    "mention_rate": 0.2,
+    "average_position": 1.0,
+    "share_of_voice": 0.0909,
+    "competitor_scores": [
+      {
+        "name": "Sift",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 1.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": "https://sift.com",
+        "collection_status": "website_and_citations_firecrawl_enhanced",
+        "answer_evidence": [
+          {
+            "question": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 1,
+            "reason": "AI-powered decisioning and retail-focused modules that combine fraud, account abuse, and policy/compliance controls.",
+            "answer_excerpt": "For retail businesses that need cloud fraud prevention plus compliance features, consider (1) Sift for AI-driven fraud decisioning and compliance controls, (2) Riskified for ecommerce fraud detection and chargeback protection, and (3) Forter for integrated fraud decisioning, 3DS/PSD2 support and compliance-focused tooling.",
+            "source_urls": [
+              "https://sift.com/platform/"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [
+          {
+            "label": "Homepage headline",
+            "excerpt": "Revenue Replaces Risk When CX meets AI",
+            "url": "https://sift.com/platform",
+            "provenance": "competitor_website"
+          },
+          {
+            "label": "Use-case page",
+            "excerpt": null,
+            "url": "https://sift.com/solutions/payment-fraud",
+            "page_title": null,
+            "provenance": "competitor_website"
+          },
+          {
+            "label": "Product or feature page",
+            "excerpt": "Skip to main content Skip to footer What’s New from Sift Harness the power of a platform that continuously evolves. Innovation Hero Image Latest Innovation Latest Innovations on our AI-Powered Platform Deploy Defenses in Minutes with Simpler Tools & Smarter Investigations Innovations 2025 Fall Release IMG Pre-Built Wor",
+            "url": "https://sift.com/platform/new-releases",
+            "page_title": "Featured Innovations & New Releases | Sift",
+            "provenance": "firecrawl_verified"
+          },
+          {
+            "label": "Customer proof or case study",
+            "excerpt": null,
+            "url": "https://sift.com/resources/case-studies",
+            "page_title": "Customer Stories",
+            "provenance": "competitor_website"
+          },
+          {
+            "label": "Documentation",
+            "excerpt": null,
+            "url": "https://sift.com/solutions/sift-score-api",
+            "page_title": "Learn more ->",
+            "provenance": "competitor_website"
+          }
+        ],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Stripe Connect",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 1.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": "https://stripe.com",
+        "collection_status": "citation_only_with_discovered_site",
+        "answer_evidence": [
+          {
+            "question": "Which cloud-based financial platforms support marketplace payment processing and payouts through APIs for marketplace businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 1,
+            "reason": "API-native marketplace product that handles onboarding, verification, splits, and programmatic payouts at scale.",
+            "answer_excerpt": "For marketplaces that need API-first payments and programmable payouts, consider (1) Stripe Connect for onboarding, split payments and payouts via APIs, (2) Adyen MarketPay for marketplace account management and scheduled payouts, and (3) PayPal/Braintree Marketplace for seller payouts and marketplace flows.",
+            "source_urls": [
+              "https://docs.stripe.com/connect",
+              "https://stripe.com/connect/features"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Stripe Issuing",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 1.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": "https://stripe.com",
+        "collection_status": "citation_only_with_discovered_site",
+        "answer_evidence": [
+          {
+            "question": "Can you recommend cloud-based financial platforms with card issuing capabilities and API integrations for finance industry businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 1,
+            "reason": "API-first issuing for virtual and physical cards with deep platform integrations (treasury, payments) and developer docs.",
+            "answer_excerpt": "For cloud card‑issuing with developer APIs, consider (1) Stripe Issuing for integrated virtual and physical card programs, (2) Marqeta for large-scale modern card issuing and JIT funding, and (3) Lithic/other specialist issuers (e.g., Galileo) as alternatives depending on coverage and connector needs.",
+            "source_urls": [
+              "https://stripe.com/issuing"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Adyen",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 2.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": "https://adyen.com",
+        "collection_status": "citation_only_with_discovered_site",
+        "answer_evidence": [
+          {
+            "question": "Which cloud-based financial services platforms provide payment processing solutions that help SaaS companies reduce transaction costs?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 2,
+            "reason": "Interchange++ pricing model gives transparency and typically lower overall fees for large volumes, letting merchants pass through interchange rather than paying opaque flat rates.",
+            "answer_excerpt": "For SaaS companies that want cloud payment processing and ways to reduce per-transaction cost, consider (1) Stripe for unified SaaS payments and global pricing flexibility, (2) Adyen for interchange-plus (Interchange++) pricing and granular cost transparency, and (3) Spreedly (payments orchestration) to route transactions across gateways to improve authorization rates and reduce processing spend.",
+            "source_urls": [
+              "https://www.adyen.com/pricing"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Riskified",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 2.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": "https://riskified.com",
+        "collection_status": "citation_only_with_discovered_site",
+        "answer_evidence": [
+          {
+            "question": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 2,
+            "reason": "Ecommerce-focused fraud platform with real-time detection, chargeback prevention and tools used by retail merchants to maximize approvals while managing compliance.",
+            "answer_excerpt": "For retail businesses that need cloud fraud prevention plus compliance features, consider (1) Sift for AI-driven fraud decisioning and compliance controls, (2) Riskified for ecommerce fraud detection and chargeback protection, and (3) Forter for integrated fraud decisioning, 3DS/PSD2 support and compliance-focused tooling.",
+            "source_urls": [
+              "https://www.riskified.com/lp/partner/shopify/"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Adyen MarketPay",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 2.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": null,
+        "collection_status": "Unknown",
+        "answer_evidence": [
+          {
+            "question": "Which cloud-based financial platforms support marketplace payment processing and payouts through APIs for marketplace businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 2,
+            "reason": "Marketplace-focused offering with fund management, account balances and automated payout APIs for platforms.",
+            "answer_excerpt": "For marketplaces that need API-first payments and programmable payouts, consider (1) Stripe Connect for onboarding, split payments and payouts via APIs, (2) Adyen MarketPay for marketplace account management and scheduled payouts, and (3) PayPal/Braintree Marketplace for seller payouts and marketplace flows.",
+            "source_urls": [
+              "https://docs.adyen.com/classic-platforms/reports-and-fees/marketpay-payout-report/"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Chargebee (RevRec)",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 2.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": null,
+        "collection_status": "Unknown",
+        "answer_evidence": [
+          {
+            "question": "What financial services platforms provide cloud-based billing and subscription management APIs that automate revenue recognition for SaaS companies?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 2,
+            "reason": "Subscription billing with a RevRec module that automates ASC 606/IFRS 15 recognition and exposes APIs/webhooks for finance integrations.",
+            "answer_excerpt": "For SaaS billing and subscription APIs that automate revenue recognition (ASC 606 / IFRS 15), consider (1) Stripe Billing + Stripe Revenue Recognition for native automated revenue accounting, (2) Chargebee (RevRec) for built-in revenue recognition and APIs, and (3) Zuora (Zuora Revenue/RevPro) for enterprise-grade automated revenue recognition.",
+            "source_urls": [
+              "https://www.chargebee.com/revenue-recognition-software/"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Marqeta",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 2.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": null,
+        "collection_status": "Unknown",
+        "answer_evidence": [
+          {
+            "question": "Can you recommend cloud-based financial platforms with card issuing capabilities and API integrations for finance industry businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 2,
+            "reason": "Cloud-native card issuing platform with open APIs, JIT funding, dynamic spend controls and broad customer footprint for commerce and fintech use cases.",
+            "answer_excerpt": "For cloud card‑issuing with developer APIs, consider (1) Stripe Issuing for integrated virtual and physical card programs, (2) Marqeta for large-scale modern card issuing and JIT funding, and (3) Lithic/other specialist issuers (e.g., Galileo) as alternatives depending on coverage and connector needs.",
+            "source_urls": [
+              "https://www.marqeta.com/docs/developer-guides/mq-eu-card-products"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Spreedly",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 3.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": null,
+        "collection_status": "Unknown",
+        "answer_evidence": [
+          {
+            "question": "Which cloud-based financial services platforms provide payment processing solutions that help SaaS companies reduce transaction costs?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 3,
+            "reason": "Payments‑orchestration that routes charges to the optimal gateway/processor to increase approval rates and reduce costs across gateways.",
+            "answer_excerpt": "For SaaS companies that want cloud payment processing and ways to reduce per-transaction cost, consider (1) Stripe for unified SaaS payments and global pricing flexibility, (2) Adyen for interchange-plus (Interchange++) pricing and granular cost transparency, and (3) Spreedly (payments orchestration) to route transactions across gateways to improve authorization rates and reduce processing spend.",
+            "source_urls": [
+              "https://www.spreedly.com/guides/payments-orchestration",
+              "https://developer.spreedly.com/docs/routing-rules-1"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      },
+      {
+        "name": "Forter",
+        "mentions": 1,
+        "share_of_voice": 0.1,
+        "average_rank": 3.0,
+        "mentions_by_assistant": {
+          "openai_search": 1
+        },
+        "official_website": null,
+        "collection_status": "Unknown",
+        "answer_evidence": [
+          {
+            "question": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+            "provider": "openai_search",
+            "model": "gpt-5-mini-2025-08-07",
+            "rank": 3,
+            "reason": "Comprehensive trust platform with fraud decisioning, Smart 3DS for PSD2/3 compliance, tokenization and chargeback/representment workflows.",
+            "answer_excerpt": "For retail businesses that need cloud fraud prevention plus compliance features, consider (1) Sift for AI-driven fraud decisioning and compliance controls, (2) Riskified for ecommerce fraud detection and chargeback protection, and (3) Forter for integrated fraud decisioning, 3DS/PSD2 support and compliance-focused tooling.",
+            "source_urls": [
+              "https://docs.forter.com/"
+            ],
+            "provenance": "ai_answer"
+          }
+        ],
+        "website_evidence": [],
+        "verified_mentions": [],
+        "evidence_status": "verified"
+      }
+    ],
+    "weights": {
+      "mention": 0.65,
+      "position": 0.3,
+      "citation": 0.0,
+      "source_quality": 0.0,
+      "data_confidence": 0.05
+    }
+  },
+  "prompt_matrix": [
+    {
+      "prompt_index": 1,
+      "prompt": "Which cloud-based financial services platforms provide payment processing solutions that help SaaS companies reduce transaction costs?",
+      "prompt_type": "Discovery",
+      "buyer_stage": "Early research",
+      "mentioned": true,
+      "provider_results": [
+        {
+          "assistant": "openai_search",
+          "model": "gpt-5-mini-2025-08-07",
+          "user_recommended": true,
+          "user_rank": 1,
+          "top_recommendations": [
+            "Stripe",
+            "Adyen",
+            "Spreedly"
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_index": 2,
+      "prompt": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+      "prompt_type": "Problem",
+      "buyer_stage": "Problem validation",
+      "mentioned": false,
+      "provider_results": [
+        {
+          "assistant": "openai_search",
+          "model": "gpt-5-mini-2025-08-07",
+          "user_recommended": false,
+          "user_rank": null,
+          "top_recommendations": [
+            "Sift",
+            "Riskified",
+            "Forter"
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_index": 3,
+      "prompt": "Which cloud-based financial platforms support marketplace payment processing and payouts through APIs for marketplace businesses?",
+      "prompt_type": "Use case",
+      "buyer_stage": "Solution exploration",
+      "mentioned": false,
+      "provider_results": [
+        {
+          "assistant": "openai_search",
+          "model": "gpt-5-mini-2025-08-07",
+          "user_recommended": false,
+          "user_rank": null,
+          "top_recommendations": [
+            "Stripe Connect",
+            "Adyen MarketPay"
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_index": 4,
+      "prompt": "What financial services platforms provide cloud-based billing and subscription management APIs that automate revenue recognition for SaaS companies?",
+      "prompt_type": "Comparison",
+      "buyer_stage": "Evaluation",
+      "mentioned": false,
+      "provider_results": [
+        {
+          "assistant": "openai_search",
+          "model": "gpt-5-mini-2025-08-07",
+          "user_recommended": false,
+          "user_rank": null,
+          "top_recommendations": [
+            "Chargebee (RevRec)"
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_index": 5,
+      "prompt": "Can you recommend cloud-based financial platforms with card issuing capabilities and API integrations for finance industry businesses?",
+      "prompt_type": "Decision-making",
+      "buyer_stage": "Purchase decision",
+      "mentioned": false,
+      "provider_results": [
+        {
+          "assistant": "openai_search",
+          "model": "gpt-5-mini-2025-08-07",
+          "user_recommended": false,
+          "user_rank": null,
+          "top_recommendations": [
+            "Stripe Issuing",
+            "Marqeta"
+          ]
+        }
+      ]
+    }
+  ],
+  "query_results": [
+    {
+      "prompt_index": 1,
+      "prompt": "Which cloud-based financial services platforms provide payment processing solutions that help SaaS companies reduce transaction costs?",
+      "prompt_category": "Discovery",
+      "provider": "openai_search",
+      "model": "gpt-5-mini-2025-08-07",
+      "raw_answer": "For SaaS companies that want cloud payment processing and ways to reduce per-transaction cost, consider (1) Stripe for unified SaaS payments and global pricing flexibility, (2) Adyen for interchange-plus (Interchange++) pricing and granular cost transparency, and (3) Spreedly (payments orchestration) to route transactions across gateways to improve authorization rates and reduce processing spend.",
+      "answer_summary": "Use a full-stack processor (Stripe or Adyen) for integrated SaaS billing and scale discounts, and add a payments-orchestration layer (Spreedly) if routing across multiple PSPs will materially lower effective fees or improve auth rates.",
+      "brand_mentioned": true,
+      "brand_position": 1,
+      "recommended_brands": [
+        {
+          "name": "Stripe",
+          "position": 1,
+          "reasonRecommended": "Full-stack payments for SaaS with subscription tooling, global acceptance and volume/enterprise pricing paths that can lower unit costs as you scale."
+        },
+        {
+          "name": "Adyen",
+          "position": 2,
+          "reasonRecommended": "Interchange++ pricing model gives transparency and typically lower overall fees for large volumes, letting merchants pass through interchange rather than paying opaque flat rates."
+        },
+        {
+          "name": "Spreedly",
+          "position": 3,
+          "reasonRecommended": "Payments‑orchestration that routes charges to the optimal gateway/processor to increase approval rates and reduce costs across gateways."
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://developer.spreedly.com/docs/routing-rules-1",
+          "title": null,
+          "domain": "developer.spreedly.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://stripe.com/in/use-cases/saas",
+          "title": null,
+          "domain": "stripe.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://www.adyen.com/pricing",
+          "title": null,
+          "domain": "adyen.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://www.spreedly.com/guides/payments-orchestration",
+          "title": null,
+          "domain": "spreedly.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        }
+      ],
+      "verified_mentions": [],
+      "provider_source_urls": [
+        "https://stripe.com/in/use-cases/saas",
+        "https://www.adyen.com/pricing",
+        "https://www.spreedly.com/guides/payments-orchestration",
+        "https://developer.spreedly.com/docs/routing-rules-1"
+      ],
+      "parse_error": null,
+      "analysis_confidence": 0.85,
+      "collection_mode": "structured_provider_batch"
+    },
+    {
+      "prompt_index": 2,
+      "prompt": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+      "prompt_category": "Problem",
+      "provider": "openai_search",
+      "model": "gpt-5-mini-2025-08-07",
+      "raw_answer": "For retail businesses that need cloud fraud prevention plus compliance features, consider (1) Sift for AI-driven fraud decisioning and compliance controls, (2) Riskified for ecommerce fraud detection and chargeback protection, and (3) Forter for integrated fraud decisioning, 3DS/PSD2 support and compliance-focused tooling.",
+      "answer_summary": "Sift, Riskified, and Forter are leading retail/ecommerce fraud platforms offering real-time ML decisioning plus compliance features (3DS/PSD2, chargeback tools, tokenization) important to retail teams.",
+      "brand_mentioned": false,
+      "brand_position": null,
+      "recommended_brands": [
+        {
+          "name": "Sift",
+          "position": 1,
+          "reasonRecommended": "AI-powered decisioning and retail-focused modules that combine fraud, account abuse, and policy/compliance controls."
+        },
+        {
+          "name": "Riskified",
+          "position": 2,
+          "reasonRecommended": "Ecommerce-focused fraud platform with real-time detection, chargeback prevention and tools used by retail merchants to maximize approvals while managing compliance."
+        },
+        {
+          "name": "Forter",
+          "position": 3,
+          "reasonRecommended": "Comprehensive trust platform with fraud decisioning, Smart 3DS for PSD2/3 compliance, tokenization and chargeback/representment workflows."
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://docs.forter.com/",
+          "title": null,
+          "domain": "docs.forter.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://sift.com/platform/",
+          "title": null,
+          "domain": "sift.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://www.riskified.com/lp/partner/shopify/",
+          "title": null,
+          "domain": "riskified.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        }
+      ],
+      "verified_mentions": [],
+      "provider_source_urls": [
+        "https://sift.com/platform/",
+        "https://www.riskified.com/lp/partner/shopify/",
+        "https://docs.forter.com/"
+      ],
+      "parse_error": null,
+      "analysis_confidence": 0.85,
+      "collection_mode": "structured_provider_batch"
+    },
+    {
+      "prompt_index": 3,
+      "prompt": "Which cloud-based financial platforms support marketplace payment processing and payouts through APIs for marketplace businesses?",
+      "prompt_category": "Use case",
+      "provider": "openai_search",
+      "model": "gpt-5-mini-2025-08-07",
+      "raw_answer": "For marketplaces that need API-first payments and programmable payouts, consider (1) Stripe Connect for onboarding, split payments and payouts via APIs, (2) Adyen MarketPay for marketplace account management and scheduled payouts, and (3) PayPal/Braintree Marketplace for seller payouts and marketplace flows.",
+      "answer_summary": "Stripe Connect and Adyen MarketPay are purpose-built for marketplaces needing programmatic splits and payouts; Braintree/PayPal is a widely used alternative with marketplace capabilities.",
+      "brand_mentioned": false,
+      "brand_position": null,
+      "recommended_brands": [
+        {
+          "name": "Stripe Connect",
+          "position": 1,
+          "reasonRecommended": "API-native marketplace product that handles onboarding, verification, splits, and programmatic payouts at scale."
+        },
+        {
+          "name": "Adyen MarketPay",
+          "position": 2,
+          "reasonRecommended": "Marketplace-focused offering with fund management, account balances and automated payout APIs for platforms."
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://docs.adyen.com/classic-platforms/reports-and-fees/marketpay-payout-report/",
+          "title": null,
+          "domain": "docs.adyen.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://docs.stripe.com/connect",
+          "title": null,
+          "domain": "docs.stripe.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://securepayments.paypal.com/us/enterprise/paypal-braintree-fees",
+          "title": null,
+          "domain": "securepayments.paypal.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://stripe.com/in/connect/features",
+          "title": null,
+          "domain": "stripe.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        }
+      ],
+      "verified_mentions": [],
+      "provider_source_urls": [
+        "https://docs.stripe.com/connect",
+        "https://stripe.com/in/connect/features",
+        "https://docs.adyen.com/classic-platforms/reports-and-fees/marketpay-payout-report/",
+        "https://securepayments.paypal.com/us/enterprise/paypal-braintree-fees"
+      ],
+      "parse_error": null,
+      "analysis_confidence": 0.85,
+      "collection_mode": "structured_provider_batch"
+    },
+    {
+      "prompt_index": 4,
+      "prompt": "What financial services platforms provide cloud-based billing and subscription management APIs that automate revenue recognition for SaaS companies?",
+      "prompt_category": "Comparison",
+      "provider": "openai_search",
+      "model": "gpt-5-mini-2025-08-07",
+      "raw_answer": "For SaaS billing and subscription APIs that automate revenue recognition (ASC 606 / IFRS 15), consider (1) Stripe Billing + Stripe Revenue Recognition for native automated revenue accounting, (2) Chargebee (RevRec) for built-in revenue recognition and APIs, and (3) Zuora (Zuora Revenue/RevPro) for enterprise-grade automated revenue recognition.",
+      "answer_summary": "Stripe provides an integrated, lower-friction path for SaaS teams already on Stripe; Chargebee is a strong mid-market option with RevRec; Zuora is the enterprise standard for highly complex revenue requirements.",
+      "brand_mentioned": false,
+      "brand_position": null,
+      "recommended_brands": [
+        {
+          "name": "Chargebee (RevRec)",
+          "position": 2,
+          "reasonRecommended": "Subscription billing with a RevRec module that automates ASC 606/IFRS 15 recognition and exposes APIs/webhooks for finance integrations."
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://docs.zuora.com/en/zuora-revenue/getting-started/overview-of-zuora-revenue",
+          "title": null,
+          "domain": "docs.zuora.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://stripe.com/en-li/revenue-recognition",
+          "title": null,
+          "domain": "stripe.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://www.chargebee.com/revenue-recognition-software/",
+          "title": null,
+          "domain": "chargebee.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        }
+      ],
+      "verified_mentions": [],
+      "provider_source_urls": [
+        "https://stripe.com/en-li/revenue-recognition",
+        "https://www.chargebee.com/revenue-recognition-software/",
+        "https://docs.zuora.com/en/zuora-revenue/getting-started/overview-of-zuora-revenue"
+      ],
+      "parse_error": null,
+      "analysis_confidence": 0.85,
+      "collection_mode": "structured_provider_batch"
+    },
+    {
+      "prompt_index": 5,
+      "prompt": "Can you recommend cloud-based financial platforms with card issuing capabilities and API integrations for finance industry businesses?",
+      "prompt_category": "Decision-making",
+      "provider": "openai_search",
+      "model": "gpt-5-mini-2025-08-07",
+      "raw_answer": "For cloud card‑issuing with developer APIs, consider (1) Stripe Issuing for integrated virtual and physical card programs, (2) Marqeta for large-scale modern card issuing and JIT funding, and (3) Lithic/other specialist issuers (e.g., Galileo) as alternatives depending on coverage and connector needs.",
+      "answer_summary": "Stripe Issuing is easiest if you already use Stripe; Marqeta is the high‑scale specialist with JIT funding and deep API controls; Lithic/Galileo are developer-friendly alternatives depending on BIN/region needs.",
+      "brand_mentioned": false,
+      "brand_position": null,
+      "recommended_brands": [
+        {
+          "name": "Stripe Issuing",
+          "position": 1,
+          "reasonRecommended": "API-first issuing for virtual and physical cards with deep platform integrations (treasury, payments) and developer docs."
+        },
+        {
+          "name": "Marqeta",
+          "position": 2,
+          "reasonRecommended": "Cloud-native card issuing platform with open APIs, JIT funding, dynamic spend controls and broad customer footprint for commerce and fintech use cases."
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://apidog.com/blog/best-card-issuing-api/",
+          "title": null,
+          "domain": "apidog.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://stripe.com/in/issuing",
+          "title": null,
+          "domain": "stripe.com",
+          "citedForBrand": true,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        },
+        {
+          "url": "https://www.marqeta.com/docs/developer-guides/mq-eu-card-products",
+          "title": null,
+          "domain": "marqeta.com",
+          "citedForBrand": false,
+          "citedForCompetitor": false,
+          "provenance": "provider_grounded"
+        }
+      ],
+      "verified_mentions": [],
+      "provider_source_urls": [
+        "https://stripe.com/in/issuing",
+        "https://www.marqeta.com/docs/developer-guides/mq-eu-card-products",
+        "https://apidog.com/blog/best-card-issuing-api/"
+      ],
+      "parse_error": null,
+      "analysis_confidence": 0.85,
+      "collection_mode": "structured_provider_batch"
+    }
+  ],
+  "top_competitors": [
+    {
+      "name": "Sift",
+      "mentions": 1,
+      "average_rank": 1.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Stripe Connect",
+      "mentions": 1,
+      "average_rank": 1.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Stripe Issuing",
+      "mentions": 1,
+      "average_rank": 1.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Adyen",
+      "mentions": 1,
+      "average_rank": 2.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Riskified",
+      "mentions": 1,
+      "average_rank": 2.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Adyen MarketPay",
+      "mentions": 1,
+      "average_rank": 2.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Chargebee (RevRec)",
+      "mentions": 1,
+      "average_rank": 2.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Marqeta",
+      "mentions": 1,
+      "average_rank": 2.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Spreedly",
+      "mentions": 1,
+      "average_rank": 3.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    },
+    {
+      "name": "Forter",
+      "mentions": 1,
+      "average_rank": 3.0,
+      "mentions_by_assistant": {
+        "openai_search": 1
+      }
+    }
+  ],
+  "citations": [
+    {
+      "url": "https://stripe.com/in/use-cases/saas",
+      "domain": "stripe.com",
+      "provider": "openai_search",
+      "prompt_index": 1,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://www.adyen.com/pricing",
+      "domain": "adyen.com",
+      "provider": "openai_search",
+      "prompt_index": 1,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://www.spreedly.com/guides/payments-orchestration",
+      "domain": "spreedly.com",
+      "provider": "openai_search",
+      "prompt_index": 1,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://developer.spreedly.com/docs/routing-rules-1",
+      "domain": "developer.spreedly.com",
+      "provider": "openai_search",
+      "prompt_index": 1,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://sift.com/platform/",
+      "domain": "sift.com",
+      "provider": "openai_search",
+      "prompt_index": 2,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://www.riskified.com/lp/partner/shopify/",
+      "domain": "riskified.com",
+      "provider": "openai_search",
+      "prompt_index": 2,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://docs.forter.com/",
+      "domain": "docs.forter.com",
+      "provider": "openai_search",
+      "prompt_index": 2,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://docs.stripe.com/connect",
+      "domain": "docs.stripe.com",
+      "provider": "openai_search",
+      "prompt_index": 3,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://stripe.com/in/connect/features",
+      "domain": "stripe.com",
+      "provider": "openai_search",
+      "prompt_index": 3,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://docs.adyen.com/classic-platforms/reports-and-fees/marketpay-payout-report/",
+      "domain": "docs.adyen.com",
+      "provider": "openai_search",
+      "prompt_index": 3,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://securepayments.paypal.com/us/enterprise/paypal-braintree-fees",
+      "domain": "securepayments.paypal.com",
+      "provider": "openai_search",
+      "prompt_index": 3,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://stripe.com/en-li/revenue-recognition",
+      "domain": "stripe.com",
+      "provider": "openai_search",
+      "prompt_index": 4,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://www.chargebee.com/revenue-recognition-software/",
+      "domain": "chargebee.com",
+      "provider": "openai_search",
+      "prompt_index": 4,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://docs.zuora.com/en/zuora-revenue/getting-started/overview-of-zuora-revenue",
+      "domain": "docs.zuora.com",
+      "provider": "openai_search",
+      "prompt_index": 4,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://stripe.com/in/issuing",
+      "domain": "stripe.com",
+      "provider": "openai_search",
+      "prompt_index": 5,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://www.marqeta.com/docs/developer-guides/mq-eu-card-products",
+      "domain": "marqeta.com",
+      "provider": "openai_search",
+      "prompt_index": 5,
+      "mentions_brand": false,
+      "provenance": "provider_grounded"
+    },
+    {
+      "url": "https://apidog.com/blog/best-card-issuing-api/",
+      "domain": "apidog.com",
+      "provider": "openai_search",
+      "prompt_index": 5,
+      "mentions_brand": true,
+      "provenance": "provider_grounded"
+    }
+  ],
+  "web_presence": {
+    "status": "skipped",
+    "provider": "duckduckgo_with_agentcore_fallback",
+    "entities": [],
+    "summary": {
+      "entities_checked": 0,
+      "queries_run": 0,
+      "search_errors": 0,
+      "provider_queries": {},
+      "fallback_queries": 0,
+      "verified_mentions": 0,
+      "official_websites_resolved": 0
+    }
+  },
+  "competitor_evidence": [
+    {
+      "company_name": "Sift",
+      "website_url": "https://sift.com/platform",
+      "collection_status": "website_and_citations_firecrawl_enhanced",
+      "collection_error": null,
+      "site_discovery": {
+        "company_name": "Sift",
+        "official_website": "https://sift.com/platform",
+        "confidence": "High",
+        "method": "cited_source_domain_scoring",
+        "evidence": [
+          "Domain contains company token(s): sift.",
+          "Domain label closely matches the compact company name.",
+          "Source path appears to be a product or solution page.",
+          "Domain uses a common company website TLD."
+        ],
+        "candidate_domains": [
+          {
+            "domain": "sift.com",
+            "candidate_url": "https://sift.com/platform",
+            "score": 65,
+            "source_urls": [
+              "https://sift.com/platform/"
+            ],
+            "evidence": [
+              "Domain contains company token(s): sift.",
+              "Domain label closely matches the compact company name.",
+              "Source path appears to be a product or solution page.",
+              "Domain uses a common company website TLD."
+            ]
+          }
+        ]
+      },
+      "source_analysis": {
+        "total_source_urls": 1,
+        "unique_domains": 1,
+        "redirect_mappings": [],
+        "source_type_counts": [
+          {
+            "type": "official_site",
+            "count": 1
+          }
+        ],
+        "domains": [
+          {
+            "domain": "sift.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://sift.com/platform/"
+            ]
+          }
+        ]
+      },
+      "verified_web_mentions": [],
+      "web_presence_summary": {
+        "verified_mentions": 0,
+        "source_types": []
+      },
+      "has_website_evidence": true,
+      "website_evidence": {
+        "domain": "sift.com",
+        "source_snapshot": "website_snapshot.json",
+        "homepage_url": "https://sift.com/platform",
+        "homepage_headline": "Revenue Replaces Risk When CX meets AI",
+        "homepage_subheadline": "Deep Data. Uncompromising Control.",
+        "primary_cta": {
+          "found": true,
+          "text": "Demo Sift",
+          "url": "https://sift.com/demo"
+        },
+        "target_audience_clarity": {
+          "level": "Medium",
+          "matched_terms": [
+            "creators",
+            "teams"
+          ]
+        },
+        "industry_clarity": {
+          "level": "High",
+          "matched_terms": [
+            "accounting",
+            "security",
+            "software"
+          ]
+        },
+        "schema_json_ld_found": {
+          "found": true,
+          "pages": [
+            "https://sift.com/platform",
+            "https://sift.com/",
+            "https://sift.com/blog"
+          ]
+        },
+        "metadata_quality": {
+          "level": "High",
+          "pages_checked": 6,
+          "pages_with_titles": 6,
+          "pages_with_meta_descriptions": 6
+        },
+        "navigation_clarity": {
+          "level": "Medium",
+          "labels": [
+            "Home",
+            "How It Works"
+          ]
+        },
+        "use_case_pages_found": {
+          "found": true,
+          "urls": [
+            "https://sift.com/solutions/payment-fraud",
+            "https://sift.com/solutions/ato",
+            "https://sift.com/solutions/account-creation",
+            "https://sift.com/solutions",
+            "https://sift.com/solutions/internet-software",
+            "https://sift.com/solutions/digital-commerce",
+            "https://sift.com/solutions/online-gambling",
+            "https://sift.com/solutions/food-delivery",
+            "https://sift.com/solutions/travel-transportation",
+            "https://sift.com/solutions/fintech"
+          ],
+          "matches": [
+            {
+              "url": "https://sift.com/solutions/payment-fraud",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/ato",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/account-creation",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions",
+              "text": "Investigate Solutions",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/internet-software",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/digital-commerce",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/online-gambling",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/food-delivery",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/travel-transportation",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/fintech",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            }
+          ]
+        },
+        "feature_pages_found": {
+          "found": true,
+          "urls": [
+            "https://sift.com/platform/new-releases",
+            "https://sift.com/blog/q3-2025-product-updates/",
+            "https://sift.com/blog/q2-2025-product-updates/",
+            "https://sift.com/blog/q4-2024-product-updates/",
+            "https://sift.com/blog/q3-2024-product-updates/"
+          ],
+          "matches": [
+            {
+              "url": "https://sift.com/platform/new-releases",
+              "text": "Featured Innovations & New Releases | Sift",
+              "fetched": true,
+              "fetch_provider": "firecrawl",
+              "excerpt": "Skip to main content Skip to footer What’s New from Sift Harness the power of a platform that continuously evolves. Innovation Hero Image Latest Innovation Latest Innovations on our AI-Powered Platform Deploy Defenses in Minutes with Simpler Tools & Smarter Investigations Innovations 2025 Fall Release IMG Pre-Built Wor"
+            },
+            {
+              "url": "https://sift.com/blog/q3-2025-product-updates/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/blog/q2-2025-product-updates/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/blog/q4-2024-product-updates/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/blog/q3-2024-product-updates/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            }
+          ]
+        },
+        "pricing_page_found": {
+          "found": false,
+          "urls": [],
+          "matches": []
+        },
+        "faq_page_found": {
+          "found": false,
+          "urls": [],
+          "matches": []
+        },
+        "documentation_found": {
+          "found": true,
+          "urls": [
+            "https://sift.com/solutions/sift-score-api",
+            "https://sift.com/solutions/sift-score-api/"
+          ],
+          "matches": [
+            {
+              "url": "https://sift.com/solutions/sift-score-api",
+              "text": "Learn more ->",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/solutions/sift-score-api/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            }
+          ]
+        },
+        "comparison_pages_found": {
+          "found": false,
+          "urls": [],
+          "matches": []
+        },
+        "testimonials_or_case_studies_found": {
+          "found": true,
+          "urls": [
+            "https://sift.com/resources/case-studies",
+            "https://sift.com/resources/case-studies/patreon",
+            "https://sift.com/resources/case-studies/paulas-choice-case-study",
+            "https://sift.com/resources/case-studies/smartproxy-case-study",
+            "https://www.sift.com/resources/case-studies/rently/",
+            "https://www.sift.com/resources/case-studies/swan-bitcoin-case-study/",
+            "https://www.sift.com/resources/case-studies/traveloka/",
+            "https://sift.com/resources/case-studies/chownow/",
+            "https://sift.com/resources/case-studies/paulas-choice-case-study/"
+          ],
+          "matches": [
+            {
+              "url": "https://sift.com/resources/case-studies",
+              "text": "Customer Stories",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/resources/case-studies/patreon",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/resources/case-studies/paulas-choice-case-study",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/resources/case-studies/smartproxy-case-study",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://www.sift.com/resources/case-studies/rently/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://www.sift.com/resources/case-studies/swan-bitcoin-case-study/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://www.sift.com/resources/case-studies/traveloka/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/resources/case-studies/chownow/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            },
+            {
+              "url": "https://sift.com/resources/case-studies/paulas-choice-case-study/",
+              "text": "",
+              "fetched": false,
+              "fetch_provider": null,
+              "excerpt": null
+            }
+          ]
+        },
+        "evidence_notes": [
+          "Pricing Page Found was not found.",
+          "Faq Page Found was not found.",
+          "Comparison Pages Found was not found."
+        ]
+      }
+    },
+    {
+      "company_name": "Stripe Connect",
+      "website_url": "https://stripe.com",
+      "collection_status": "citation_only_with_discovered_site",
+      "collection_error": null,
+      "site_discovery": {
+        "company_name": "Stripe Connect",
+        "official_website": "https://stripe.com",
+        "confidence": "High",
+        "method": "cited_source_domain_scoring",
+        "evidence": [
+          "Domain contains company token(s): stripe.",
+          "Domain uses a common company website TLD."
+        ],
+        "candidate_domains": [
+          {
+            "domain": "stripe.com",
+            "candidate_url": "https://stripe.com",
+            "score": 82,
+            "source_urls": [
+              "https://docs.stripe.com/connect",
+              "https://stripe.com/connect/features"
+            ],
+            "evidence": [
+              "Domain contains company token(s): stripe.",
+              "Domain uses a common company website TLD."
+            ]
+          }
+        ]
+      },
+      "source_analysis": {
+        "total_source_urls": 2,
+        "unique_domains": 2,
+        "redirect_mappings": [],
+        "source_type_counts": [
+          {
+            "type": "official_site",
+            "count": 2
+          }
+        ],
+        "domains": [
+          {
+            "domain": "docs.stripe.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://docs.stripe.com/connect"
+            ]
+          },
+          {
+            "domain": "stripe.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://stripe.com/connect/features"
+            ]
+          }
+        ]
+      },
+      "verified_web_mentions": [],
+      "web_presence_summary": {
+        "verified_mentions": 0,
+        "source_types": []
+      },
+      "has_website_evidence": false,
+      "website_evidence": null
+    },
+    {
+      "company_name": "Stripe Issuing",
+      "website_url": "https://stripe.com/issuing",
+      "collection_status": "citation_only_with_discovered_site",
+      "collection_error": null,
+      "site_discovery": {
+        "company_name": "Stripe Issuing",
+        "official_website": "https://stripe.com/issuing",
+        "confidence": "High",
+        "method": "cited_source_domain_scoring",
+        "evidence": [
+          "Domain contains company token(s): stripe.",
+          "Domain uses a common company website TLD."
+        ],
+        "candidate_domains": [
+          {
+            "domain": "stripe.com",
+            "candidate_url": "https://stripe.com/issuing",
+            "score": 41,
+            "source_urls": [
+              "https://stripe.com/issuing"
+            ],
+            "evidence": [
+              "Domain contains company token(s): stripe.",
+              "Domain uses a common company website TLD."
+            ]
+          }
+        ]
+      },
+      "source_analysis": {
+        "total_source_urls": 1,
+        "unique_domains": 1,
+        "redirect_mappings": [],
+        "source_type_counts": [
+          {
+            "type": "official_site",
+            "count": 1
+          }
+        ],
+        "domains": [
+          {
+            "domain": "stripe.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://stripe.com/issuing"
+            ]
+          }
+        ]
+      },
+      "verified_web_mentions": [],
+      "web_presence_summary": {
+        "verified_mentions": 0,
+        "source_types": []
+      },
+      "has_website_evidence": false,
+      "website_evidence": null
+    },
+    {
+      "company_name": "Adyen",
+      "website_url": "https://adyen.com/pricing",
+      "collection_status": "citation_only_with_discovered_site",
+      "collection_error": null,
+      "site_discovery": {
+        "company_name": "Adyen",
+        "official_website": "https://adyen.com/pricing",
+        "confidence": "High",
+        "method": "cited_source_domain_scoring",
+        "evidence": [
+          "Domain contains company token(s): adyen.",
+          "Domain label closely matches the compact company name.",
+          "Domain uses a common company website TLD."
+        ],
+        "candidate_domains": [
+          {
+            "domain": "adyen.com",
+            "candidate_url": "https://adyen.com/pricing",
+            "score": 61,
+            "source_urls": [
+              "https://www.adyen.com/pricing"
+            ],
+            "evidence": [
+              "Domain contains company token(s): adyen.",
+              "Domain label closely matches the compact company name.",
+              "Domain uses a common company website TLD."
+            ]
+          }
+        ]
+      },
+      "source_analysis": {
+        "total_source_urls": 1,
+        "unique_domains": 1,
+        "redirect_mappings": [],
+        "source_type_counts": [
+          {
+            "type": "official_site",
+            "count": 1
+          }
+        ],
+        "domains": [
+          {
+            "domain": "adyen.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://www.adyen.com/pricing"
+            ]
+          }
+        ]
+      },
+      "verified_web_mentions": [],
+      "web_presence_summary": {
+        "verified_mentions": 0,
+        "source_types": []
+      },
+      "has_website_evidence": false,
+      "website_evidence": null
+    },
+    {
+      "company_name": "Riskified",
+      "website_url": "https://riskified.com/lp/partner/shopify",
+      "collection_status": "citation_only_with_discovered_site",
+      "collection_error": null,
+      "site_discovery": {
+        "company_name": "Riskified",
+        "official_website": "https://riskified.com/lp/partner/shopify",
+        "confidence": "High",
+        "method": "cited_source_domain_scoring",
+        "evidence": [
+          "Domain contains company token(s): riskified.",
+          "Domain label closely matches the compact company name.",
+          "Domain uses a common company website TLD."
+        ],
+        "candidate_domains": [
+          {
+            "domain": "riskified.com",
+            "candidate_url": "https://riskified.com/lp/partner/shopify",
+            "score": 61,
+            "source_urls": [
+              "https://www.riskified.com/lp/partner/shopify/"
+            ],
+            "evidence": [
+              "Domain contains company token(s): riskified.",
+              "Domain label closely matches the compact company name.",
+              "Domain uses a common company website TLD."
+            ]
+          }
+        ]
+      },
+      "source_analysis": {
+        "total_source_urls": 1,
+        "unique_domains": 1,
+        "redirect_mappings": [],
+        "source_type_counts": [
+          {
+            "type": "official_site",
+            "count": 1
+          }
+        ],
+        "domains": [
+          {
+            "domain": "riskified.com",
+            "count": 1,
+            "type": "official_site",
+            "sample_urls": [
+              "https://www.riskified.com/lp/partner/shopify/"
+            ]
+          }
+        ]
+      },
+      "verified_web_mentions": [],
+      "web_presence_summary": {
+        "verified_mentions": 0,
+        "source_types": []
+      },
+      "has_website_evidence": false,
+      "website_evidence": null
+    }
+  ],
+  "comparison": {
+    "summary": {
+      "competitors_compared": 5,
+      "competitors_with_website_evidence": 1,
+      "high_priority_gaps": [
+        "Schema / structured data"
+      ],
+      "medium_priority_gaps": [
+        "Industry focus"
+      ]
+    },
+    "recurring_patterns": [
+      {
+        "pattern": "Schema / structured data",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Missing",
+        "gap_level": "High",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Industry focus",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Medium",
+        "gap_level": "Medium",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Clear product explanation",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Clear target audience",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Medium",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Use case coverage",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Feature coverage",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Documentation",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Testimonials / case studies",
+        "competitors_with_pattern": 1,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": [
+          "Sift"
+        ]
+      },
+      {
+        "pattern": "Pricing clarity",
+        "competitors_with_pattern": 0,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": []
+      },
+      {
+        "pattern": "FAQ",
+        "competitors_with_pattern": 0,
+        "competitors_checked": 1,
+        "user_status": "Missing",
+        "gap_level": "Low",
+        "example_competitors": []
+      },
+      {
+        "pattern": "Comparison pages",
+        "competitors_with_pattern": 0,
+        "competitors_checked": 1,
+        "user_status": "Present",
+        "gap_level": "Low",
+        "example_competitors": []
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "title": "The user lost a question about fraud prevention and compliance management features suitable for retail businesses, with competitors like Sift recommended instead.",
+      "explanation": "Publish a detailed fraud prevention and compliance management feature page that explains AI-powered fraud detection, account abuse prevention, policy enforcement, and compliance controls tailored for retail businesses.",
+      "evidence": {
+        "summary": "Sift offers AI-powered decisioning and retail-focused modules that combine fraud, account abuse, and policy/compliance controls, as highlighted on their platform homepage and feature pages.",
+        "supporting_evidence": [
+          {
+            "evidence_id": "ev-001",
+            "company_name": "Sift",
+            "evidence_type": "homepage_message",
+            "label": "Homepage headline",
+            "page_title": "Homepage headline",
+            "excerpt": "Revenue Replaces Risk When CX meets AI",
+            "url": "https://sift.com/platform",
+            "provenance": "competitor_website",
+            "verification": null
+          },
+          {
+            "evidence_id": "ev-002",
+            "company_name": "Sift",
+            "evidence_type": "feature_page",
+            "label": "Product or feature page",
+            "page_title": "Featured Innovations & New Releases | Sift",
+            "excerpt": "Skip to main content Skip to footer What’s New from Sift Harness the power of a platform that continuously evolves. Innovation Hero Image Latest Innovation Latest Innovations on our AI-Powered Platform Deploy Defenses...",
+            "url": "https://sift.com/platform/new-releases",
+            "provenance": "firecrawl_verified",
+            "verification": null
+          }
+        ],
+        "validation_mode": "catalog_ids",
+        "evidence_validation": {
+          "mode": "catalog_ids",
+          "requested_refs": [
+            "ev-001",
+            "ev-002"
+          ],
+          "accepted_refs": [
+            "ev-001",
+            "ev-002"
+          ],
+          "rejected_refs": []
+        },
+        "evidence_types": [
+          "homepage_message",
+          "feature_page"
+        ],
+        "competitor_gaps": [
+          {
+            "pattern": "Clear product explanation",
+            "competitors_with_pattern": 1,
+            "competitors_checked": 1,
+            "user_status": "Present",
+            "gap_level": "Low",
+            "example_competitors": [
+              "Sift"
+            ]
+          },
+          {
+            "pattern": "Feature coverage",
+            "competitors_with_pattern": 1,
+            "competitors_checked": 1,
+            "user_status": "Present",
+            "gap_level": "Low",
+            "example_competitors": [
+              "Sift"
+            ]
+          }
+        ]
+      },
+      "priority": 1,
+      "estimated_impact": "Improves clarity and evidence quality about fraud prevention and compliance capabilities, aligning with patterns observed among repeatedly recommended competitors like Sift.",
+      "confidence": "High",
+      "affected_prompts": [
+        {
+          "loss_id": "loss-001",
+          "prompt": "What financial services platforms offer fraud prevention and compliance management features suitable for retail businesses?",
+          "category": "Problem",
+          "assistant": "openai_search",
+          "recommended_instead": [
+            "Sift",
+            "Riskified",
+            "Forter"
+          ]
+        }
+      ],
+      "status": "open"
+    }
+  ],
+  "quality": {
+    "responses_by_assistant": {
+      "openai_search": 5
+    },
+    "parsed_recommendations_by_assistant": {
+      "openai_search": 11
+    },
+    "source_urls_by_assistant": {
+      "openai_search": 17
+    },
+    "zero_recommendation_responses": [],
+    "failed_competitor_crawls": [],
+    "competitors_with_website_evidence": 1,
+    "confidence_level": "standard",
+    "comparison_high_gaps": [
+      "Schema / structured data"
+    ],
+    "source_type_counts": [
+      {
+        "type": "other_source",
+        "count": 8
+      },
+      {
+        "type": "developer_source",
+        "count": 4
+      }
+    ],
+    "top_source_domains": [
+      {
+        "domain": "stripe.com",
+        "count": 2
+      },
+      {
+        "domain": "sift.com",
+        "count": 1
+      },
+      {
+        "domain": "docs.stripe.com",
+        "count": 1
+      },
+      {
+        "domain": "adyen.com",
+        "count": 1
+      },
+      {
+        "domain": "riskified.com",
+        "count": 1
+      },
+      {
+        "domain": "docs.adyen.com",
+        "count": 1
+      },
+      {
+        "domain": "chargebee.com",
+        "count": 1
+      },
+      {
+        "domain": "marqeta.com",
+        "count": 1
+      },
+      {
+        "domain": "developer.spreedly.com",
+        "count": 1
+      },
+      {
+        "domain": "spreedly.com",
+        "count": 1
+      },
+      {
+        "domain": "docs.forter.com",
+        "count": 1
+      }
+    ],
+    "warnings": []
+  }
+}
