@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from itertools import repeat
 import json
 import os
 import re
@@ -13,6 +15,7 @@ from urllib.request import Request, urlopen
 from .llm import load_dotenv
 
 
+FIRECRAWL_SCRAPE_CONCURRENCY = 6
 FIRECRAWL_API_BASE = "https://api.firecrawl.dev/v2"
 USER_PROFILE_PATH_TERMS = (
     "services",
@@ -77,10 +80,12 @@ class FirecrawlClient:
             timeout=environment_int("FIRECRAWL_TIMEOUT_SECONDS", 45),
         )
 
-    def can_request(self) -> bool:
+    def can_request(self, *, pending: int = 0) -> bool:
+        """pending counts requests already promised but not yet sent, which is
+        how a parallel batch reserves its share of the budget before starting."""
         return (
-            self.request_count < self.max_requests
-            and self.reported_credits < self.max_reported_credits
+            self.request_count + pending < self.max_requests
+            and self.reported_credits + pending < self.max_reported_credits
         )
 
     def map_site(self, url: str, *, limit: int = 30) -> list[dict[str, str]]:
@@ -309,14 +314,10 @@ def enrich_user_snapshot(
         seen.add(key)
         selected.append(url)
 
-    for url in selected[:max_pages]:
-        if not client.can_request():
-            break
-        try:
-            page = firecrawl_document_to_page(client.scrape(url), url)
-        except FirecrawlError as exc:
+    for url, page, error in scrape_pages(client, selected[:max_pages]):
+        if error is not None:
             result["errors"].append(
-                {"operation": "scrape", "url": url, "error": str(exc)}
+                {"operation": "scrape", "url": url, "error": error}
             )
             continue
         key = canonical_url(str(page.get("url", "")))
@@ -335,6 +336,56 @@ def enrich_user_snapshot(
 
     snapshot["firecrawl_enrichment"] = result
     return snapshot, result
+
+
+def scrape_pages(
+    client: FirecrawlClient,
+    urls: list[str],
+    *,
+    concurrency: int = FIRECRAWL_SCRAPE_CONCURRENCY,
+) -> list[tuple[str, dict[str, Any] | None, str | None]]:
+    """Scrape pages at the same time, and hand them back in the order asked.
+
+    One page at a time was three quarters of the crawl: six pages cost 9.6s
+    while our own crawler did eight in 1.8s. The pages have nothing to do with
+    each other, so waiting for each in turn bought nothing.
+
+    Results keep the requested order rather than the order they finish in.
+    Page ids are positions in this list, so a run that reordered them by
+    network luck would move the evidence under every quote.
+    """
+    wanted = [url for url in urls if url]
+    if not wanted:
+        return []
+    # Reserve the budget up front. Asking can_request() inside the workers
+    # races: every one of them reads the count before any has spent it.
+    allowed = []
+    for url in wanted:
+        if not client.can_request(pending=len(allowed)):
+            break
+        allowed.append(url)
+
+    rows: list[tuple[str, dict[str, Any] | None, str | None]] = []
+    with ThreadPoolExecutor(
+        max_workers=max(1, min(concurrency, len(allowed)))
+    ) as executor:
+        documents = list(executor.map(scrape_one, repeat(client), allowed))
+    for url, (document, error) in zip(allowed, documents):
+        if error is not None:
+            rows.append((url, None, error))
+        else:
+            rows.append((url, firecrawl_document_to_page(document, url), None))
+    return rows
+
+
+def scrape_one(
+    client: FirecrawlClient,
+    url: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        return client.scrape(url), None
+    except FirecrawlError as exc:
+        return None, str(exc)
 
 
 def firecrawl_document_to_page(
@@ -380,7 +431,7 @@ def firecrawl_document_to_page(
             if not same_domain(item["url"], url)
         ],
         "image_alt_text": [],
-        "main_text": clean_markdown_text(markdown),
+        "main_text": markdown_body_text(markdown),
         "fetch_provider": "firecrawl",
         "firecrawl_verified": True,
         "fetched_at": datetime.now(timezone.utc).isoformat(),
@@ -407,12 +458,43 @@ def normalize_document_links(value: Any, base_url: str) -> list[dict[str, str]]:
 
 
 def clean_markdown_text(value: Any) -> str:
-    text = str(value or "")
-    text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
-    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    """One line of plain words. For titles and headings, which are one line."""
+    text = strip_markdown_links(str(value or ""))
     text = re.sub(r"(?m)^#{1,6}\s*", "", text)
     text = re.sub(r"[`*_~>|]", " ", text)
-    return " ".join(text.split())
+    return " ".join(unescape_markdown(text).split())
+
+
+def markdown_body_text(value: Any) -> str:
+    """Firecrawl's markdown with its shape intact, minus the link plumbing.
+
+    Flattening a page to one line was quietly costing us. A heading, a bullet
+    list of client names and a contact form all arrived as the same run-on
+    sentence, so the model stitched quotes across unrelated blocks, read a
+    head office address as a market claim, and read a form placeholder as a
+    customer. The markers are what tell those apart, so we pay for them and
+    now keep them.
+    """
+    text = strip_markdown_links(str(value or ""))
+    lines: list[str] = []
+    for raw in text.splitlines():
+        # A trailing backslash is a markdown hard break, not content.
+        line = unescape_markdown(re.sub(r"\\+$", "", raw.rstrip())).rstrip()
+        if line:
+            lines.append(line)
+        elif lines and lines[-1]:
+            lines.append("")
+    return "\n".join(lines).strip()
+
+
+def unescape_markdown(text: str) -> str:
+    """Firecrawl escapes punctuation, so a quote reads "We\\'ll" on the page."""
+    return re.sub(r"\\([\\`*_{}\[\]()#+\-.!'\"])", r"\1", text)
+
+
+def strip_markdown_links(text: str) -> str:
+    text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+    return re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
 
 
 def reported_credits(response: dict[str, Any]) -> int:

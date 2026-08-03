@@ -425,6 +425,14 @@ def main() -> None:
         "--evidence",
         help="Path to website_evidence.json. Defaults to the snapshot folder.",
     )
+    profile_parser.add_argument(
+        "--lean",
+        action="store_true",
+        help=(
+            "Ask for the single strongest buyer persona instead of several. "
+            "The free audit uses this."
+        ),
+    )
 
     intents_parser = subparsers.add_parser(
         "intents",
@@ -759,7 +767,11 @@ def main() -> None:
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
 
-        profile, payload, error = generate_company_profile(snapshot, evidence)
+        profile, payload, error = generate_company_profile(
+            snapshot,
+            evidence,
+            lean=args.lean,
+        )
 
         payload_path = snapshot_path.parent / "company_profile_prompt.json"
         payload_path.write_text(
@@ -1263,7 +1275,11 @@ def main() -> None:
                 json.dumps(user_evidence, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-            profile, profile_payload, profile_error = generate_company_profile(snapshot, user_evidence)
+            profile, profile_payload, profile_error = generate_company_profile(
+                snapshot,
+                user_evidence,
+                lean=args.free_preview,
+            )
             emit_run_progress("company_profile", 25, "Generating company profile")
             (run_dir / "company_profile_prompt.json").write_text(
                 json.dumps(profile_payload, indent=2, ensure_ascii=False),

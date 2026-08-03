@@ -142,9 +142,27 @@ Prefer recommendations that address the user's prompt losses and source evidence
 Say "Unknown" when evidence is missing.
 
 Select up to 3 evidence_refs only from evidence_catalog.
-Each selected item must directly support that specific observation and suggested change.
-Every selected item's evidence_type must also be listed in evidence_types.
-Do not select a feature page for a FAQ, pricing, case study, or documentation recommendation.
+
+A citation is what lets the reader check a claim without taking your word for
+it, so it has to carry its own weight. Each item gives you an address, the page
+title and an extract. Nothing tells you what kind of page it is, because that
+judgement is yours to make from what you can see.
+
+- Cite a page a buyer could reach and read. Checkout screens, cart and basket
+  pages, machine endpoints, session links and anything behind a login are not
+  pages a buyer lands on while looking for a provider.
+- Quote something the company states: a claim, a capability it describes, a
+  price it publishes, a customer it names. Interface wording is not a
+  statement. Totals, form fields, button labels, cookie notices and navigation
+  describe the screen rather than the company.
+- The extract must support the exact point being made, closely enough that a
+  reader sees the connection without it being explained.
+- Where several items carry the same fact, cite the one a buyer would find
+  first. A pricing page and a checkout screen may show the same number; only
+  one of them is where a buyer would read it.
+- Cite nothing rather than the nearest thing. A point left unsupported is
+  honest; a point propped up by an unrelated page is not.
+
 Do not select evidence merely because its company name or a broad word appears in the recommendation.
 If no catalog item directly supports a recommendation, return empty evidence_types and evidence_refs.
 
@@ -288,7 +306,7 @@ def build_audit_recommendations_payload(
         ),
         "competitor_evidence": compact_competitor_evidence(competitor_evidence),
         "comparison": compact_comparison(comparison),
-        "evidence_catalog": catalog,
+        "evidence_catalog": [readable_evidence_row(row) for row in catalog],
     }
     payload = build_chat_payload(
         AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
@@ -397,6 +415,34 @@ def compact_comparison(comparison: dict[str, Any]) -> dict[str, Any]:
             }
             for item in comparison.get("comparisons", [])
         ],
+    }
+
+
+EVIDENCE_ROW_FIELDS_FOR_MODEL = (
+    "evidence_id",
+    "company_name",
+    "title",
+    "url",
+    "excerpt",
+)
+
+
+def readable_evidence_row(row: dict[str, Any]) -> dict[str, Any]:
+    """An evidence row with our guess about the page removed.
+
+    We label pages by looking for words in their address, which is a guess and
+    was wrong. A checkout screen reached us as "Product or feature page" solely
+    because the address carried "?products=", and the model believed the label
+    over the address and the extract sitting beside it, both of which said cart.
+
+    What is left is only what we actually know: where the page is, what it is
+    called, and what it says. Deciding what kind of page that makes it is the
+    model's job, and it reads the evidence better than a keyword ever did.
+    """
+    return {
+        field: row.get(field, "")
+        for field in EVIDENCE_ROW_FIELDS_FOR_MODEL
+        if row.get(field, "") != ""
     }
 
 
@@ -661,9 +707,6 @@ def resolve_recommendation_evidence(
         requested_refs = normalize_string_list(
             recommendation.get("evidence_refs", [])
         )[:3]
-        allowed_types = set(
-            normalize_evidence_types(recommendation.get("evidence_types", []))
-        )
         accepted = []
         rejected = []
         seen = set()
@@ -674,18 +717,19 @@ def resolve_recommendation_evidence(
                     {"evidence_id": evidence_id, "reason": "unknown_evidence_id"}
                 )
                 continue
-            if row.get("evidence_type") not in allowed_types:
-                rejected.append(
-                    {"evidence_id": evidence_id, "reason": "evidence_type_mismatch"}
-                )
-                continue
             if evidence_id in seen:
                 continue
             seen.add(evidence_id)
             accepted.append(dict(row))
+        # Read off what was cited rather than asked for. The model no longer
+        # sees our page labels, so it cannot echo them back, and checking its
+        # echo against a label we guessed wrong was never a real check anyway.
         resolved.append(
             {
                 **recommendation,
+                "evidence_types": normalize_evidence_types(
+                    [row.get("evidence_type") for row in accepted]
+                ),
                 "supporting_evidence": accepted,
                 "evidence_validation": {
                     "mode": "catalog_ids",

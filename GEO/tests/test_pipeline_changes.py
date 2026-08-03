@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,6 +17,7 @@ from geo_audit.audit_recommendations import (
     build_audit_recommendations_payload,
     build_free_preview_recommendations,
     build_verified_evidence_catalog,
+    readable_evidence_row,
     ensure_top_competitor_finding,
     resolve_recommendation_evidence,
     verify_selected_evidence_with_firecrawl,
@@ -34,6 +36,8 @@ from geo_audit.firecrawl import (
     enrich_user_snapshot,
     firecrawl_document_to_page,
     is_terminal_site_error,
+    markdown_body_text,
+    scrape_pages,
     should_enrich_user_snapshot,
 )
 from geo_audit.evidence import build_website_evidence
@@ -41,11 +45,25 @@ from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
     build_customer_intent_review_payload,
     build_customer_intent_payload,
+    build_required_search_frame,
     generate_free_customer_intents,
+    normalize_buyer_band,
     sanitize_prompt_records,
 )
-from geo_audit.profile import normalize_company_profile
+from geo_audit.profile import (
+    BOILERPLATE_TEXT_BUDGET,
+    HOME_TEXT_BUDGET,
+    PAGE_TEXT_BUDGET,
+    build_company_profile_payload,
+    build_profile_system_prompt,
+    compact_snapshot_for_llm,
+    normalize_company_profile,
+    normalize_buying_signals,
+    normalize_named_customers,
+    profile_text_budget,
+)
 from geo_audit.quality import build_quality_summary
+from geo_audit.site_facts import detect_site_facts
 from geo_audit.recommendations import (
     collect_multi_model_recommendations,
     normalize_recommendations,
@@ -63,6 +81,31 @@ from geo_audit.web_presence import (
     collect_web_presence,
 )
 from geo_audit.web_search import FallbackWebSearchClient
+
+
+# Question generation now derives the buyer band before it writes anything, so
+# every mocked run answers three calls: band, draft, review.
+BAND_RESPONSE = json.dumps(
+    {
+        "band_summary": "Operations leaders at mid-sized plants",
+        "organization_sizes": ["50-500 staff"],
+        "sectors": ["Manufacturing"],
+        "geography": "India",
+        "decision_makers": ["Plant safety head"],
+        "band_confidence": "Medium",
+        "band_evidence": ["site names factory customers"],
+        "buyer_situations": [
+            {
+                "situation_id": "safety-head",
+                "role": "Safety head",
+                "organization": "Mid-sized factory",
+                "trigger": "Repeat PPE incidents",
+                "constraint": "Cannot replace existing cameras",
+                "words_they_use": ["PPE compliance"],
+            }
+        ],
+    }
+)
 
 
 PROFILE = {
@@ -462,6 +505,523 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(profile["buyer_personas"][0]["constraints"], [])
         self.assertEqual(profile["purchase_context"]["pricing_signals"], [])
 
+    def test_trimmed_profile_prompt_drops_fields_nothing_reads(self) -> None:
+        for lean in (False, True):
+            prompt = build_profile_system_prompt(lean=lean)
+            for field in (
+                "keywords",
+                "core_messaging",
+                "customer_segments",
+                "company_locations",
+                "pricing_model",
+            ):
+                self.assertNotIn(f'"{field}"', prompt, f"{field} lean={lean}")
+            for field in (
+                "category",
+                "regions_served",
+                "industries",
+                "primary_offerings",
+                "problems_solved",
+                "use_cases",
+                "buyer_personas",
+                "purchase_context",
+                "competitor_scope",
+            ):
+                self.assertIn(f'"{field}"', prompt, f"{field} lean={lean}")
+
+    def test_trimmed_profile_prompt_keeps_quotes_confidence_depends_on(self) -> None:
+        # confidence_from_claims() needs an identity claim and a jobs_to_be_done
+        # claim to rate a persona above Low, and reliable_buyer_personas() blanks
+        # most fields of a Low persona. Dropping these quotes would empty the
+        # persona the questions are built from.
+        prompt = build_profile_system_prompt(lean=True)
+        claim_fields = prompt.split('"field": "')[1].split('"')[0]
+        for field in (
+            "buyer_role",
+            "organization_type",
+            "jobs_to_be_done",
+            "organization_sizes",
+            "buying_triggers",
+            "decision_factors",
+            "constraints",
+        ):
+            self.assertIn(field, claim_fields)
+
+    def test_lean_profile_asks_for_one_persona(self) -> None:
+        lean = build_profile_system_prompt(lean=True)
+        paid = build_profile_system_prompt(lean=False)
+        self.assertIn("single most important buyer persona", lean)
+        self.assertIn("at most 3 buyer personas", paid)
+        payload = build_company_profile_payload({"pages": []}, {}, lean=True)
+        self.assertEqual(payload["messages"][0]["content"], lean)
+
+    def test_profile_without_trimmed_fields_still_normalizes(self) -> None:
+        # The model no longer returns the dropped fields. Normalization must
+        # degrade to empty values instead of raising.
+        snapshot = {
+            "pages": [
+                {
+                    "url": "https://example.com",
+                    "title": "Industrial safety analytics",
+                    "main_text": (
+                        "We serve industrial manufacturers worldwide. "
+                        "Safety managers use our video analytics to detect PPE "
+                        "violations in real time."
+                    ),
+                }
+            ]
+        }
+        profile = normalize_company_profile(
+            {
+                "company_name": "Example",
+                "category": "Industrial safety analytics",
+                "target_audience": "Industrial manufacturers",
+                "business_type": "B2B software",
+                "delivery_model": "Software platform",
+                "primary_offerings": ["Industrial safety video analytics"],
+                "problems_solved": ["Workplace PPE violations"],
+                "buyer_personas": [
+                    {
+                        "persona_id": "safety-manager",
+                        "buyer_role": "Safety managers",
+                        "organization_type": "Industrial manufacturers",
+                        "jobs_to_be_done": [
+                            "Detect PPE violations in real time"
+                        ],
+                        "claim_evidence": [
+                            {
+                                "field": "buyer_role",
+                                "value": "Safety managers",
+                                "page_id": "page-001",
+                                "quote": "Safety managers use our video analytics",
+                            },
+                            {
+                                "field": "organization_type",
+                                "value": "Industrial manufacturers",
+                                "page_id": "page-001",
+                                "quote": "We serve industrial manufacturers worldwide",
+                            },
+                            {
+                                "field": "jobs_to_be_done",
+                                "value": "Detect PPE violations in real time",
+                                "page_id": "page-001",
+                                "quote": "detect PPE violations in real time",
+                            },
+                        ],
+                    }
+                ],
+            },
+            snapshot,
+        )
+
+        self.assertEqual(profile["company_locations"], [])
+        self.assertEqual(profile["pricing_model"], "Unknown")
+        self.assertEqual(profile["keywords"], [])
+        # primary_offerings no longer falls back to features, so it must survive
+        # on its own.
+        self.assertEqual(
+            profile["primary_offerings"], ["Industrial safety video analytics"]
+        )
+        persona = profile["buyer_personas"][0]
+        self.assertEqual(persona["buyer_role"], "Safety managers")
+        self.assertNotEqual(persona["confidence"], "Low")
+
+    def test_named_customers_are_kept_whole_instead_of_being_labelled(self) -> None:
+        # A tier word had to pick a winner among these five and answered
+        # "enterprise", losing the two colleges and the two small firms that
+        # are most of the list. Names carry the spread; a label cannot.
+        page_texts = {
+            "page-001": "trusted by leading companies aura mental health "
+                        "brakes india rajalakshmi engineering college "
+                        "rent machi thiagarajar engineering college"
+        }
+        rows = normalize_named_customers(
+            [
+                {"name": "Aura Mental Health", "page_id": "page-001"},
+                {"name": "Brakes India", "described_as": "auto components",
+                 "page_id": "page-001"},
+                {"name": "Rajalakshmi Engineering College", "page_id": "page-001"},
+                {"name": "Rent Machi", "page_id": "page-001"},
+                {"name": "Thiagarajar Engineering College", "page_id": "page-001"},
+            ],
+            page_texts,
+        )
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(rows[1]["described_as"], "auto components")
+
+    def test_a_customer_not_on_its_page_is_dropped(self) -> None:
+        # "e.g. Tata Steel" was a contact form placeholder on a live site and
+        # became a client. The name must be on the page it is credited to.
+        rows = normalize_named_customers(
+            [
+                {"name": "Tata Steel", "page_id": "page-002"},
+                {"name": "Brakes India", "page_id": "page-001"},
+            ],
+            {"page-001": "trusted by brakes india", "page-002": "get in touch"},
+        )
+        self.assertEqual([row["name"] for row in rows], ["Brakes India"])
+
+    def test_a_summary_sentence_is_not_a_customer_name(self) -> None:
+        rows = normalize_named_customers(
+            [
+                {
+                    "name": "educational institutions and large manufacturing "
+                            "companies across south india",
+                    "page_id": "page-001",
+                }
+            ],
+            {"page-001": "educational institutions and large manufacturing "
+                         "companies across south india"},
+        )
+        self.assertEqual(rows, [])
+
+    def test_the_same_customer_listed_twice_appears_once(self) -> None:
+        rows = normalize_named_customers(
+            [
+                {"name": "Brakes India", "page_id": "page-001"},
+                {"name": "brakes india", "page_id": "page-001"},
+            ],
+            {"page-001": "trusted by brakes india"},
+        )
+        self.assertEqual(len(rows), 1)
+
+    def test_market_needs_two_kinds_of_evidence_before_it_counts(self) -> None:
+        # A regulator beside prices in rupees is a market. Either one alone is
+        # a coincidence, and guessing puts every question in the wrong country.
+        facts = detect_site_facts(
+            {
+                "domain": "example.com",
+                "pages": [
+                    {"main_text": "Brokerage at ₹20 per order. Member of NSE "
+                                  "and BSE, regulated by SEBI."}
+                ],
+            }
+        )
+        self.assertEqual(facts["primary_market"], "India")
+        self.assertEqual(facts["market_signals"]["India"], ["authority", "currency"])
+
+        thin = detect_site_facts(
+            {"domain": "example.com", "pages": [{"main_text": "Pay ₹499 monthly."}]}
+        )
+        self.assertEqual(thin["primary_market"], "Unknown")
+
+    def test_two_markets_with_equal_support_settle_on_unknown(self) -> None:
+        facts = detect_site_facts(
+            {
+                "domain": "example.in",
+                "pages": [
+                    {"main_text": "Plans from ₹499. Also ¥1000 in Japan, "
+                                  "listed on JPX."}
+                ],
+            }
+        )
+        self.assertEqual(facts["primary_market"], "Unknown")
+
+    def test_a_currency_code_needs_word_edges(self) -> None:
+        # "makes 2024" is not a price in Kenyan shillings.
+        facts = detect_site_facts(
+            {"domain": "example.com", "pages": [{"main_text": "It makes 2024 easy"}]}
+        )
+        self.assertEqual(facts["market_signals"], {})
+        self.assertFalse(facts["pricing_visible"])
+
+    def test_get_started_alone_is_not_a_self_serve_signup(self) -> None:
+        # An agency contact form says "Get Started" too, and that one phrase
+        # labelled a services firm self-serve on a live run.
+        agency = detect_site_facts(
+            {"domain": "a.test", "pages": [{"main_text": "Get Started with us"}]}
+        )
+        self.assertEqual(agency["purchase_path"], "unknown")
+
+        product = detect_site_facts(
+            {
+                "domain": "b.test",
+                "pages": [{"main_text": "Sign up free, or contact sales for volume"}],
+            }
+        )
+        self.assertEqual(product["purchase_path"], "both")
+
+    def test_code_overrules_the_model_on_prices_and_purchase_path(self) -> None:
+        signals = normalize_buying_signals(
+            {"pricing_visible": False, "purchase_path": "contact_sales"},
+            {"pricing_visible": True, "purchase_path": "self_serve"},
+        )
+        self.assertTrue(signals["pricing_visible"])
+        self.assertEqual(signals["purchase_path"], "self_serve")
+
+    def test_buying_signals_keep_only_a_known_purchase_path(self) -> None:
+        signals = normalize_buying_signals(
+            {
+                "pricing_visible": True,
+                "purchase_path": "Self_Serve",
+                "buyer_facing_terms": ["founders", "IT teams"],
+                "company_self_description": ["premium global partner"],
+            }
+        )
+        self.assertEqual(signals["purchase_path"], "self_serve")
+        self.assertTrue(signals["pricing_visible"])
+        self.assertEqual(signals["buyer_facing_terms"], ["founders", "IT teams"])
+
+        invented = normalize_buying_signals({"purchase_path": "marketplace"})
+        self.assertEqual(invented["purchase_path"], "unknown")
+        self.assertFalse(invented["pricing_visible"])
+
+    def test_boilerplate_pages_get_a_small_share_of_the_profile_prompt(self) -> None:
+        # Page size says nothing about how much a page says about the company.
+        # A privacy policy was the largest page we sent for one live site.
+        self.assertEqual(profile_text_budget("https://a.test/"), HOME_TEXT_BUDGET)
+        for url in (
+            "https://a.test/privacy-policy",
+            "https://a.test/terms-of-service",
+            "https://a.test/cookies",
+            "https://a.test/careers",
+            "https://a.test/th/legal/ssa/gi",
+        ):
+            self.assertEqual(profile_text_budget(url), BOILERPLATE_TEXT_BUDGET, url)
+
+    def test_a_company_selling_legal_or_cookie_products_keeps_its_pages(self) -> None:
+        # The words that mark boilerplate are products for somebody, so a
+        # segment only counts when every word in it is boilerplate or filler.
+        for url in (
+            "https://a.test/legal-tech-solutions",
+            "https://a.test/products/cookie-manager",
+            "https://a.test/solutions/privacy-engineering",
+            "https://a.test/legal-services",
+            "https://a.test/services",
+        ):
+            self.assertEqual(profile_text_budget(url), PAGE_TEXT_BUDGET, url)
+
+    def test_compact_snapshot_trims_boilerplate_before_the_model_sees_it(self) -> None:
+        compact = compact_snapshot_for_llm(
+            {
+                "pages": [
+                    {"url": "https://a.test/privacy-policy", "main_text": "x" * 9000},
+                    {"url": "https://a.test/portfolio", "main_text": "y" * 9000},
+                    {"url": "https://a.test/", "main_text": "z" * 9999},
+                ]
+            }
+        )
+        lengths = [len(page["main_text"]) for page in compact["pages"]]
+        self.assertEqual(
+            lengths, [BOILERPLATE_TEXT_BUDGET, PAGE_TEXT_BUDGET, HOME_TEXT_BUDGET]
+        )
+
+    def test_parallel_scrapes_come_back_in_the_order_they_were_asked(self) -> None:
+        # Page ids are positions in this list, so completion order deciding it
+        # would move the cited evidence under every quote in the report.
+        client = FirecrawlClient("key", max_requests=10, max_reported_credits=10)
+        delays = {"https://a.test/1": 0.03, "https://a.test/2": 0.0}
+
+        def fake_scrape(url):
+            time.sleep(delays[url])
+            return {"markdown": f"# page for {url}", "metadata": {"sourceURL": url}}
+
+        with patch.object(FirecrawlClient, "scrape", side_effect=fake_scrape):
+            rows = scrape_pages(client, ["https://a.test/1", "https://a.test/2"])
+        self.assertEqual([url for url, _page, _error in rows],
+                         ["https://a.test/1", "https://a.test/2"])
+        self.assertIn("page for https://a.test/1", rows[0][1]["main_text"])
+
+    def test_a_parallel_batch_reserves_the_firecrawl_budget_up_front(self) -> None:
+        # Every worker reading can_request() before any has spent it would let
+        # a batch of six through a budget of two.
+        client = FirecrawlClient("key", max_requests=2, max_reported_credits=99)
+        with patch.object(
+            FirecrawlClient,
+            "scrape",
+            side_effect=lambda url: {"markdown": "# x", "metadata": {"sourceURL": url}},
+        ):
+            rows = scrape_pages(client, [f"https://a.test/{n}" for n in range(6)])
+        self.assertEqual(len(rows), 2)
+
+    def test_a_failed_scrape_does_not_take_down_its_batch(self) -> None:
+        client = FirecrawlClient("key", max_requests=10, max_reported_credits=10)
+
+        def fake_scrape(url):
+            if url.endswith("2"):
+                raise FirecrawlError("404")
+            return {"markdown": "# ok", "metadata": {"sourceURL": url}}
+
+        with patch.object(FirecrawlClient, "scrape", side_effect=fake_scrape):
+            rows = scrape_pages(
+                client, ["https://a.test/1", "https://a.test/2", "https://a.test/3"]
+            )
+        self.assertIsNone(rows[1][1])
+        self.assertEqual(rows[1][2], "404")
+        self.assertIsNotNone(rows[0][1])
+        self.assertIsNotNone(rows[2][1])
+
+    def test_firecrawl_markdown_keeps_the_shape_of_the_page(self) -> None:
+        # We pay Firecrawl for structure and used to flatten it away. A model
+        # reading one run-on line cannot tell a client list from a contact
+        # form, and it read "e.g. Tata Steel" out of a form as a customer.
+        page = firecrawl_document_to_page(
+            {
+                "markdown": "## Trusted by leading companies\n\n"
+                            "- [Brakes India](https://brakesindia.example)\n"
+                            "- Rajalakshmi Engineering College\n\n\n\n"
+                            "We\\'ll scale with you.\\\n"
+                            "![logo](https://x.example/l.png)Acme",
+                "metadata": {"sourceURL": "https://x.example/", "title": "X"},
+            },
+            "https://x.example/",
+        )
+        self.assertEqual(
+            page["main_text"],
+            "## Trusted by leading companies\n\n"
+            "- Brakes India\n"
+            "- Rajalakshmi Engineering College\n\n"
+            "We'll scale with you.\n"
+            "logoAcme",
+        )
+
+    def test_markdown_body_text_drops_runs_of_blank_lines(self) -> None:
+        self.assertEqual(markdown_body_text("a\n\n\n\n\nb"), "a\n\nb")
+
+    def test_the_search_frame_carries_customer_names_not_a_tier(self) -> None:
+        frame = build_required_search_frame(
+            {
+                "category": "Software development agency",
+                "regions_served": ["India"],
+                "named_customers": [
+                    {"name": "Brakes India", "described_as": "auto components"},
+                    {"name": "Rent Machi", "described_as": ""},
+                ],
+                "buyer_personas": [],
+            }
+        )
+        self.assertEqual(frame["regions"], ["India"])
+        self.assertEqual(
+            [row["name"] for row in frame["named_customers"]],
+            ["Brakes India", "Rent Machi"],
+        )
+
+    def test_buyer_band_keeps_only_situations_with_a_buyer_in_them(self) -> None:
+        band = normalize_buyer_band(
+            {
+                "band_summary": "Small firms and colleges in Tamil Nadu",
+                "organization_sizes": ["10-50 staff", "500-2000 students"],
+                "sectors": ["Education", "Manufacturing"],
+                "geography": "India",
+                "band_confidence": "medium",
+                "buyer_situations": [
+                    {
+                        "situation_id": "registrar",
+                        "role": "Registrar",
+                        "organization": "Private engineering college",
+                        "trigger": "Admissions portal keeps failing",
+                        "constraint": "Fixed annual budget",
+                        "words_they_use": ["student portal"],
+                    },
+                    {"trigger": "no role and no organization here"},
+                ],
+            },
+            6,
+        )
+        self.assertEqual(len(band["buyer_situations"]), 1)
+        self.assertEqual(band["buyer_situations"][0]["role"], "Registrar")
+        self.assertEqual(band["band_confidence"], "Medium")
+
+    def test_buyer_band_falls_back_to_low_confidence_on_junk(self) -> None:
+        band = normalize_buyer_band({"band_confidence": "certain"}, 6)
+        self.assertEqual(band["band_confidence"], "Low")
+        self.assertEqual(band["buyer_situations"], [])
+        self.assertEqual(band["geography"], "Unknown")
+
+    def test_the_sellers_word_partner_is_corrected_out_of_the_provider_name(
+        self,
+    ) -> None:
+        # Every question is built on this phrase, so one seller word here
+        # reaches all of them. Nobody searching says they want a partner.
+        band = normalize_buyer_band(
+            {"buyer_words_for_provider": "custom software development partner"}, 6
+        )
+        self.assertEqual(
+            band["buyer_words_for_provider"], "custom software development company"
+        )
+
+    def test_words_buyers_really_use_are_left_alone(self) -> None:
+        # A wider list was tried and deleted all of these, which are exactly
+        # how people search.
+        for phrase in (
+            "payment platform",
+            "cloud provider",
+            "SEO specialist",
+            "web development agency",
+            "stock broker",
+        ):
+            band = normalize_buyer_band({"buyer_words_for_provider": phrase}, 6)
+            self.assertEqual(band["buyer_words_for_provider"], phrase)
+
+    def test_sector_focus_falls_back_to_specialist(self) -> None:
+        # Guessing generalist would invent a market the site cannot show.
+        self.assertEqual(
+            normalize_buyer_band({"sector_focus": "both"}, 6)["sector_focus"],
+            "specialist",
+        )
+        self.assertEqual(
+            normalize_buyer_band({"sector_focus": "Generalist"}, 6)["sector_focus"],
+            "generalist",
+        )
+
+    def test_a_hedged_paragraph_is_not_a_geography(self) -> None:
+        # Asked where the buyers are, the model wrote "Not explicitly stated;
+        # likely global or multi-region given the premium global partner
+        # claim". A sentence anchors nothing, so it is no answer at all.
+        band = normalize_buyer_band(
+            {
+                "geography": "Not explicitly stated; likely global or "
+                             "multi-region given no named regions",
+                "buyer_words_for_provider": "web development agency",
+            },
+            6,
+        )
+        self.assertEqual(band["geography"], "Unknown")
+        self.assertEqual(band["buyer_words_for_provider"], "web development agency")
+        self.assertEqual(normalize_buyer_band({"geography": "India"}, 6)["geography"],
+                         "India")
+
+    def test_a_question_may_not_borrow_the_companys_marketing_words(self) -> None:
+        # No buyer types "premium global technology partner" into a search box.
+        profile = {
+            "company_name": "WeDigi",
+            "buying_signals": {
+                "company_self_description": ["premium global technology partner"]
+            },
+            "evidence": {"supporting_pages": []},
+        }
+        kept = sanitize_prompt_records(
+            [
+                {"prompt": "looking for a premium global technology partner"},
+                {"prompt": "who can rebuild our college admissions portal"},
+            ],
+            profile,
+        )
+        self.assertEqual(
+            [row["prompt"] for row in kept],
+            ["who can rebuild our college admissions portal?"],
+        )
+
+    def test_a_question_may_not_name_one_of_the_customers(self) -> None:
+        # A question built around a named client is written for that client.
+        # Nobody searching today has heard of them.
+        profile = {
+            "company_name": "WeDigi",
+            "named_customers": [{"name": "Brakes India", "described_as": ""}],
+            "evidence": {"supporting_pages": []},
+        }
+        kept = sanitize_prompt_records(
+            [
+                {"prompt": "web development partner for Brakes India"},
+                {"prompt": "web development partner for an auto parts maker"},
+            ],
+            profile,
+        )
+        self.assertEqual(
+            [row["prompt"] for row in kept],
+            ["web development partner for an auto parts maker?"],
+        )
+
     def test_service_company_questions_use_buyer_context_naturally(self) -> None:
         profile = {
             "company_name": "WeDigi",
@@ -502,7 +1062,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[response, response],
+            side_effect=[BAND_RESPONSE, response, response],
         ):
             prompts, payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts).lower()
@@ -544,7 +1104,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[response, response],
+            side_effect=[BAND_RESPONSE, response, response],
         ):
             prompts, _payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts or []).lower()
@@ -611,7 +1171,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[response, response],
+            side_effect=[BAND_RESPONSE, response, response],
         ):
             prompts, _payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts or []).lower()
@@ -778,13 +1338,14 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[response, response],
+            side_effect=[BAND_RESPONSE, response, response],
         ) as llm_call:
             prompts, payload, error = generate_free_customer_intents(PROFILE)
         self.assertIsNone(error)
         self.assertEqual(len(prompts), 5)
         self.assertEqual(payload["mode"], "ai_generated_free_preview")
-        self.assertEqual(llm_call.call_count, 2)
+        # Band, draft, review.
+        self.assertEqual(llm_call.call_count, 3)
         self.assertTrue(
             all("kenesis" not in item["prompt"].lower() for item in prompts)
         )
@@ -1068,6 +1629,10 @@ class PipelineChangeTests(unittest.TestCase):
                 prompts,
                 assistants=["openai_search"],
                 limit_per_assistant=2,
+                # The default is one question per call, which is what production
+                # runs: it is faster and a failure only loses one question. This
+                # test is about the batching path, so it has to ask for it.
+                openai_search_batch_size=2,
             )
 
         self.assertEqual(errors, [])
@@ -1457,7 +2022,10 @@ class PipelineChangeTests(unittest.TestCase):
         }
         with patch(
             "geo_audit.recommendations.verify_source_url",
-            side_effect=lambda url: checks[url],
+            # verify_source_url grew a match_terms keyword. A stub that refuses
+            # it raises inside the thread pool, the broad except marks the URL
+            # unverified, and this test failed for a year on its own stub.
+            side_effect=lambda url, **kwargs: checks[url],
         ):
             verified = verify_provider_citations(results)
         self.assertEqual(
@@ -1682,7 +2250,7 @@ class PipelineChangeTests(unittest.TestCase):
             "https://acme.test/customers/factory",
         )
 
-    def test_faq_action_rejects_feature_page_reference(self) -> None:
+    def test_citations_survive_without_the_model_echoing_a_type(self) -> None:
         competitor_evidence = {
             "competitors": [
                 {
@@ -1766,15 +2334,41 @@ class PipelineChangeTests(unittest.TestCase):
         )
         rows = build_action_rows(resolved)
         supporting = rows[0]["evidence"]["supporting_evidence"]
+        # Both real citations survive. The model no longer sees our page
+        # labels, so it cannot echo them and we no longer check its echo. What
+        # it cited is what the report shows; an invented id is still refused.
         self.assertEqual(
             [item["url"] for item in supporting],
-            ["https://www.triya.ai/faq"],
+            ["https://www.triya.ai/faq", "https://www.triya.ai/features"],
+        )
+        self.assertEqual(
+            sorted(resolved[0]["evidence_types"]), ["faq_page", "feature_page"]
         )
         rejected = resolved[0]["evidence_validation"]["rejected_refs"]
         self.assertEqual(
-            {item["reason"] for item in rejected},
-            {"evidence_type_mismatch", "unknown_evidence_id"},
+            {item["reason"] for item in rejected}, {"unknown_evidence_id"}
         )
+
+    def test_the_model_never_sees_our_guess_about_a_page(self) -> None:
+        # We label pages by looking for words in the address. "?products=" in
+        # a checkout link made it a "Product or feature page", and the model
+        # trusted that over the address and extract in front of it.
+        row = readable_evidence_row(
+            {
+                "evidence_id": "ev-002",
+                "company_name": "Handoff",
+                "evidence_type": "feature_page",
+                "label": "Product or feature page",
+                "title": "Handoff Standard",
+                "url": "https://a.test/api/checkout?products=abc",
+                "excerpt": "$1,000 / mo Subtotal Add discount code",
+                "provenance": "competitor_website",
+            }
+        )
+        self.assertNotIn("label", row)
+        self.assertNotIn("evidence_type", row)
+        self.assertEqual(row["url"], "https://a.test/api/checkout?products=abc")
+        self.assertEqual(row["title"], "Handoff Standard")
 
     def test_recommendation_payload_uses_strict_schema_and_catalog(self) -> None:
         competitor_evidence = {

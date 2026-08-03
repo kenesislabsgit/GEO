@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from .json_tools import extract_json_object
 from .llm import LLMNotConfigured, build_chat_payload, call_chat_completion
+from .site_facts import detect_site_facts
 
 
-PROFILE_SYSTEM_PROMPT = """You are an experienced buyer-research analyst.
+PROFILE_RULES = """You are an experienced buyer-research analyst.
 
 Build an evidence-backed company and buyer profile that will be used to create
 natural, unbranded questions from real prospective customers.
@@ -17,10 +19,9 @@ Use only the supplied website pages and evidence. Do not use outside knowledge.
 Do not infer company size from visual design or writing style.
 Do not invent regions, budgets, buyer roles, industries, or engagement models.
 Use "Unknown" or an empty array when the website does not support a value.
-An office address is a company location, not proof that customers are served
-only in that region. Put addresses in company_locations. Only populate
-regions_served when a page explicitly describes a market or service area.
-Do not convert missing pricing into "custom pricing" or "contact sales".
+An office address is not proof that customers are served only in that region.
+Only populate regions_served when a page explicitly describes a market or
+service area.
 Do not invent likely objections, buying triggers, organization sizes, or
 constraints from general marketing benefits.
 
@@ -32,48 +33,85 @@ customer scope. Do not name competitors. Do not describe the company as small,
 boutique, local, mid-market, or enterprise unless the website explicitly
 supports that positioning. Larger alternative types are structurally different
 options a buyer may consider, not direct competitors.
-For every important profile value, provide a short exact quote copied from the
-page. Do not paraphrase evidence quotes. The value in claim_evidence must
-exactly match the corresponding scalar or array item.
-The backend calculates confidence; your confidence is only a candidate.
+The backend calculates confidence; your confidence is only a candidate."""
 
-Return only valid JSON with this exact top-level structure:
+
+PROFILE_STYLE = """Writing style. This profile is machine input, not prose.
+Nothing here is read by a person, so extra words only cost time.
+
+- Write each list item as a phrase of at most 10 words.
+- Drop articles, auxiliary verbs and hedging such as "typically" or "often".
+- Never repeat the field name inside its own value.
+- State each fact once, in the single field where it fits best. Do not restate
+  an offering as a use case, or a use case as a problem.
+- Prefer wording that already appears on the page over paraphrase."""
+
+
+PROFILE_MARKET_RULES = """Who buys from this company. Do not label them. Copy
+down what the site shows and let the next step do the thinking.
+
+named_customers: every customer the site names, one row each. Client logo
+walls, case studies, testimonials, "trusted by" strips, press quotes, portfolio
+pages. Copy the name exactly as written. Put in described_as whatever the site
+says that customer is or what was done for them, in its own words, and leave it
+empty when the site only shows a name. Give the page_id you found it on.
+List every one you find, not a sample and not a summary. Five customers listed
+as five rows is the point; "educational institutions and manufacturers" throws
+away the very thing we need.
+A name in a form field, a placeholder, an "e.g.", a partner or investor logo,
+or the company's own brands are not customers. Leave the list empty when the
+site names nobody, which is a real and useful answer.
+
+buying_signals: how a purchase happens here, from what the site shows.
+pricing_visible: true when any price or plan cost is published.
+purchase_path: self_serve when a buyer can sign up and start alone, contact_
+sales when they must talk to someone first, both when the site offers each,
+unknown when the site shows neither.
+buyer_facing_terms: words the site uses for the people it sells to, copied from
+the page: "founders", "IT teams", "hospitals", "growing brands".
+company_self_description: the words the company uses about itself and its own
+standing, copied from the page: "premium global technology partner", "India's
+largest broker". These are claims, not facts, and later steps treat them so."""
+
+
+PROFILE_EVIDENCE_RULES = """Supporting quotes. Only these fields need one:
+
+- regions_served, in evidence.field_evidence
+- buyer_role or organization_type, jobs_to_be_done, organization_sizes,
+  buying_triggers, decision_factors and constraints, in persona claim_evidence
+
+Copy each quote exactly from the page and keep it under 20 words. The value in
+a claim must match the corresponding scalar or array item. Every other field is
+checked against the page text directly, so do not write quotes for them."""
+
+
+PROFILE_SCHEMA = """Return only valid JSON with this exact top-level structure:
 {
   "company_name": "",
   "category": "",
   "target_audience": "",
   "business_type": "",
   "delivery_model": "",
-  "company_locations": [],
   "regions_served": [],
   "industries": [],
-  "features": [],
   "use_cases": [],
   "problems_solved": [],
   "unique_value_proposition": "",
-  "pricing_model": "",
-  "keywords": [],
-  "core_messaging": [],
   "primary_offerings": [],
-  "customer_segments": [],
   "buyer_personas": [
     {
       "persona_id": "",
       "buyer_role": "",
-      "end_users": [],
       "organization_type": "",
       "organization_sizes": [],
-      "industries": [],
-      "regions": [],
       "jobs_to_be_done": [],
       "buying_triggers": [],
       "decision_factors": [],
       "constraints": [],
       "confidence": "High|Medium|Low",
-      "evidence_refs": [],
       "claim_evidence": [
         {
-          "field": "buyer_role|end_users|organization_type|organization_sizes|industries|regions|jobs_to_be_done|buying_triggers|decision_factors|constraints",
+          "field": "buyer_role|organization_type|organization_sizes|jobs_to_be_done|buying_triggers|decision_factors|constraints",
           "value": "",
           "page_id": "",
           "quote": ""
@@ -87,6 +125,15 @@ Return only valid JSON with this exact top-level structure:
     "pricing_signals": [],
     "common_objections": []
   },
+  "named_customers": [
+    {"name": "", "described_as": "", "page_id": ""}
+  ],
+  "buying_signals": {
+    "pricing_visible": true,
+    "purchase_path": "self_serve|contact_sales|both|unknown",
+    "buyer_facing_terms": [],
+    "company_self_description": []
+  },
   "competitor_scope": {
     "direct_peer_description": "",
     "larger_alternative_types": [],
@@ -97,20 +144,47 @@ Return only valid JSON with this exact top-level structure:
     "unclear_or_missing": [],
     "field_evidence": [
       {
-        "field": "",
+        "field": "regions_served",
         "value": "",
         "page_id": "",
         "quote": ""
       }
     ]
   }
-}
-"""
+}"""
+
+
+def build_profile_system_prompt(*, lean: bool = False) -> str:
+    max_personas = 1 if lean else 3
+    persona_line = (
+        "the single most important buyer persona"
+        if lean
+        else f"at most {max_personas} buyer personas"
+    )
+    limits = f"""Limits. Return {persona_line}, and at most 5 primary_offerings,
+5 use_cases, 5 problems_solved, 5 industries, 4 regions_served, and 3 items in
+each purchase_context list. Anything beyond these limits is discarded, so spend
+the effort on the strongest items instead."""
+    return "\n\n".join(
+        [
+            PROFILE_RULES,
+            PROFILE_STYLE,
+            PROFILE_MARKET_RULES,
+            PROFILE_EVIDENCE_RULES,
+            limits,
+            PROFILE_SCHEMA,
+        ]
+    )
+
+
+PROFILE_SYSTEM_PROMPT = build_profile_system_prompt()
 
 
 def build_company_profile_payload(
     snapshot: dict[str, Any],
     website_evidence: dict[str, Any],
+    *,
+    lean: bool = False,
 ) -> dict[str, Any]:
     compact_snapshot = compact_snapshot_for_llm(snapshot)
     user_prompt = json.dumps(
@@ -122,7 +196,7 @@ def build_company_profile_payload(
         ensure_ascii=False,
     )
     return build_chat_payload(
-        PROFILE_SYSTEM_PROMPT,
+        build_profile_system_prompt(lean=lean),
         user_prompt,
         temperature=0.1,
         json_response=True,
@@ -132,8 +206,10 @@ def build_company_profile_payload(
 def generate_company_profile(
     snapshot: dict[str, Any],
     website_evidence: dict[str, Any],
+    *,
+    lean: bool = False,
 ) -> tuple[dict[str, Any] | None, dict[str, Any], str | None]:
-    payload = build_company_profile_payload(snapshot, website_evidence)
+    payload = build_company_profile_payload(snapshot, website_evidence, lean=lean)
     try:
         raw_response = call_chat_completion(payload)
     except TimeoutError:
@@ -148,6 +224,94 @@ def generate_company_profile(
     return normalize_company_profile(parsed, snapshot), payload, None
 
 
+# Pages every website carries that describe no part of its business.
+BOILERPLATE_PATH_WORDS = frozenset(
+    {
+        "privacy",
+        "terms",
+        "tos",
+        "legal",
+        "cookie",
+        "cookies",
+        "gdpr",
+        "disclaimer",
+        "careers",
+        "career",
+        "jobs",
+        "hiring",
+        "login",
+        "signin",
+        "signup",
+        "register",
+        "cart",
+        "checkout",
+        "sitemap",
+        "unsubscribe",
+    }
+)
+# Words that carry no meaning of their own in a path. They round out a
+# boilerplate name ("terms-of-service") without making a page one.
+FILLER_PATH_WORDS = frozenset(
+    {
+        "policy",
+        "policies",
+        "notice",
+        "notices",
+        "statement",
+        "agreement",
+        "agreements",
+        "conditions",
+        "page",
+        # Singular only. "services" on its own is what a company sells.
+        "service",
+        "of",
+        "and",
+        "the",
+        "our",
+        "use",
+        "us",
+    }
+)
+HOME_TEXT_BUDGET = 9000
+PAGE_TEXT_BUDGET = 6000
+BOILERPLATE_TEXT_BUDGET = 500
+
+
+def profile_text_budget(url: str) -> int:
+    """How much of a page is worth sending to the profile model.
+
+    Size on a website has nothing to do with how much it says about the
+    company. On one live site the privacy policy was the largest page we sent;
+    on another it was a service agreement in Thai, and both crowded out the
+    pages naming customers. Boilerplate is trimmed rather than dropped so that
+    every page stays quotable, and the home page earns the most room because
+    it is the one page that always describes the business.
+    """
+    path = urlparse(url).path.strip("/")
+    if not path:
+        return HOME_TEXT_BUDGET
+    if any(is_boilerplate_segment(part) for part in path.split("/")):
+        return BOILERPLATE_TEXT_BUDGET
+    return PAGE_TEXT_BUDGET
+
+
+def is_boilerplate_segment(segment: str) -> bool:
+    """True when a path segment is only boilerplate naming and nothing else.
+
+    Matching a word anywhere in the path is too blunt. A legaltech firm's
+    /legal-tech-solutions and a consent vendor's /products/cookie-manager are
+    the products those companies sell, so a segment only counts when every
+    word in it is boilerplate or filler.
+    """
+    words = [word for word in re.split(r"[^a-z0-9]+", segment.lower()) if word]
+    if not words or not any(word in BOILERPLATE_PATH_WORDS for word in words):
+        return False
+    return all(
+        word in BOILERPLATE_PATH_WORDS or word in FILLER_PATH_WORDS
+        for word in words
+    )
+
+
 def compact_snapshot_for_llm(snapshot: dict[str, Any]) -> dict[str, Any]:
     pages = []
     for index, page in enumerate(snapshot.get("pages", []), start=1):
@@ -160,7 +324,9 @@ def compact_snapshot_for_llm(snapshot: dict[str, Any]) -> dict[str, Any]:
                 "headings": page.get("headings", {}),
                 "schema_json_ld": page.get("schema_json_ld", []),
                 "navigation": page.get("navigation", [])[:30],
-                "main_text": page.get("main_text", "")[:6000],
+                "main_text": page.get("main_text", "")[
+                    : profile_text_budget(str(page.get("url", "")))
+                ],
                 "fetch_provider": page.get(
                     "fetch_provider", "deterministic_crawler"
                 ),
@@ -409,6 +575,21 @@ def normalize_company_profile(
         )
     }
 
+    normalized["named_customers"] = normalize_named_customers(
+        normalized.get("named_customers"),
+        page_texts,
+    )
+    site_facts = detect_site_facts(snapshot)
+    normalized["buying_signals"] = normalize_buying_signals(
+        normalized.get("buying_signals"),
+        site_facts,
+    )
+    # Read off the pages rather than asked for. The model gave Zerodha "India"
+    # on one run and "Unknown" on the next from identical input.
+    normalized["primary_market"] = site_facts["primary_market"]
+    normalized["market_signals"] = site_facts["market_signals"]
+    normalized.pop("market_position", None)
+
     scope = normalized.get("competitor_scope")
     if not isinstance(scope, dict):
         scope = {}
@@ -488,6 +669,120 @@ def build_page_evidence_index(
         )
         urls[page_id] = str(page.get("url", ""))
     return texts, urls
+
+
+PURCHASE_PATHS = ("self_serve", "contact_sales", "both")
+# A customer name is a name. Anything long enough to be a sentence is the
+# model summarising a group, which is the one thing this field must not hold.
+MAX_CUSTOMER_NAME_WORDS = 8
+
+
+def normalize_named_customers(
+    value: Any,
+    page_texts: dict[str, str],
+) -> list[dict[str, str]]:
+    """Customer names the site really carries, in the site's own words.
+
+    This replaced a five-word tier menu. "enterprise" is a lossy compression of
+    "Brakes India, Rajalakshmi Engineering College, Rent Machi" — the label
+    dropped four clients out of five and the question writer never saw that the
+    company sells to colleges. Names survive that trip; labels do not.
+
+    The name has to appear on the page it is credited to. That is the whole
+    check: it costs nothing on a real client wall and it stops an invented
+    customer, which no amount of prompt wording reliably does.
+    """
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = clean_scalar(item.get("name"), "")
+        page_id = clean_scalar(item.get("page_id") or item.get("page_ref"), "")
+        key = normalize_evidence_text(name)
+        if not key or key in seen or page_id not in page_texts:
+            continue
+        if len(name.split()) > MAX_CUSTOMER_NAME_WORDS:
+            continue
+        if key not in page_texts[page_id]:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "name": name,
+                "described_as": clean_scalar(item.get("described_as"), ""),
+                "page_id": page_id,
+            }
+        )
+    return rows
+
+
+def normalize_buying_signals(
+    value: Any,
+    site_facts: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """How a purchase happens here, as shown rather than as judged.
+
+    Whether prices are published and whether a buyer can start alone are both
+    countable, and code counts them the same way every run. The model called
+    Zerodha and Stripe contact-sales when both let anyone sign up, and said
+    Zerodha published no prices while ₹20 per order sits on the page. Only the
+    wording fields are left to it, because those are quotations, not counts.
+    """
+    raw = value if isinstance(value, dict) else {}
+    facts = site_facts if isinstance(site_facts, dict) else {}
+    path = clean_scalar(
+        facts.get("purchase_path") or raw.get("purchase_path"), ""
+    ).strip().lower()
+    return {
+        "pricing_visible": bool(
+            facts.get("pricing_visible")
+            if "pricing_visible" in facts
+            else raw.get("pricing_visible")
+        ),
+        "purchase_path": path if path in PURCHASE_PATHS else "unknown",
+        "buyer_facing_terms": clean_string_list(raw.get("buyer_facing_terms")),
+        "company_self_description": clean_string_list(
+            raw.get("company_self_description")
+        ),
+    }
+
+
+def validated_market_evidence(
+    value: Any,
+    page_texts: dict[str, str],
+) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    page_id = clean_scalar(value.get("page_id") or value.get("page_ref"), "")
+    quote = clean_scalar(value.get("quote"), "")
+    if page_id not in page_texts:
+        return {}
+    kept = quote_or_verbatim_part(quote, page_texts[page_id])
+    if not kept:
+        return {}
+    return {"page_id": page_id, "quote": kept}
+
+
+def quote_or_verbatim_part(quote: str, page_text: str) -> str:
+    """The quote if the page carries it, else the one sentence in it that fits.
+
+    Models stitch two sentences from opposite ends of a page into one quote.
+    Stripe lost its whole customer tier that way twice, even though "Powering
+    businesses of all sizes" sits on the cited page word for word. Keeping the
+    part that survives loses nothing we could check anyway.
+    """
+    normalized = normalize_evidence_text(quote)
+    if len(normalized) >= 12 and normalized in page_text:
+        return quote
+    for part in re.split(r"[.;|—–]", quote):
+        part = part.strip()
+        piece = normalize_evidence_text(part)
+        if len(piece) >= 20 and piece in page_text:
+            return part
+    return ""
 
 
 def validate_claim_evidence(
