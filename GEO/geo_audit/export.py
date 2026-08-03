@@ -19,6 +19,7 @@ def build_frontend_export(
     web_presence: dict[str, Any] | None = None,
     *,
     free_preview: bool = False,
+    summary: str = "",
 ) -> dict[str, Any]:
     web_presence = web_presence or {}
     score = build_scorecard(
@@ -82,6 +83,10 @@ def build_frontend_export(
             ),
         },
         "score": score,
+        # Where this company stands, written once by the step that had every
+        # finding in front of it. The dashboard used to pick one of three
+        # sentences off the mention rate and call that an executive verdict.
+        "summary": " ".join(str(summary or "").split()),
         "prompt_matrix": prompt_matrix,
         "query_results": query_results,
         "top_competitors": [

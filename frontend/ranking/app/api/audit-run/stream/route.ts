@@ -94,18 +94,22 @@ export async function POST(request: NextRequest) {
         String(mode === "pro" ? 3 : FREE_AUDIT_COMPETITOR_PAGES),
         "--top-n",
         "5",
+        // final_report.md is written to disk and never read: the dashboard
+        // builds every screen from audit_export.json. Writing it cost a Pro
+        // run 38 seconds and about three cents for a file nobody opens. The
+        // report that is read is the summary inside the export.
+        "--skip-final-report",
       ];
       if (mode !== "pro") {
         // The free audit reads the single most-recommended competitor's site so
         // it can write one specific, evidence-backed action. It still skips the
-        // written report and the independent web-mention pass.
+        // independent web-mention pass.
         args.push(
           "--free-preview",
           "--max-competitors-crawled",
           String(FREE_AUDIT_COMPETITORS_CRAWLED),
           "--max-recommendations",
           String(FREE_AUDIT_ACTION_COUNT),
-          "--skip-final-report",
           "--skip-web-presence",
         );
       }

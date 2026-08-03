@@ -179,9 +179,22 @@ judgement is yours to make from what you can see.
 Do not select evidence merely because its company name or a broad word appears in the recommendation.
 If no catalog item directly supports a recommendation, return empty evidence_types and evidence_refs.
 
+summary is the one thing the reader sees first: three or four sentences saying
+where this company stands and why. Say what the AI assistants take this company
+to be, where it is recommended and where it is passed over, and which
+competitor it keeps losing to. Name the single most useful thing to change.
+
+Write it to somebody who owns the company and has thirty seconds. No preamble,
+no restating the question, no advice to "consider" anything. Numbers where they
+carry weight: "recommended in six of twenty answers, ranked first in three of
+those" tells them more than "moderate visibility". If they were never
+recommended, say that plainly rather than softening it.
+
 Return only the required JSON object.
 """
 
+# Four sentences read in thirty seconds, not a page.
+AUDIT_SUMMARY_LENGTH = 700
 AUDIT_RECOMMENDATION_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -227,9 +240,10 @@ AUDIT_RECOMMENDATION_SCHEMA = {
                     "affected_loss_refs",
                 ],
             },
-        }
+        },
+        "summary": {"type": "string"},
     },
-    "required": ["recommendations"],
+    "required": ["recommendations", "summary"],
 }
 
 
@@ -265,10 +279,18 @@ def generate_audit_recommendations(
 
     if raw_response.lstrip().startswith("["):
         parsed = extract_json_array(raw_response)
+        summary = ""
     else:
-        parsed = extract_json_object(raw_response).get("recommendations", [])
+        response = extract_json_object(raw_response)
+        parsed = response.get("recommendations", [])
+        summary = concise_text(response.get("summary"), AUDIT_SUMMARY_LENGTH)
     if not isinstance(parsed, list):
         parsed = []
+    # Where the report stands is written once, in the call that already knows
+    # everything, and read straight off the payload afterwards. A dashboard
+    # that picked one of three sentences off the mention rate was the only
+    # thing standing in for it.
+    payload["summary"] = summary
 
     prompt_losses = compact_recommendation_patterns(recommendation_patterns)[
         "user_company_recommendation_summary"

@@ -34,6 +34,7 @@ export type AuditExport = {
     >;
     partial_providers?: string[];
   };
+  summary?: string;
   score?: Record<string, unknown>;
   prompt_matrix?: Array<Record<string, unknown>>;
   query_results?: Array<Record<string, unknown>>;
@@ -145,6 +146,7 @@ export async function importAuditExport(
     error_summary: audit.scan?.partial_providers?.length
       ? `No usable company recommendations were retained from: ${audit.scan.partial_providers.join(", ")}.`
       : null,
+    summary: asNullableString(audit.summary),
     methodology_version: asString(audit.scan?.methodology_version, METHODOLOGY_VERSION),
     demo_mode: false,
     cancelled_at: null,

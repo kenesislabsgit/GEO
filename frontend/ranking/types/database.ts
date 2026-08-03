@@ -99,6 +99,8 @@ export type ScanRun = {
   /** Optional scan-level overrides for prompt country/language. */
   country: string | null;
   language: string | null;
+  // Written when the audit finishes, so a queued or running scan has none.
+  summary?: string | null;
   created_at: string;
 };
 

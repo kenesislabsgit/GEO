@@ -1521,6 +1521,7 @@ def main() -> None:
             encoding="utf-8",
         )
 
+        audit_summary = ""
         if args.skip_audit_recommendations:
             audit_recs = (
                 build_free_preview_recommendations(profile, patterns)
@@ -1549,6 +1550,7 @@ def main() -> None:
                 firecrawl_client=None if args.free_preview else firecrawl_client,
                 limit=args.max_recommendations,
             )
+            audit_summary = str(rec_payload.get("summary", ""))
             (run_dir / "audit_recommendations_prompt.json").write_text(
                 json.dumps(rec_payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
@@ -1618,6 +1620,7 @@ def main() -> None:
             quality,
             web_presence,
             free_preview=args.free_preview,
+            summary=audit_summary,
         )
         export_path = run_dir / "audit_export.json"
         export_path.write_text(

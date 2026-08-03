@@ -163,8 +163,13 @@ export default async function WebsiteReportSummary({
           <div>
             <p className="text-xs font-medium uppercase text-muted-foreground">Executive verdict</p>
             <h2 className="mt-1 text-lg font-semibold">{verdict}</h2>
+            {/* The audit writes this while it still has every finding in front
+                of it. The line below is a threshold on one number, so it is
+                the fallback for scans recorded before the summary existed. */}
             <p className="mt-1 text-sm text-muted-foreground">
-              Mentioned in {mentionCount} of {results.length} AI answers across {testedPromptIds.size} buyer questions.
+              {latestScan?.summary?.trim()
+                ? latestScan.summary
+                : `Mentioned in ${mentionCount} of ${results.length} AI answers across ${testedPromptIds.size} buyer questions.`}
             </p>
           </div>
         </div>
