@@ -11,6 +11,8 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
+import { renameWithRetry, writeFileAtomic } from "@/lib/utils/atomic-file";
+
 /**
  * Shared website reads.
  *
@@ -95,9 +97,7 @@ async function readJson<T>(file: string): Promise<T | null> {
 }
 
 async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
-  const tmp = `${file}.${process.pid}.${randomUUID().slice(0, 8)}.tmp`;
-  await writeFile(tmp, JSON.stringify(value, null, 2), "utf8");
-  await rename(tmp, file);
+  await writeFileAtomic(file, JSON.stringify(value, null, 2));
 }
 
 async function exists(file: string): Promise<boolean> {
@@ -258,7 +258,7 @@ async function publishRead(
     const target = path.join(dir, SNAPSHOT_FILE);
     const tmp = `${target}.${process.pid}.${randomUUID().slice(0, 8)}.tmp`;
     await copyFile(source, tmp);
-    await rename(tmp, target);
+    await renameWithRetry(tmp, target);
     const meta: SiteReadMeta = {
       domain,
       published_at: new Date().toISOString(),

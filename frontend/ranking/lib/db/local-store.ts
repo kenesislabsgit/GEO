@@ -1,6 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+
+import { writeFileAtomic } from "@/lib/utils/atomic-file";
 import type {
   Alert,
   Brand,
@@ -92,9 +94,7 @@ async function readStoreUnlocked(): Promise<StoreShape> {
 
 async function writeStoreUnlocked(store: StoreShape): Promise<void> {
   await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
-  const tmp = `${STORE_PATH}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(store, null, 2));
-  await fs.rename(tmp, STORE_PATH);
+  await writeFileAtomic(STORE_PATH, JSON.stringify(store, null, 2));
 }
 
 async function mutateStore<T>(
