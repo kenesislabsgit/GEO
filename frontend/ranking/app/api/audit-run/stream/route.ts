@@ -58,7 +58,11 @@ export async function POST(request: NextRequest) {
   const domainBrand =
     existingBrand ??
     (user ? await getBrandByDomainForOwner(requestedDomain, user.id) : null);
-  const geoRoot = process.env.GEO_AUDIT_ROOT ?? "D:\\seo\\GEO";
+  // The audit runner lives beside this app in the repository, so find it there
+  // rather than at an absolute path from whichever machine wrote this line. The
+  // old default pointed at D:\seo\GEO, and on any other machine Python was
+  // spawned into a directory that does not exist and died before it started.
+  const geoRoot = process.env.GEO_AUDIT_ROOT ?? path.resolve(process.cwd(), "../../GEO");
   const pythonCommand = process.env.GEO_AUDIT_PYTHON ?? "python";
   const assistants = body.assistants ?? [FREE_AUDIT_PROVIDER];
   const domain = domainBrand?.canonical_domain ?? requestedDomain;
@@ -66,8 +70,20 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      // A failed spawn emits both "error" and "close", and each handler used to
+      // send and then close. The second send threw ERR_INVALID_STATE as an
+      // unhandled rejection, which is all the developer saw: the real reason
+      // the run died never reached them. Closing once, and refusing to write to
+      // a closed stream, keeps the actual error visible.
+      let closed = false;
       const send = (event: Record<string, unknown>) => {
+        if (closed) return;
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      };
+      const finish = () => {
+        if (closed) return;
+        closed = true;
+        controller.close();
       };
 
       const args = [
@@ -165,6 +181,22 @@ export async function POST(request: NextRequest) {
             reused_website_read: Boolean(siteRead.snapshotPath),
           });
         }
+        // Spawning into a directory that does not exist fails with a bare
+        // ENOENT that names neither the path nor the setting, so check first
+        // and say which one is wrong.
+        try {
+          await access(path.join(geoRoot, "geo_audit"));
+        } catch {
+          send({
+            event: "error",
+            message:
+              `Audit runner not found at ${geoRoot}. Set GEO_AUDIT_ROOT to the ` +
+              "GEO directory holding geo_audit.",
+          });
+          finish();
+          return;
+        }
+
         const child = spawn(pythonCommand, args, {
           cwd: geoRoot,
           windowsHide: true,
@@ -200,7 +232,7 @@ export async function POST(request: NextRequest) {
         child.on("error", async (error) => {
           await releaseSiteRead();
           send({ event: "error", message: error.message });
-          controller.close();
+          finish();
         });
 
         child.on("close", async (code) => {
@@ -210,7 +242,7 @@ export async function POST(request: NextRequest) {
               event: "error",
               message: stderrBuffer.trim() || `Audit runner exited with code ${code}`,
             });
-            controller.close();
+            finish();
             return;
           }
 
@@ -226,7 +258,7 @@ export async function POST(request: NextRequest) {
               event: "error",
               message: "Audit completed without audit_export_path.",
             });
-            controller.close();
+            finish();
             return;
           }
 
@@ -260,7 +292,7 @@ export async function POST(request: NextRequest) {
               message: error instanceof Error ? error.message : "Frontend import failed",
             });
           } finally {
-            controller.close();
+            finish();
           }
         });
       };
@@ -271,7 +303,7 @@ export async function POST(request: NextRequest) {
           event: "error",
           message: error instanceof Error ? error.message : "Could not start audit",
         });
-        controller.close();
+        finish();
       });
     },
   });
