@@ -133,6 +133,7 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
     allowed_domains = candidate_domains(normalized_start)
     queue: deque[str] = deque(candidate_start_urls(normalized_start))
     seen: set[str] = set()
+    stored: set[str] = set()
     dns_failed_hosts: set[str] = set()
     pages: list[dict[str, Any]] = []
     failed_pages: list[dict[str, str]] = []
@@ -170,12 +171,14 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
                 dns_failed_hosts.add(current_host)
             continue
 
-        # seen holds what we asked for, and a redirect means several requests
-        # land on one page. http://, https:// and http://www. of the same site
-        # all end at the home page, and storing each spent three of a
-        # competitor's six page slots on the same text.
-        if final_url in seen and final_url != current_url:
+        # http://, https:// and the www variant of one page are one page.
+        # Some sites redirect between them and some serve all three, so the
+        # address they arrived under cannot be the identity. Storing each spent
+        # three of a competitor's six page slots on the same text.
+        page_key = same_page_key(final_url)
+        if page_key in stored:
             continue
+        stored.add(page_key)
         seen.add(final_url)
 
         parsed_page = parse_page(final_url, html, status_code)
@@ -199,6 +202,13 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
         "pages": pages,
         "failed_pages": failed_pages,
     }
+
+
+def same_page_key(url: str) -> str:
+    """One key per page, whatever scheme or host prefix reached it."""
+    parsed = urlparse(url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    return f"{host}{parsed.path.rstrip('/')}?{parsed.query}"
 
 
 def fetch_html(url: str) -> tuple[str, int, str]:

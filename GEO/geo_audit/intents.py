@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Any
 
@@ -416,6 +417,73 @@ def build_customer_intent_review_payload(
     )
 
 
+QUESTIONS_PER_BATCH = 10
+
+
+def question_batches(
+    count: int,
+    buyer_band: dict[str, Any],
+) -> list[tuple[int, dict[str, Any]]]:
+    """Split a large set into batches that write at the same time.
+
+    Twenty questions in one pass took ninety-eight seconds, the second largest
+    block in a Pro run, and nothing in it depended on anything else in it.
+    Each batch gets its own slice of the buyer situations, so they write for
+    different people rather than racing to cover the same ones.
+    """
+    batch_count = max(1, -(-count // QUESTIONS_PER_BATCH))
+    if batch_count == 1:
+        return [(count, buyer_band)]
+
+    situations = buyer_band.get("buyer_situations") or []
+    shares: list[tuple[int, dict[str, Any]]] = []
+    for index in range(batch_count):
+        share = count // batch_count + (1 if index < count % batch_count else 0)
+        slice_of_band = dict(buyer_band)
+        if situations:
+            slice_of_band["buyer_situations"] = [
+                situation
+                for position, situation in enumerate(situations)
+                if position % batch_count == index
+            ] or situations
+        shares.append((share, slice_of_band))
+    return shares
+
+
+def write_one_batch(
+    company_profile: dict[str, Any],
+    count: int,
+    buyer_band: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    """One batch: draft, then the critic on that batch's own drafts."""
+    payloads: list[dict[str, Any]] = []
+    draft_payload = build_customer_intent_payload(
+        company_profile, count=count, buyer_band=buyer_band
+    )
+    payloads.append(draft_payload)
+    try:
+        drafted = call_chat_completion(draft_payload)
+    except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
+        return [], payloads, str(exc)
+
+    candidates = sanitize_prompt_records(
+        extract_json_array(drafted), company_profile
+    )
+    review_payload = build_customer_intent_review_payload(
+        company_profile, candidates, count=count, buyer_band=buyer_band
+    )
+    payloads.append(review_payload)
+    try:
+        reviewed = call_chat_completion(review_payload)
+    except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
+        return candidates, payloads, f"Question review failed: {exc}"
+    return (
+        sanitize_prompt_records(extract_json_array(reviewed), company_profile),
+        payloads,
+        None,
+    )
+
+
 def generate_customer_intents(
     company_profile: dict[str, Any],
     *,
@@ -431,35 +499,31 @@ def generate_customer_intents(
     if band_error:
         return None, band_payload, f"Buyer band failed: {band_error}"
 
+    shares = question_batches(count, buyer_band)
     payload = build_customer_intent_payload(
         company_profile, count=count, buyer_band=buyer_band
     )
-    try:
-        raw_response = call_chat_completion(payload)
-    except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
-        return None, payload, str(exc)
-    # Recorded after the call. Everything on this dict is sent as request
-    # arguments, and the provider rejects the ones it does not know.
     payload["band_payload"] = band_payload
     payload["buyer_band"] = buyer_band
+    payload["batches"] = len(shares)
 
-    candidates = sanitize_prompt_records(
-        extract_json_array(raw_response), company_profile
-    )
-    review_payload = build_customer_intent_review_payload(
-        company_profile,
-        candidates,
-        count=count,
-        buyer_band=buyer_band,
-    )
-    payload["review_payload"] = review_payload
-    try:
-        reviewed_response = call_chat_completion(review_payload)
-    except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
-        return None, payload, f"Question review failed: {exc}"
-    prompts = sanitize_prompt_records(
-        extract_json_array(reviewed_response), company_profile
-    )
+    with ThreadPoolExecutor(max_workers=len(shares)) as executor:
+        results = list(
+            executor.map(
+                lambda share: write_one_batch(company_profile, *share),
+                shares,
+            )
+        )
+
+    prompts: list[dict[str, Any]] = []
+    for batch_prompts, batch_payloads, batch_error in results:
+        if batch_error and not batch_prompts:
+            return None, payload, batch_error
+        payload.setdefault("batch_payloads", []).extend(batch_payloads)
+        prompts.extend(batch_prompts)
+    # Two batches writing for different buyers still land on the same question
+    # sometimes, and one repeated question is a wasted search.
+    prompts = sanitize_prompt_records(prompts, company_profile)
 
     if len(prompts) < count:
         prompts, repair_payload, repair_error = repair_short_question_set(

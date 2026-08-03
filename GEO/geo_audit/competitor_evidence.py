@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urlparse
 
@@ -10,6 +11,7 @@ from .firecrawl import (
     FirecrawlError,
     environment_int,
     firecrawl_document_to_page,
+    scrape_pages,
 )
 from .site_discovery import discover_competitor_site
 from .source_analysis import analyze_sources
@@ -38,9 +40,10 @@ def build_competitor_evidence(
         "FIRECRAWL_MAX_PAGES_PER_COMPETITOR", 4
     )
 
-    for competitor_index, competitor in enumerate(
-        patterns.get("top_competitors", [])
-    ):
+    def collect_one(
+        competitor_index: int,
+        competitor: dict[str, Any],
+    ) -> dict[str, Any]:
         name = competitor.get("company_name", "Unknown")
         cited_urls = competitor.get("source_urls", [])
         presence = find_web_presence(name, web_presence)
@@ -56,8 +59,10 @@ def build_competitor_evidence(
             [*cited_urls, *verified_urls],
             manual_site=manual_site,
         )
-        site_url = presence.get("official_website") or site_discovery.get(
-            "official_website"
+        site_url = preferred_competitor_site(
+            presence.get("official_website"),
+            site_discovery.get("official_website"),
+            cited_urls,
         )
 
         item: dict[str, Any] = {
@@ -139,7 +144,21 @@ def build_competitor_evidence(
         elif site_url:
             item["collection_status"] = "citation_only_with_discovered_site"
 
-        evidence_items.append(item)
+        return item
+
+    # Five competitors were read one after another, and each one is a crawl of
+    # somebody else's website: nothing about Triya has to finish before
+    # Camlytics can start. The Firecrawl client counts its own budget behind a
+    # lock, so a competitor that arrives after it is spent fails its scrapes
+    # and keeps whatever the plain crawler found, exactly as before.
+    competitors = list(patterns.get("top_competitors", []))
+    if competitors:
+        with ThreadPoolExecutor(
+            max_workers=max(1, min(COMPETITOR_CONCURRENCY, len(competitors)))
+        ) as executor:
+            evidence_items = list(
+                executor.map(collect_one, range(len(competitors)), competitors)
+            )
 
     return {
         "summary": {
@@ -165,6 +184,38 @@ def build_competitor_evidence(
     }
 
 
+# Reading five competitor websites at once. Each is an unrelated site, and
+# the slow part is waiting on their servers rather than our own work.
+COMPETITOR_CONCURRENCY = 5
+
+
+def preferred_competitor_site(
+    presence_site: str | None,
+    discovered_site: str | None,
+    cited_urls: list[str],
+) -> str:
+    """The site the AI was actually looking at when it recommended them.
+
+    A web search for a company name is a guess, and a short name collides:
+    searching "Triya" returned a doctor's website, which outranked the correct
+    answer and would have had us quote a clinic as a video analytics rival.
+    The AI cited triya.ai four times while recommending them, and a citation is
+    evidence where a name match is a coincidence, so a candidate carrying a
+    cited domain wins.
+    """
+    cited_domains = {
+        urlparse(str(url)).netloc.lower().removeprefix("www.")
+        for url in cited_urls or []
+        if str(url).strip()
+    }
+    cited_domains.discard("")
+    for candidate in (presence_site, discovered_site):
+        if not candidate:
+            continue
+        domain = urlparse(str(candidate)).netloc.lower().removeprefix("www.")
+        if domain in cited_domains:
+            return str(candidate)
+    return str(presence_site or discovered_site or "")
 IMPORTANT_EVIDENCE_FIELDS = (
     "feature_pages_found",
     "use_case_pages_found",
@@ -260,15 +311,10 @@ def enhance_competitor_snapshot(
     if not candidates and not snapshot.get("pages"):
         candidates = [site_url]
 
-    for url in candidates[:max_pages]:
-        if not client.can_request():
-            break
-        try:
-            document = client.scrape(url)
-            page = firecrawl_document_to_page(document, url)
-        except FirecrawlError as exc:
+    for url, page, error in scrape_pages(client, candidates[:max_pages]):
+        if error is not None:
             result["errors"].append(
-                {"operation": "scrape", "url": url, "error": str(exc)}
+                {"operation": "scrape", "url": url, "error": error}
             )
             continue
         key = canonical_url(str(page.get("url", "")))

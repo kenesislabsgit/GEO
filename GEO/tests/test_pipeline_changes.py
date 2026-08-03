@@ -42,6 +42,7 @@ from geo_audit.firecrawl import (
     scrape_pages,
     should_enrich_user_snapshot,
 )
+from geo_audit.crawler import same_page_key
 from geo_audit.evidence import build_website_evidence
 from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
@@ -50,6 +51,7 @@ from geo_audit.intents import (
     build_required_search_frame,
     generate_free_customer_intents,
     normalize_buyer_band,
+    question_batches,
     sanitize_prompt_records,
 )
 from geo_audit.profile import (
@@ -64,7 +66,11 @@ from geo_audit.profile import (
     normalize_named_customers,
     profile_text_budget,
 )
-from geo_audit.competitor_evidence import priority_firecrawl_urls
+from geo_audit.competitor_evidence import (
+    build_competitor_evidence,
+    preferred_competitor_site,
+    priority_firecrawl_urls,
+)
 from geo_audit.quality import build_quality_summary
 from geo_audit.site_facts import detect_site_facts
 from geo_audit.recommendations import (
@@ -2391,6 +2397,92 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(
             {item["reason"] for item in rejected}, {"unknown_evidence_id"}
         )
+
+    def test_a_large_question_set_is_written_in_parallel_batches(self) -> None:
+        # Twenty questions in one pass took 98s, the second largest block in a
+        # Pro run, and nothing in it depended on anything else in it.
+        band = {"buyer_situations": [{"role": f"r{i}"} for i in range(6)]}
+        self.assertEqual(len(question_batches(5, band)), 1)
+        self.assertEqual(len(question_batches(10, band)), 1)
+
+        batches = question_batches(20, band)
+        self.assertEqual([count for count, _ in batches], [10, 10])
+        # Each batch writes for different people rather than racing to cover
+        # the same ones, so the two halves do not collide.
+        first, second = (
+            [row["role"] for row in share["buyer_situations"]]
+            for _count, share in batches
+        )
+        self.assertEqual(first, ["r0", "r2", "r4"])
+        self.assertEqual(second, ["r1", "r3", "r5"])
+
+    def test_batches_still_work_when_the_band_has_no_situations(self) -> None:
+        batches = question_batches(20, {})
+        self.assertEqual([count for count, _ in batches], [10, 10])
+
+    def test_the_site_the_ai_cited_beats_a_name_search(self) -> None:
+        # Searching the web for "Triya" returned a doctor's practice, which
+        # outranked the right answer and would have had a clinic quoted as a
+        # video analytics rival. The AI cited triya.ai four times.
+        self.assertEqual(
+            preferred_competitor_site(
+                "https://drtriya.com",
+                "https://triya.ai/solutions/on-premise-video-analytics",
+                ["https://triya.ai/use-cases/manufacturing/"],
+            ),
+            "https://triya.ai/solutions/on-premise-video-analytics",
+        )
+
+    def test_a_name_search_still_wins_when_nothing_was_cited(self) -> None:
+        self.assertEqual(
+            preferred_competitor_site("https://found.test", "https://guess.test", []),
+            "https://found.test",
+        )
+        self.assertEqual(
+            preferred_competitor_site(None, "https://guess.test", []),
+            "https://guess.test",
+        )
+
+    def test_one_page_served_under_three_addresses_is_crawled_once(self) -> None:
+        # Some sites redirect between http, https and www; some serve all
+        # three. Either way it is one page, and storing each spent half a
+        # competitor's crawl budget on its home page.
+        self.assertEqual(
+            same_page_key("http://www.atomvision.ai/"),
+            same_page_key("https://atomvision.ai"),
+        )
+        self.assertNotEqual(
+            same_page_key("https://atomvision.ai/features"),
+            same_page_key("https://atomvision.ai/"),
+        )
+
+    def test_competitor_sites_are_read_at_the_same_time_and_stay_in_order(
+        self,
+    ) -> None:
+        # Each is a crawl of an unrelated website, so nothing about the first
+        # has to finish before the second starts. Order still has to hold:
+        # rank is read off this list.
+        names = ["A", "B", "C", "D", "E"]
+
+        def slow_crawl(url, max_pages=8):
+            time.sleep(0.2)
+            return {
+                "pages": [{"url": url, "title": "t", "main_text": "x" * 900}],
+                "failed_pages": [],
+            }
+
+        started = time.time()
+        with patch("geo_audit.competitor_evidence.crawl_website", slow_crawl):
+            evidence = build_competitor_evidence(
+                {"top_competitors": [{"company_name": n} for n in names]},
+                competitor_sites={n: f"https://{n.lower()}.test/" for n in names},
+                max_pages=4,
+            )
+        elapsed = time.time() - started
+        self.assertEqual(
+            [row["company_name"] for row in evidence["competitors"]], names
+        )
+        self.assertLess(elapsed, 0.6, "competitor sites were read one at a time")
 
     def test_pages_the_ai_cited_are_read_before_anything_else(self) -> None:
         # Its own answer to "why this company" beats any keyword list we
