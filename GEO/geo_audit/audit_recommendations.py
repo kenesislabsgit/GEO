@@ -141,6 +141,19 @@ If competitor website collection failed or a field is Unknown, do not treat it a
 Prefer recommendations that address the user's prompt losses and source evidence before generic website gaps.
 Say "Unknown" when evidence is missing.
 
+user_website_pages holds the audited company's own pages in its own words.
+Read them before writing any advice, and say what is actually true of the site
+rather than what its missing page types imply.
+
+- When a page already makes the point, say so and ask for it to be developed.
+  "Your home page mentions this in one line while the competitor devotes a page
+  to it" is accurate, specific, and something the reader can act on today.
+- Only call something absent when you have read the pages and it is absent.
+  Telling a company to start saying what it already says reads as though nobody
+  looked at their site, and the rest of the report is disbelieved with it.
+- Quote their own words back when you have them. A short quote from their page
+  beside a competitor's is the clearest way to show the difference in depth.
+
 Select up to 3 evidence_refs only from evidence_catalog.
 
 A citation is what lets the reader check a claim without taking your word for
@@ -227,6 +240,7 @@ def generate_audit_recommendations(
     competitor_evidence: dict[str, Any],
     comparison: dict[str, Any],
     *,
+    user_snapshot: dict[str, Any] | None = None,
     firecrawl_client: FirecrawlClient | None = None,
     limit: int | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
@@ -242,6 +256,7 @@ def generate_audit_recommendations(
         competitor_evidence,
         comparison,
         evidence_catalog=evidence_catalog,
+        user_snapshot=user_snapshot,
     )
     try:
         raw_response = call_chat_completion(payload)
@@ -292,6 +307,7 @@ def build_audit_recommendations_payload(
     comparison: dict[str, Any],
     *,
     evidence_catalog: list[dict[str, Any]] | None = None,
+    user_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     catalog = (
         evidence_catalog
@@ -301,6 +317,7 @@ def build_audit_recommendations_payload(
     data = {
         "company_profile": company_profile,
         "user_website_evidence": user_evidence,
+        "user_website_pages": user_page_excerpts(user_snapshot),
         "recommendation_patterns": compact_recommendation_patterns(
             recommendation_patterns
         ),
@@ -444,6 +461,45 @@ def readable_evidence_row(row: dict[str, Any]) -> dict[str, Any]:
         for field in EVIDENCE_ROW_FIELDS_FOR_MODEL
         if row.get(field, "") != ""
     }
+
+
+USER_PAGE_EXCERPT_LENGTH = 700
+
+
+def user_page_excerpts(snapshot: dict[str, Any] | None) -> list[dict[str, str]]:
+    """The audited company's own pages, in its own words.
+
+    Competitors reached this step as pages with real text while the company
+    paying for the audit arrived as a headline and a row of true/false flags.
+    So the model could read what a rival says and only whether the customer
+    owns a page type, which is not enough to tell "they never mention this"
+    from "they mention it once on the home page". Those need opposite advice,
+    and only the second one can be quoted back to them.
+
+    A longer excerpt than a competitor gets, because this is the site the
+    advice is about.
+    """
+    pages = (snapshot or {}).get("pages")
+    if not isinstance(pages, list):
+        return []
+    rows = []
+    seen: set[str] = set()
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        key = canonical_url(page.get("url"))
+        text = concise_text(page.get("main_text"), USER_PAGE_EXCERPT_LENGTH)
+        if not key or key in seen or not text:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "url": str(page.get("url", "")),
+                "title": concise_text(page.get("title"), 100),
+                "text": text,
+            }
+        )
+    return rows
 
 
 def page_urls_for_field(value: Any) -> list[str]:

@@ -19,6 +19,7 @@ from geo_audit.audit_recommendations import (
     build_verified_evidence_catalog,
     canonical_url,
     readable_evidence_row,
+    user_page_excerpts,
     ensure_top_competitor_finding,
     resolve_recommendation_evidence,
     verify_selected_evidence_with_firecrawl,
@@ -2411,6 +2412,45 @@ class PipelineChangeTests(unittest.TestCase):
         )
         self.assertEqual(urls[0], "https://www.triya.ai/use-cases/manufacturing/")
         self.assertNotIn("https://elsewhere.test/review", urls)
+
+    def test_the_audited_site_is_described_by_what_it_says(self) -> None:
+        # Competitors arrived as pages with real text while the company paying
+        # for the audit arrived as a headline and true/false flags, so nothing
+        # separated "never mentions this" from "mentions it once".
+        rows = user_page_excerpts(
+            {
+                "pages": [
+                    {
+                        "url": "https://kenesis.ai/",
+                        "title": "Kenesis",
+                        "main_text": "On-premise AI. Video never leaves the plant.",
+                    },
+                    {"url": "http://www.kenesis.ai", "main_text": "duplicate"},
+                    {"url": "https://kenesis.ai/about", "main_text": ""},
+                ]
+            }
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertIn("never leaves the plant", rows[0]["text"])
+
+    def test_no_snapshot_means_no_pages_rather_than_a_crash(self) -> None:
+        self.assertEqual(user_page_excerpts(None), [])
+        self.assertEqual(user_page_excerpts({"pages": "nonsense"}), [])
+
+    def test_the_payload_carries_the_audited_sites_own_words(self) -> None:
+        payload = build_audit_recommendations_payload(
+            {"company_name": "Kenesis"},
+            {"domain": "kenesis.ai"},
+            {},
+            {"competitors": []},
+            {},
+            user_snapshot={
+                "pages": [
+                    {"url": "https://kenesis.ai/", "main_text": "On-premise AI"}
+                ]
+            },
+        )
+        self.assertIn("On-premise AI", payload["messages"][-1]["content"])
 
     def test_every_page_we_read_can_be_cited(self) -> None:
         # The catalog used to accept only pages a keyword list had bucketed,

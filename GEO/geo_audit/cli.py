@@ -1026,6 +1026,7 @@ def main() -> None:
             patterns,
             competitor_evidence,
             comparison,
+            user_snapshot=snapshot,
             firecrawl_client=firecrawl_client,
         )
 
@@ -1542,6 +1543,7 @@ def main() -> None:
                 patterns,
                 competitor_evidence,
                 comparison,
+                user_snapshot=snapshot,
                 # The free audit already reads the one competitor page it cites,
                 # so it skips the extra Firecrawl re-check to stay fast.
                 firecrawl_client=None if args.free_preview else firecrawl_client,
