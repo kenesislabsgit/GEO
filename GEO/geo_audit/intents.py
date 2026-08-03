@@ -42,16 +42,26 @@ generalist, because a firm winning work in mental health, car parts and
 education is being hired for a craft rather than for knowing an industry.
 Write specialist or generalist, and say in sector_focus_reason what decided it.
 
-This changes who the buyers are, so decide it before writing any of them.
-For a specialist the sector is the business, so every buyer sits inside it and
-they differ by role, size and problem.
-For a generalist the sectors its past customers came from are its history, not
-its market. Nobody goes looking for the firm that once served a college because
-they are a college. Those customers show the size of organisation, the budget
-and the way of buying that this company fits, and the next buyer is anybody at
-that level with that kind of job. Spread buyer_situations across sectors it has
-never worked in as well as ones it has, and let what they have in common be the
-level and the problem rather than the industry.
+Then fill two separate lists, because a company's history and its market are
+not the same thing.
+sectors_served: the sectors its named customers came from. This is the past.
+sectors_open_to_it: the sectors it could win work in next.
+
+For a specialist these two lists are the same, because the sector is the
+business and there is nowhere else to go.
+For a generalist they must differ. Nobody goes looking for the firm that once
+served a college because they too are a college. What those customers show is
+the size of organisation, the budget and the way of buying this company fits,
+and the next buyer is anybody at that level with that kind of job. So fill
+sectors_open_to_it with sectors it has never worked in, chosen because an
+organisation there has the same size, the same kind of problem and the same way
+of buying. A courier firm, a dental group or a small manufacturer can need the
+same booking system a clinic needed.
+
+Draw buyer_situations from sectors_open_to_it. For a generalist that means most
+of the buyers you write are in sectors this company has never served, and that
+is the point: writing one buyer per past customer turns a list of finished
+projects into a list of questions, and measures the wrong market.
 
 words_they_use holds how that buyer talks about their own problem, not how the
 company advertises. A college administrator says "student portal", not
@@ -72,7 +82,8 @@ Return only valid JSON:
   "sector_focus": "specialist|generalist",
   "sector_focus_reason": "",
   "organization_sizes": [],
-  "sectors": [],
+  "sectors_served": [],
+  "sectors_open_to_it": [],
   "geography": "",
   "decision_makers": [],
   "band_confidence": "High|Medium|Low",
@@ -324,6 +335,17 @@ def normalize_buyer_band(value: Any, situation_count: int) -> dict[str, Any]:
     if len(geography.split()) > MAX_GEOGRAPHY_WORDS:
         geography = "Unknown"
     focus = str(raw.get("sector_focus", "")).strip().lower()
+    focus = focus if focus in SECTOR_FOCUS_KINDS else "specialist"
+    served = clean_profile_list(raw.get("sectors_served"))[:6]
+    open_sectors = clean_profile_list(raw.get("sectors_open_to_it"))[:6]
+    if focus == "generalist":
+        # The whole point of the second list is that it is not the first one.
+        # Asked in prose to spread beyond its past customers, the model wrote
+        # "generalist" and then answered with the same five sectors anyway.
+        already = {value.strip().lower() for value in served}
+        open_sectors = [
+            value for value in open_sectors if value.strip().lower() not in already
+        ]
     return {
         "band_summary": concise_profile_value(raw.get("band_summary"), ""),
         "buyer_words_for_provider": buyer_words_for_provider(
@@ -331,12 +353,16 @@ def normalize_buyer_band(value: Any, situation_count: int) -> dict[str, Any]:
         ),
         # Unknown falls to specialist, which keeps questions inside the sectors
         # the site can actually show. Guessing generalist would invent a market.
-        "sector_focus": focus if focus in SECTOR_FOCUS_KINDS else "specialist",
+        "sector_focus": focus,
         "sector_focus_reason": concise_profile_value(
             raw.get("sector_focus_reason"), ""
         ),
         "organization_sizes": clean_profile_list(raw.get("organization_sizes"))[:5],
-        "sectors": clean_profile_list(raw.get("sectors"))[:6],
+        "sectors_served": served,
+        # A generalist that answered with its own history again gets nothing
+        # here rather than a copy of it. An empty list says "any sector at this
+        # level", which is the truth; repeating the past pretends otherwise.
+        "sectors_open_to_it": open_sectors if open_sectors else served,
         "geography": geography,
         "decision_makers": clean_profile_list(raw.get("decision_makers"))[:5],
         "band_confidence": (

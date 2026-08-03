@@ -89,7 +89,8 @@ BAND_RESPONSE = json.dumps(
     {
         "band_summary": "Operations leaders at mid-sized plants",
         "organization_sizes": ["50-500 staff"],
-        "sectors": ["Manufacturing"],
+        "sectors_served": ["Manufacturing"],
+        "sectors_open_to_it": ["Manufacturing"],
         "geography": "India",
         "decision_makers": ["Plant safety head"],
         "band_confidence": "Medium",
@@ -901,7 +902,7 @@ class PipelineChangeTests(unittest.TestCase):
             {
                 "band_summary": "Small firms and colleges in Tamil Nadu",
                 "organization_sizes": ["10-50 staff", "500-2000 students"],
-                "sectors": ["Education", "Manufacturing"],
+                "sectors_served": ["Education", "Manufacturing"],
                 "geography": "India",
                 "band_confidence": "medium",
                 "buyer_situations": [
@@ -952,6 +953,45 @@ class PipelineChangeTests(unittest.TestCase):
         ):
             band = normalize_buyer_band({"buyer_words_for_provider": phrase}, 6)
             self.assertEqual(band["buyer_words_for_provider"], phrase)
+
+    def test_a_generalist_may_not_call_its_own_history_its_market(self) -> None:
+        # Told in prose to look past its finished projects, the model wrote
+        # "generalist" and answered with the same five sectors anyway, so five
+        # customers became five questions and measured the wrong market.
+        band = normalize_buyer_band(
+            {
+                "sector_focus": "generalist",
+                "sectors_served": ["Education", "Media"],
+                "sectors_open_to_it": ["Education", "Logistics", "Dental"],
+            },
+            6,
+        )
+        self.assertEqual(band["sectors_served"], ["Education", "Media"])
+        self.assertEqual(band["sectors_open_to_it"], ["Logistics", "Dental"])
+
+    def test_a_specialist_keeps_its_sector_as_its_market(self) -> None:
+        band = normalize_buyer_band(
+            {
+                "sector_focus": "specialist",
+                "sectors_served": ["Manufacturing"],
+                "sectors_open_to_it": ["Manufacturing"],
+            },
+            6,
+        )
+        self.assertEqual(band["sectors_open_to_it"], ["Manufacturing"])
+
+    def test_a_generalist_echoing_its_history_is_left_with_no_market(self) -> None:
+        # Falling back to the served list would restore exactly the behaviour
+        # this split exists to stop, so it keeps whatever survived instead.
+        band = normalize_buyer_band(
+            {
+                "sector_focus": "generalist",
+                "sectors_served": ["Education"],
+                "sectors_open_to_it": ["Education"],
+            },
+            6,
+        )
+        self.assertEqual(band["sectors_open_to_it"], ["Education"])
 
     def test_sector_focus_falls_back_to_specialist(self) -> None:
         # Guessing generalist would invent a market the site cannot show.
