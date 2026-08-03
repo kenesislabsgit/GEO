@@ -446,6 +446,20 @@ def readable_evidence_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def page_urls_for_field(value: Any) -> list[str]:
+    """Every URL an evidence field points at, however it recorded them."""
+    if not isinstance(value, dict) or not value.get("found"):
+        return []
+    matches = value.get("matches")
+    if isinstance(matches, list):
+        return [
+            str(item.get("url", ""))
+            for item in matches
+            if isinstance(item, dict) and item.get("url")
+        ]
+    return [str(url) for url in value.get("urls", []) or []]
+
+
 def build_verified_evidence_catalog(
     competitor_evidence: dict[str, Any],
 ) -> list[dict[str, Any]]:
@@ -523,29 +537,29 @@ def build_verified_evidence_catalog(
                     ),
                 )
 
-        for field, evidence_type, label in field_map:
-            value = website.get(field, {})
-            if not isinstance(value, dict) or not value.get("found"):
+        # Every page we actually read, not the ones a keyword list approved.
+        # Triya was recommended fourteen times and reached the model with one
+        # citable page, its home page, because the rest of its site had not
+        # landed in a bucket named after a word in its address. The pages were
+        # fetched and sitting right here. Which one proves a point is a
+        # judgement, and the model makes it better than the address does.
+        typed_urls = {
+            canonical_url(url): evidence_type
+            for field, evidence_type, _label in field_map
+            for url in page_urls_for_field(website.get(field))
+        }
+        for key, page in snapshot_pages.items():
+            if key == canonical_url(homepage_url):
                 continue
-            candidates = value.get("matches") or [
-                {"url": url, "text": ""}
-                for url in value.get("urls", [])
-            ]
-            for candidate in candidates[:2]:
-                fetched_page = snapshot_pages.get(
-                    canonical_url(candidate.get("url"))
-                )
-                if not fetched_page:
-                    continue
-                add(
-                    company_name,
-                    evidence_type,
-                    label,
-                    candidate.get("url"),
-                    title=fetched_page.get("title") or candidate.get("text"),
-                    excerpt=page_excerpt(fetched_page),
-                    provenance=page_provenance(fetched_page),
-                )
+            add(
+                company_name,
+                typed_urls.get(key, "site_page"),
+                "Page on the competitor's website",
+                page.get("url"),
+                title=page.get("title"),
+                excerpt=page_excerpt(page),
+                provenance=page_provenance(page),
+            )
 
         for mention in competitor.get("verified_web_mentions", [])[:3]:
             if (
@@ -875,7 +889,19 @@ def valid_http_url(value: Any) -> str | None:
 
 
 def canonical_url(value: Any) -> str:
-    return str(value or "").strip().rstrip("/").lower()
+    """One key per page, whatever address it was reached by.
+
+    http://, https:// and the www variant of one page are one page. Keeping
+    the scheme meant a competitor's home page filled three citation slots and
+    the model could pick whichever it liked, each looking like a separate
+    source.
+    """
+    text = str(value or "").strip().rstrip("/").lower()
+    for prefix in ("https://", "http://"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+            break
+    return text.removeprefix("www.")
 
 
 def page_provenance(page: dict[str, Any] | None) -> str:

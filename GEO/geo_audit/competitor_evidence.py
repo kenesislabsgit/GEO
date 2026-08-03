@@ -119,6 +119,7 @@ def build_competitor_evidence(
                     snapshot,
                     initial_evidence,
                     max_pages=max(0, min(firecrawl_page_limit, max_pages)),
+                    cited_urls=cited_urls,
                 )
                 item["firecrawl_enhancement"] = enhancement
 
@@ -212,6 +213,7 @@ def enhance_competitor_snapshot(
     evidence: dict[str, Any],
     *,
     max_pages: int,
+    cited_urls: list[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     result: dict[str, Any] = {
         "attempted": True,
@@ -253,6 +255,7 @@ def enhance_competitor_snapshot(
         missing_fields,
         existing,
         weak_snapshot=not snapshot.get("pages"),
+        cited_urls=cited_urls,
     )
     if not candidates and not snapshot.get("pages"):
         candidates = [site_url]
@@ -284,11 +287,25 @@ def priority_firecrawl_urls(
     existing: set[str],
     *,
     weak_snapshot: bool,
+    cited_urls: list[str] | None = None,
 ) -> list[str]:
+    """Which of a competitor's pages to read, best first.
+
+    The pages the AI itself cited when recommending them come first. Those are
+    its own answer to "why this company", so no keyword list we invent will
+    beat them. Triya was recommended fourteen times off
+    /solutions/on-premise-video-analytics and /use-cases/manufacturing, and we
+    read neither, spending the budget on licence plate recognition instead.
+    """
     candidates: list[tuple[int, str]] = []
     root_domain = urlparse(site_url).netloc.lower().removeprefix("www.")
     if weak_snapshot:
         candidates.append((0, site_url))
+    for url in cited_urls or []:
+        url = str(url).strip()
+        domain = urlparse(url).netloc.lower().removeprefix("www.")
+        if url and domain == root_domain and canonical_url(url) not in existing:
+            candidates.append((1, url))
     for row in mapped:
         url = str(row.get("url", "")).strip()
         domain = urlparse(url).netloc.lower().removeprefix("www.")

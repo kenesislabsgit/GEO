@@ -17,6 +17,7 @@ from geo_audit.audit_recommendations import (
     build_audit_recommendations_payload,
     build_free_preview_recommendations,
     build_verified_evidence_catalog,
+    canonical_url,
     readable_evidence_row,
     ensure_top_competitor_finding,
     resolve_recommendation_evidence,
@@ -62,6 +63,7 @@ from geo_audit.profile import (
     normalize_named_customers,
     profile_text_budget,
 )
+from geo_audit.competitor_evidence import priority_firecrawl_urls
 from geo_audit.quality import build_quality_summary
 from geo_audit.site_facts import detect_site_facts
 from geo_audit.recommendations import (
@@ -2387,6 +2389,66 @@ class PipelineChangeTests(unittest.TestCase):
         rejected = resolved[0]["evidence_validation"]["rejected_refs"]
         self.assertEqual(
             {item["reason"] for item in rejected}, {"unknown_evidence_id"}
+        )
+
+    def test_pages_the_ai_cited_are_read_before_anything_else(self) -> None:
+        # Its own answer to "why this company" beats any keyword list we
+        # invent. Triya was recommended fourteen times off two pages we never
+        # read, while the budget went on licence plate recognition.
+        urls = priority_firecrawl_urls(
+            "https://www.triya.ai/",
+            [
+                {"url": "https://www.triya.ai/solutions/anpr", "title": "ANPR"},
+                {"url": "https://www.triya.ai/pricing", "title": "Pricing"},
+            ],
+            ["pricing_page_found"],
+            set(),
+            weak_snapshot=False,
+            cited_urls=[
+                "https://www.triya.ai/use-cases/manufacturing/",
+                "https://elsewhere.test/review",
+            ],
+        )
+        self.assertEqual(urls[0], "https://www.triya.ai/use-cases/manufacturing/")
+        self.assertNotIn("https://elsewhere.test/review", urls)
+
+    def test_every_page_we_read_can_be_cited(self) -> None:
+        # The catalog used to accept only pages a keyword list had bucketed,
+        # so the top competitor reached the model with its home page alone.
+        catalog = build_verified_evidence_catalog(
+            {
+                "competitors": [
+                    {
+                        "company_name": "Triya",
+                        "website_evidence": {"homepage_url": "https://triya.test"},
+                        "website_snapshot": {
+                            "pages": [
+                                {
+                                    "url": "https://triya.test",
+                                    "title": "Home",
+                                    "main_text": "Turn any CCTV into analytics",
+                                },
+                                {
+                                    "url": "https://triya.test/ai-video-search",
+                                    "title": "Search",
+                                    "main_text": "Search your CCTV in plain English",
+                                },
+                            ]
+                        },
+                    }
+                ]
+            }
+        )
+        self.assertIn(
+            "https://triya.test/ai-video-search",
+            [row["url"] for row in catalog],
+        )
+
+    def test_one_page_reached_by_three_addresses_is_one_citation(self) -> None:
+        # http, https and www of a home page filled three citation slots.
+        self.assertEqual(
+            canonical_url("http://www.atomvision.ai/"),
+            canonical_url("https://atomvision.ai"),
         )
 
     def test_the_model_never_sees_our_guess_about_a_page(self) -> None:

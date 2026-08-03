@@ -170,6 +170,14 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
                 dns_failed_hosts.add(current_host)
             continue
 
+        # seen holds what we asked for, and a redirect means several requests
+        # land on one page. http://, https:// and http://www. of the same site
+        # all end at the home page, and storing each spent three of a
+        # competitor's six page slots on the same text.
+        if final_url in seen and final_url != current_url:
+            continue
+        seen.add(final_url)
+
         parsed_page = parse_page(final_url, html, status_code)
         pages.append(parsed_page)
         allowed_domains.add(urlparse(final_url).netloc.lower())
