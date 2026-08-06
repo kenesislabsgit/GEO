@@ -10,9 +10,17 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
+from json import JSONDecodeError
+
 from .agentcore_search import AGENTCORE_REGION, AgentCoreWebSearchClient
 from .crawler import fetch_html, parse_page
-from .llm import load_dotenv
+from .json_tools import extract_json_object
+from .llm import (
+    LLMNotConfigured,
+    build_chat_payload,
+    call_chat_completion,
+    load_dotenv,
+)
 from .site_discovery import discover_competitor_site
 from .source_analysis import classify_source_url, domain_from_url
 from .web_search import DDGSSearchClient, FallbackWebSearchClient
@@ -118,11 +126,26 @@ def collect_web_presence(
             "summary": empty_summary(len(entities)),
         }
 
-    search_tasks = []
-    for entity in entities:
-        queries = build_bounded_search_queries(
+    # The templates run whatever happens. The written searches are added on
+    # top, so a failed or unusable model response costs the extra reach and
+    # nothing else.
+    template_queries = {
+        str(entity["company_name"]): build_bounded_search_queries(
             entity, company_profile, prompts, raw_results
         )
+        for entity in entities
+    }
+    written_queries, query_diagnostics = generate_presence_queries(
+        company_profile, entities, template_queries
+    )
+
+    search_tasks = []
+    for entity in entities:
+        name = str(entity["company_name"])
+        queries = [
+            *template_queries.get(name, []),
+            *written_queries.get(name, []),
+        ]
         entity["search_queries"] = queries
         for query in queries:
             search_tasks.append((entity["company_name"], query))
@@ -256,6 +279,13 @@ def collect_web_presence(
             }
         )
 
+    entity_rows, gate_diagnostics = gate_entity_mentions(
+        entity_rows, company_profile
+    )
+
+    verified_rows = [
+        row for entity in entity_rows for row in entity["verified_mentions"]
+    ]
     unique_mentions = {
         (row.get("company_name"), row.get("url"))
         for row in verified_rows
@@ -288,6 +318,10 @@ def collect_web_presence(
             "official_websites_resolved": sum(
                 1 for entity in entity_rows if entity.get("official_website")
             ),
+            # Kept so a thin result can be read as "the searches were poor"
+            # rather than "this company has no presence".
+            "written_queries": query_diagnostics,
+            "same_company_gate": gate_diagnostics,
         },
     }
 
@@ -335,6 +369,196 @@ def build_presence_entities(
         if len(entities) >= max_competitors + (1 if user_company else 0):
             break
     return entities
+
+
+PRESENCE_QUERY_SYSTEM_PROMPT = """What this task is for.
+
+An AI assistant answers questions about a company from what has been published
+about it on the open web. A company written about in reviews, comparisons,
+directories and industry press is a company an assistant has something to say
+about. A company that appears nowhere but its own website is one an assistant
+cannot describe, and so does not recommend.
+
+Your searches are how we measure that. We need to find the pages written about
+each company by somebody other than the company itself. The count and the kind
+of pages we find is the measurement, so a search that finds nothing real is a
+company scored as invisible when it may not be.
+
+What a good search finds:
+- reviews and ratings on software or hardware directories
+- "X vs Y" and "alternatives to X" comparison articles
+- industry press, trade publications, funding and acquisition news
+- forum and community threads where buyers discuss it
+- conference talks, award listings, analyst mentions, video coverage
+
+What a good search does not do: look for the company's own website. We already
+have that, and a company describing itself is not evidence anybody noticed.
+
+Write exactly 3 searches for every company you are given. Not fewer.
+
+- Every search must contain the company name, or a result cannot be checked.
+- Every search must carry a word that pins down which company this is. Names
+  collide: "Vintra" alone returns an investment firm and a chatbot vendor, and
+  both would be counted as this company being mentioned.
+- Aim where this particular industry gets covered. A factory safety camera
+  vendor is written about in different places than a payroll product.
+- Site filters are allowed and often the sharpest tool: site:reddit.com,
+  site:g2.com, site:youtube.com, site:news.ycombinator.com.
+- Under ten words each. These go to a search engine, not to a person.
+- Do not repeat anything in existing_queries.
+
+Return only the required JSON object.
+"""
+
+PRESENCE_QUERY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "queries": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 3,
+        }
+    },
+    "required": ["queries"],
+}
+
+MAX_MODEL_QUERIES_PER_COMPANY = 3
+MAX_QUERY_WORDS = 10
+# One call per company, all at once. Six small calls finish in about the time
+# one call for six took, and none of them can leave a company out.
+PRESENCE_QUERY_CONCURRENCY = 6
+
+
+def generate_presence_queries(
+    company_profile: dict[str, Any],
+    entities: list[dict[str, Any]],
+    existing_queries: dict[str, list[dict[str, str]]],
+) -> tuple[dict[str, list[dict[str, str]]], dict[str, Any]]:
+    """Searches written for these companies rather than filled into a template.
+
+    The three templates look for the official website and Reddit. That finds
+    where a company talks about itself, which is close to the opposite of what
+    this step measures: whether anybody else does. On a live audit the audited
+    company scored one verified mention — its own About page — while rivals
+    with Wikipedia entries and press coverage scored five.
+
+    One call covers every company. Whatever comes back is checked here, and the
+    template queries run regardless, so a bad or missing response can only lose
+    the extra searches, never the baseline.
+    """
+    accepted: dict[str, list[dict[str, str]]] = {}
+    rejected: list[dict[str, str]] = []
+    errors: list[dict[str, str]] = []
+
+    workers = max(1, min(len(entities) or 1, PRESENCE_QUERY_CONCURRENCY))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(
+                presence_queries_for_company,
+                company_profile,
+                entity,
+                existing_queries.get(str(entity.get("company_name")), []),
+            ): str(entity.get("company_name"))
+            for entity in entities
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                queries, problems = future.result()
+            except Exception as exc:  # noqa: BLE001 - keep the audit running.
+                errors.append({"company_name": name, "error": str(exc)})
+                continue
+            rejected.extend(problems)
+            if queries:
+                accepted[name] = queries
+
+    diagnostics = {
+        "requested": len(entities),
+        "companies_answered": len(accepted),
+        "accepted": sum(len(rows) for rows in accepted.values()),
+        "rejected": rejected,
+        "errors": errors,
+    }
+    return accepted, diagnostics
+
+
+def presence_queries_for_company(
+    company_profile: dict[str, Any],
+    entity: dict[str, Any],
+    existing: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Searches for one company, in a call that knows about no other.
+
+    Asking for all six at once produced three companies on one run and one on
+    another, from identical input. Telling it to cover every company did not
+    stick — the same failure this codebase has hit before with instructions
+    that describe the shape of an answer. A call that has been given a single
+    company cannot skip a company.
+    """
+    name = str(entity.get("company_name", "")).strip()
+    request = {
+        "company_name": name,
+        "industry": company_profile.get("category"),
+        "is_the_audited_company": entity.get("entity_type") == "user_company",
+        "what_this_industry_does": company_profile.get(
+            "unique_value_proposition"
+        ),
+        "existing_queries": [query["query"] for query in existing],
+    }
+    payload = build_chat_payload(
+        PRESENCE_QUERY_SYSTEM_PROMPT,
+        json.dumps(request, ensure_ascii=False),
+        json_response=True,
+    )
+    payload["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "presence_queries",
+            "strict": True,
+            "schema": PRESENCE_QUERY_SCHEMA,
+        },
+    }
+    try:
+        response = extract_json_object(call_chat_completion(payload))
+    except (LLMNotConfigured, RuntimeError, ValueError, JSONDecodeError) as exc:
+        return [], [{"company_name": name, "reason": f"call_failed: {exc}"}]
+
+    seen = {query["query"].lower() for query in existing}
+    queries: list[dict[str, str]] = []
+    problems: list[dict[str, str]] = []
+    for text in response.get("queries", []):
+        query = " ".join(str(text or "").split())
+        reason = presence_query_problem(query, name, seen)
+        if reason:
+            problems.append(
+                {"company_name": name, "query": query, "reason": reason}
+            )
+            continue
+        seen.add(query.lower())
+        queries.append({"query_type": "presence", "query": query})
+    return queries[:MAX_MODEL_QUERIES_PER_COMPANY], problems
+
+
+def presence_query_problem(
+    query: str,
+    company_name: str,
+    seen: set[str],
+) -> str | None:
+    """Why a written search cannot be used, or None when it can."""
+    if not query:
+        return "empty"
+    if query.lower() in seen:
+        return "duplicate"
+    if len(query.split()) > MAX_QUERY_WORDS:
+        return "too_long"
+    # Without the company name there is nothing to check a result against, and
+    # this step's whole verification is "does the page name this company".
+    if not any(
+        contains_phrase(query, alias) for alias in company_aliases(company_name)
+    ):
+        return "missing_company_name"
+    return None
 
 
 def build_search_queries(
@@ -409,6 +633,207 @@ def select_fetch_candidates(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         counts[group] = counts.get(group, 0) + 1
         selected.append(row)
     return selected
+
+
+SAME_COMPANY_SYSTEM_PROMPT = """You decide whether a web page is about a
+particular company, or about a different company that happens to share its
+name.
+
+We are counting how often a company is written about on the web. A page that
+carries the name but belongs to somebody else inflates that count, and the
+company is then told it has a web presence it does not have.
+
+You are given a company, what its industry is, and a list of pages: address,
+title and an extract. For each page, say whether it is about this company.
+
+- Same name, different business is the thing to catch. An investment firm and
+  a video analytics vendor can both be called Vintra.
+- A page can be about the company without being flattering or detailed. A
+  forum thread asking "has anyone used them" counts.
+- A page that only lists the name among many others still counts, as long as
+  it is this company being listed.
+- When the page gives you nothing to tell the two apart, answer false. An
+  uncounted real mention is a smaller error than a counted false one.
+
+Return only the required JSON object.
+"""
+
+SAME_COMPANY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "pages": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "url": {"type": "string"},
+                    "is_this_company": {"type": "boolean"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["url", "is_this_company", "reason"],
+            },
+        }
+    },
+    "required": ["pages"],
+}
+
+# Two industry words on a page is enough to settle it without asking a model.
+CLEAR_CONTEXT_MATCHES = 2
+GATE_EXTRACT_LENGTH = 300
+
+
+def gate_entity_mentions(
+    entity_rows: list[dict[str, Any]],
+    company_profile: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Keep only the pages that are about the company they were found for.
+
+    Until now the single test was whether the name appeared on the page, which
+    is how an investment firm at vintracapital.com and a chatbot vendor at
+    vintranordic.com were both counted as mentions of Vintra, a video
+    analytics company. Under a measurement of how widely a company is written
+    about, a wrong page does not merely add noise — it moves the number being
+    reported.
+
+    Cheap signals settle most pages: their own domain, or the industry showing
+    up in the text. Only what is left over is worth asking a model about.
+    """
+    decided: dict[str, tuple[bool, str]] = {}
+    ambiguous: list[dict[str, Any]] = []
+
+    for entity in entity_rows:
+        for row in entity.get("verified_mentions", []):
+            key = f"{entity['company_name']}|{row.get('url')}"
+            # Matching the resolved official domain is deliberately not a free
+            # pass. That domain is itself a guess made from name similarity,
+            # and on a live run it resolved Vintra, a video analytics company,
+            # to vintracapital.com. Trusting it here would have waved the
+            # investment firm straight through on the strongest signal we have.
+            if len(row.get("matched_context_terms", [])) >= CLEAR_CONTEXT_MATCHES:
+                decided[key] = (True, "industry_context_on_page")
+            else:
+                ambiguous.append({"entity": entity, "row": row, "key": key})
+
+    model_calls = 0
+    if ambiguous:
+        by_company: dict[str, list[dict[str, Any]]] = {}
+        for item in ambiguous:
+            by_company.setdefault(str(item["entity"]["company_name"]), []).append(item)
+        workers = max(1, min(len(by_company), PRESENCE_QUERY_CONCURRENCY))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(
+                    confirm_same_company,
+                    name,
+                    company_profile,
+                    [item["row"] for item in items],
+                ): items
+                for name, items in by_company.items()
+            }
+            model_calls = len(futures)
+            for future in as_completed(futures):
+                items = futures[future]
+                try:
+                    verdicts = future.result()
+                except Exception:  # noqa: BLE001 - a failed check is not fatal.
+                    verdicts = {}
+                for item in items:
+                    url = str(item["row"].get("url"))
+                    if url in verdicts:
+                        keep, reason = verdicts[url]
+                        decided[item["key"]] = (keep, f"model:{reason}")
+                    else:
+                        # Nothing came back for this page. Keeping it would put
+                        # an unchecked page into a count that is meant to be
+                        # checked, so it is held back and said so.
+                        decided[item["key"]] = (False, "unchecked")
+
+    kept_rows = []
+    dropped_rows = []
+    for entity in entity_rows:
+        kept = []
+        dropped = []
+        for row in entity.get("verified_mentions", []):
+            key = f"{entity['company_name']}|{row.get('url')}"
+            keep, reason = decided.get(key, (False, "unchecked"))
+            if keep:
+                kept.append({**row, "accepted_because": reason})
+            else:
+                dropped.append(
+                    {
+                        "company_name": entity["company_name"],
+                        "url": row.get("url"),
+                        "domain": row.get("domain"),
+                        "title": row.get("title"),
+                        "reason": reason,
+                    }
+                )
+        entity["verified_mentions"] = kept
+        # Kept beside the entity so "no mentions found" can be told apart from
+        # "mentions found and thrown away".
+        entity["rejected_mentions"] = dropped
+        kept_rows.extend(kept)
+        dropped_rows.extend(dropped)
+
+    return entity_rows, {
+        "checked": len(kept_rows) + len(dropped_rows),
+        "kept": len(kept_rows),
+        "dropped": len(dropped_rows),
+        "settled_without_a_model": len(kept_rows) + len(dropped_rows) - len(ambiguous),
+        "model_calls": model_calls,
+        "dropped_pages": dropped_rows[:25],
+    }
+
+
+def confirm_same_company(
+    company_name: str,
+    company_profile: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> dict[str, tuple[bool, str]]:
+    """One call per company, covering every unclear page found for it."""
+    pages = [
+        {
+            "url": row.get("url"),
+            "title": row.get("title"),
+            "extract": str(row.get("snippet") or "")[:GATE_EXTRACT_LENGTH],
+        }
+        for row in rows
+    ]
+    request = {
+        "company_name": company_name,
+        "industry": company_profile.get("category"),
+        "what_this_industry_does": company_profile.get(
+            "unique_value_proposition"
+        ),
+        "pages": pages,
+    }
+    payload = build_chat_payload(
+        SAME_COMPANY_SYSTEM_PROMPT,
+        json.dumps(request, ensure_ascii=False),
+        json_response=True,
+    )
+    payload["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "same_company",
+            "strict": True,
+            "schema": SAME_COMPANY_SCHEMA,
+        },
+    }
+    response = extract_json_object(call_chat_completion(payload))
+    verdicts: dict[str, tuple[bool, str]] = {}
+    for item in response.get("pages", []):
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url", "")).strip()
+        if url:
+            verdicts[url] = (
+                bool(item.get("is_this_company")),
+                str(item.get("reason", ""))[:200],
+            )
+    return verdicts
 
 
 def verify_search_result(
