@@ -26,9 +26,11 @@ def build_competitor_evidence(
     crawl_limit: int | None = None,
     firecrawl_client: FirecrawlClient | None = None,
 ) -> dict[str, Any]:
-    """crawl_limit caps how many of the recurring competitors get their website
-    read. The free audit reads only the most-recommended one; the rest are still
-    listed from the AI answers and their citations."""
+    """crawl_limit caps how many competitors get their website read. The free
+    audit reads one; the rest are still listed from the AI answers and their
+    citations. Which one it reads comes from `patterns["investigation_priority"]`
+    — the company that placed best in the questions the audited company was
+    missing from — not from whoever is named most often overall."""
     competitor_sites = competitor_sites or {}
     web_presence = web_presence or {}
     evidence_items = []
@@ -38,6 +40,22 @@ def build_competitor_evidence(
     )
     firecrawl_page_limit = environment_int(
         "FIRECRAWL_MAX_PAGES_PER_COMPETITOR", 4
+    )
+
+    # Which websites are worth the crawl budget. `top_competitors` is ordered
+    # by how often a name appears, which answers "who does AI recommend" and
+    # not "who beat us". `investigation_priority` scores placement inside the
+    # questions the audited company was missing from, so the one site a free
+    # audit reads is the one that can actually explain a loss.
+    investigation_order = [
+        normalize_investigation_name(entry.get("company_name"))
+        for entry in patterns.get("investigation_priority", [])
+        if entry.get("company_name")
+    ]
+    crawl_names = (
+        set(investigation_order[:crawl_limit])
+        if crawl_limit is not None and investigation_order
+        else None
     )
 
     def collect_one(
@@ -102,7 +120,10 @@ def build_competitor_evidence(
             },
         }
 
-        may_crawl = crawl_limit is None or competitor_index < crawl_limit
+        if crawl_names is not None:
+            may_crawl = normalize_investigation_name(name) in crawl_names
+        else:
+            may_crawl = crawl_limit is None or competitor_index < crawl_limit
         if site_url and max_pages > 0 and may_crawl:
             snapshot = empty_snapshot(site_url)
             try:
@@ -152,6 +173,26 @@ def build_competitor_evidence(
     # lock, so a competitor that arrives after it is spent fails its scrapes
     # and keeps whatever the plain crawler found, exactly as before.
     competitors = list(patterns.get("top_competitors", []))
+    # A company that won a question the audited company lost may still sit
+    # outside the top five by mention count, and then never reach this loop at
+    # all. Pull in the ones we intend to crawl so the budget can be spent on
+    # them; the rest of the list is unchanged.
+    if crawl_names:
+        listed = {
+            normalize_investigation_name(item.get("company_name"))
+            for item in competitors
+        }
+        by_name = {
+            normalize_investigation_name(item.get("company_name")): item
+            for item in patterns.get("competitors", [])
+        }
+        for key in investigation_order[:crawl_limit]:
+            if key in listed:
+                continue
+            extra = by_name.get(key)
+            if extra:
+                competitors.append(extra)
+                listed.add(key)
     if competitors:
         with ThreadPoolExecutor(
             max_workers=max(1, min(COMPETITOR_CONCURRENCY, len(competitors)))
@@ -482,3 +523,14 @@ def find_web_presence(
             return entity
     return {}
 
+
+
+def normalize_investigation_name(value: Any) -> str:
+    """Match company names between the priority list and the competitor rows.
+
+    Both come from the same aggregation output, so a plain case and whitespace
+    fold is enough — and is all that is wanted here. Anything looser would
+    match "Axis" to "Axis Communications", which is the substring trap this
+    codebase has already paid for three times.
+    """
+    return " ".join(str(value or "").lower().split())

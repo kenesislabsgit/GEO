@@ -58,6 +58,19 @@ def aggregate_recommendations(
                         item.get("company_name", "Unknown")
                         for item in prompt_recommendations[:5]
                     ],
+                    # Who took this question and, in the assistant's own words,
+                    # what it liked about them. The reason is already in the
+                    # answer, so nothing has to be asked again to explain a
+                    # loss — and the report can stop saying only that a
+                    # question was lost without saying why.
+                    "winners": [
+                        {
+                            "company_name": item.get("company_name", "Unknown"),
+                            "rank": item.get("rank"),
+                            "reason": str(item.get("reasoning", "")).strip(),
+                        }
+                        for item in prompt_recommendations[:3]
+                    ],
                 }
             )
 
@@ -180,12 +193,145 @@ def aggregate_recommendations(
         },
         "competitors": competitor_stats,
         "top_competitors": competitor_stats[:top_n],
+        "investigation_priority": rank_for_investigation(
+            user_prompt_losses,
+            user_prompt_wins,
+            raw_results,
+            user_keys,
+        ),
         "source_analysis": build_global_source_analysis(competitor_stats),
         "top_sources": sorted(
             [{"url": url, "count": count} for url, count in source_counts.items()],
             key=lambda item: -item["count"],
         )[:25],
     }
+
+
+# A first place is worth far more than a fifth. Being named last in an answer
+# says the assistant reached for a name, not that the company won the question.
+PLACEMENT_POINTS = {1: 100, 2: 80, 3: 60, 4: 40, 5: 20}
+PLACEMENT_POINTS_BEYOND_FIFTH = 10
+
+
+def placement_points(rank: Any) -> int:
+    try:
+        position = int(rank)
+    except (TypeError, ValueError):
+        return PLACEMENT_POINTS_BEYOND_FIFTH
+    return PLACEMENT_POINTS.get(position, PLACEMENT_POINTS_BEYOND_FIFTH)
+
+
+def rank_for_investigation(
+    user_prompt_losses: list[dict[str, Any]],
+    user_prompt_wins: list[dict[str, Any]],
+    raw_results: list[dict[str, Any]],
+    user_keys: set[str],
+) -> list[dict[str, Any]]:
+    """Whose website is worth reading to explain why this company lost.
+
+    `top_competitors` answers a different question — who does the assistant
+    recommend at all — and is ordered by how often a name appears. Ordering the
+    investigation the same way picks the wrong company. On a live audit of
+    kenesis.ai, AtomVision led that list with three mentions, but two of them
+    were in questions Kenesis had already won and the third put it fifth. Triya
+    was named twice and came **first** both times, in questions Kenesis was
+    absent from. The audit read AtomVision's website and cited it under a
+    finding about a question AtomVision also lost.
+
+    So score placement, and only inside the questions the audited company was
+    missing from. Where it was never missing, fall back to the questions where
+    somebody was placed above it, which is the nearest thing to a loss.
+    """
+    lost_prompts = {str(loss.get("prompt", "")) for loss in user_prompt_losses}
+    # Lost questions are the whole point, so when there are any, nothing else
+    # counts. A company can place above the audited company in a question the
+    # audited company still appeared in — that is a weaker signal, and letting
+    # it in was enough to pull AtomVision back above Triya on the run above.
+    # It is only used when the audited company was never missing.
+    outranked = {} if lost_prompts else user_rank_by_prompt(user_prompt_wins)
+    scores: dict[str, dict[str, Any]] = {}
+
+    for result in raw_results:
+        prompt = str(result.get("prompt", ""))
+        was_lost = prompt in lost_prompts
+        # Only a company placed above the audited company tells us anything
+        # here; the ones it already beat do not explain a loss.
+        beat_position = outranked.get(prompt)
+        if not was_lost and beat_position is None:
+            continue
+
+        for recommendation in result.get("recommended_companies", []):
+            name = recommendation.get("company_name", "")
+            key = normalize_company_name(name)
+            if not key or is_user_company(name, user_keys):
+                continue
+            rank = recommendation.get("rank")
+            if not was_lost:
+                try:
+                    if int(rank) >= int(beat_position):
+                        continue
+                except (TypeError, ValueError):
+                    continue
+
+            entry = scores.setdefault(
+                key,
+                {
+                    "company_name": name,
+                    "priority_score": 0,
+                    "best_rank": None,
+                    "questions": [],
+                    "basis": "lost_questions" if was_lost else "outranked_questions",
+                },
+            )
+            entry["priority_score"] += placement_points(rank)
+            entry["questions"].append(
+                {
+                    "prompt": prompt,
+                    "rank": rank,
+                    "user_was_recommended": not was_lost,
+                    "reason": str(recommendation.get("reasoning", "")).strip(),
+                }
+            )
+            if was_lost:
+                entry["basis"] = "lost_questions"
+            try:
+                position = int(rank)
+            except (TypeError, ValueError):
+                position = None
+            if position is not None and (
+                entry["best_rank"] is None or position < entry["best_rank"]
+            ):
+                entry["best_rank"] = position
+
+    ranked = list(scores.values())
+    for entry in ranked:
+        entry["question_count"] = len(entry["questions"])
+        entry["questions"] = entry["questions"][:5]
+    ranked.sort(
+        key=lambda entry: (
+            -entry["priority_score"],
+            entry["best_rank"] if entry["best_rank"] is not None else 999,
+            -entry["question_count"],
+            entry["company_name"].lower(),
+        )
+    )
+    return ranked
+
+
+def user_rank_by_prompt(
+    user_prompt_wins: list[dict[str, Any]],
+) -> dict[str, int]:
+    """Where the audited company placed, for questions it did appear in."""
+    positions: dict[str, int] = {}
+    for win in user_prompt_wins:
+        try:
+            rank = int(win.get("rank"))
+        except (TypeError, ValueError):
+            continue
+        prompt = str(win.get("prompt", ""))
+        if prompt and (prompt not in positions or rank < positions[prompt]):
+            positions[prompt] = rank
+    return positions
 
 
 def normalize_company_name(value: str) -> str:
