@@ -108,10 +108,12 @@ export function AddBrandScanForm({
   return (
     <div className="rb-panel p-6">
       <h2 className="text-lg font-semibold">Audit a website</h2>
+      {/* Pro moved from five questions to twenty; this line kept promising
+          five to the people paying for the deeper run. */}
       <p className="mt-1 text-sm text-muted-foreground">
         {isPaid
-          ? `Five buyer questions will be checked across ${providers.length} AI providers.`
-          : "The free audit checks five buyer questions with one AI provider."}
+          ? `${PRO_AUDIT_QUESTION_COUNT} buyer questions will be checked across ${providers.length} AI ${providers.length === 1 ? "provider" : "providers"}.`
+          : `The free audit checks ${FREE_AUDIT_QUESTION_COUNT} buyer questions with one AI provider.`}
       </p>
       <form
         className="mt-5"
@@ -131,7 +133,7 @@ export function AddBrandScanForm({
           </Button>
         </div>
       </form>
-      {loading ? <AuditProgress progress={progress} message={message} questionCount={5} providerCount={providers.length} /> : null}
+      {loading ? <AuditProgress progress={progress} message={message} questionCount={isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT} providerCount={providers.length} /> : null}
       {error ? (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle>Audit could not continue</AlertTitle>

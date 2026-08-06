@@ -70,6 +70,15 @@ export const PRO_AUDIT_SEARCH_CONTEXT = "medium" as const;
 export const PRO_AUDIT_QUESTION_COUNT = 20;
 /** 1 question per call, so all five run at the same time. */
 export const AUDIT_SEARCH_BATCH_SIZE = 1;
+/**
+ * How many provider calls are in flight at once. A Pro run creates one task
+ * per question for the searching provider plus one batched task per Bedrock
+ * model — 23 in total at twenty questions — so anything below that leaves
+ * questions queueing for no reason.
+ */
+export const AUDIT_PROVIDER_CONCURRENCY = Number(
+  process.env.AUDIT_PROVIDER_CONCURRENCY ?? "20",
+);
 export const MAX_PROVIDER_ANSWER_CHARS = Number(
   process.env.MAX_PROVIDER_ANSWER_CHARS ?? "20000",
 );

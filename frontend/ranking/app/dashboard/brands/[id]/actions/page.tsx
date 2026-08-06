@@ -28,11 +28,19 @@ type SupportingEvidence = {
   provenance?: string;
 };
 
+type LossWinner = {
+  company_name?: string;
+  rank?: number | null;
+  reason?: string;
+};
+
 type AffectedPrompt = {
   loss_id?: string;
   prompt?: string;
   category?: string;
   recommended_instead?: string[];
+  /** Who took the question and, in the assistant's words, why. */
+  winners?: LossWinner[];
 };
 
 type CompetitorGap = {
@@ -78,6 +86,19 @@ function evidenceText(value: unknown, depth = 0): string | null {
   }
 
   return null;
+}
+
+/**
+ * A "pattern" needs more than one competitor behind it. A free audit reads one
+ * website, so this box could only ever say "1 of 1", which reads like every
+ * competitor does something when exactly one was looked at.
+ */
+const MIN_COMPETITORS_FOR_A_PATTERN = 3;
+
+function meaningfulGaps(gaps: CompetitorGap[]): CompetitorGap[] {
+  return gaps.filter(
+    (gap) => (gap.competitors_checked ?? 0) >= MIN_COMPETITORS_FOR_A_PATTERN,
+  );
 }
 
 function parseEvidence(value: unknown): ParsedEvidence {
@@ -198,23 +219,84 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-blue-soft)] text-sm font-semibold text-[color:var(--rb-blue)]">{index + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
+                        {/* action_type is "content" on every row the audit
+                            writes, so the badge only ever repeated itself. */}
                         <Badge variant="secondary" className="rounded-full text-[11px]">Priority {action.priority}</Badge>
-                        <Badge variant="outline" className="rounded-full text-[11px] capitalize">{action.action_type.replaceAll("_", " ")}</Badge>
                         {action.status !== "open" ? <Badge variant="secondary" className="rounded-full text-[11px] capitalize">{action.status.replaceAll("_", " ")}</Badge> : null}
                       </div>
                       <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
                         Finding
                       </p>
                       <h2 className="mt-1 text-lg font-semibold leading-snug">{action.title}</h2>
+
+                      {/* The question, who took it and why, then the fix, then
+                          the proof. These used to be four blocks in an order
+                          that made the reader join them up: the question sat
+                          below the advice, and the cited page belonged to a
+                          company that had lost the same question. */}
+                      {evidence.affectedPrompts.length ? (
+                        <div className="mt-4">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <p className="text-[11px] font-medium uppercase text-muted-foreground">
+                              {evidence.affectedPrompts.length === 1
+                                ? "The question you lost"
+                                : "The questions you lost"}
+                            </p>
+                            <Link
+                              href={routes.brandSection(brand.id, "prompts")}
+                              className="text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              See all answers
+                            </Link>
+                          </div>
+                          <ul className="mt-2 space-y-3">
+                            {evidence.affectedPrompts.slice(0, 3).map((item, itemIndex) => (
+                              <li
+                                key={`${item.loss_id ?? item.prompt}-${itemIndex}`}
+                                className="border-l-2 border-[color:var(--rb-amber)]/40 pl-3"
+                              >
+                                <p className="text-xs font-medium leading-relaxed">
+                                  {item.prompt}
+                                </p>
+                                {item.winners?.length ? (
+                                  <div className="mt-1.5 space-y-1">
+                                    {item.winners.slice(0, 2).map((winner, winnerIndex) => (
+                                      <p
+                                        key={`${winner.company_name}-${winnerIndex}`}
+                                        className="text-[11px] leading-relaxed text-muted-foreground"
+                                      >
+                                        <span className="font-medium text-foreground">
+                                          {winner.company_name}
+                                        </span>
+                                        {winner.rank ? ` was recommended #${winner.rank}` : " was recommended"}
+                                        {winner.reason ? `: ${winner.reason}` : "."}
+                                      </p>
+                                    ))}
+                                  </div>
+                                ) : item.recommended_instead?.length ? (
+                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                    AI recommended{" "}
+                                    {item.recommended_instead.slice(0, 3).join(", ")} instead
+                                  </p>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
                       <div className="mt-4 bg-[color:var(--rb-blue-soft)]/45 px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase text-[color:var(--rb-blue)]">
                           Action needed
                         </p>
                         <p className="mt-1.5 text-sm font-medium leading-relaxed">{action.explanation}</p>
                       </div>
-                      {evidence.competitorGaps.length ? (
+                      {/* "1 of 1 competitors have this" is a sample of one
+                          dressed as a pattern, and on a free audit it can
+                          never be anything else. */}
+                      {meaningfulGaps(evidence.competitorGaps).length ? (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {evidence.competitorGaps.map((gap, gapIndex) => (
+                          {meaningfulGaps(evidence.competitorGaps).map((gap, gapIndex) => (
                             <span
                               key={`${gap.pattern}-${gapIndex}`}
                               className="rb-panel-soft px-3 py-1.5 text-[11px] leading-relaxed"
@@ -237,66 +319,27 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{evidence.summary}</p>
                         </div>
                       ) : null}
-                      {evidence.affectedPrompts.length ? (
-                        <div className="mt-4">
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                              Buyer questions this affects
-                            </p>
-                            <Link
-                              href={routes.brandSection(brand.id, "prompts")}
-                              className="text-[11px] text-muted-foreground hover:text-foreground"
-                            >
-                              See all answers
-                            </Link>
-                          </div>
-                          <ul className="mt-2 space-y-2.5">
-                            {evidence.affectedPrompts.slice(0, 3).map((item, itemIndex) => (
-                              <li
-                                key={`${item.loss_id ?? item.prompt}-${itemIndex}`}
-                                className="border-l-2 border-[color:var(--rb-amber)]/40 pl-3"
-                              >
-                                <p className="text-xs font-medium leading-relaxed">
-                                  {item.prompt}
-                                </p>
-                                {item.recommended_instead?.length ? (
-                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                    AI recommended{" "}
-                                    {item.recommended_instead.slice(0, 3).join(", ")} instead
-                                  </p>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
                       {relevantSources.length ? (
                         <div className="mt-4">
-                          <p className="text-[11px] font-medium uppercase text-muted-foreground">Relevant supporting pages</p>
+                          <p className="text-[11px] font-medium uppercase text-muted-foreground">Proof on their website</p>
+                          {/* The page title and the link, nothing more. The
+                              extract underneath was a raw slice of somebody
+                              else's website — it opened with "Skip to main
+                              content", carried stray markdown, and said
+                              nothing the title had not already said. Anyone
+                              who wants the words can open the page. */}
                           <div className="mt-2 divide-y divide-border border-y border-border">
                             {relevantSources.slice(0, 3).map((source, sourceIndex) => (
-                              <div key={`${source.url}-${sourceIndex}`} className="py-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-xs font-medium">
-                                    {[source.company_name, source.page_title || source.label || source.title].filter(Boolean).join(" - ")}
-                                  </p>
-                                  {source.provenance ? (
-                                    <Badge variant="outline" className="rounded-full text-[10px]">
-                                      {source.provenance.replaceAll("_", " ")}
-                                    </Badge>
-                                  ) : null}
-                                </div>
-                                {source.excerpt ? (
-                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                    &ldquo;{source.excerpt}&rdquo;
-                                  </p>
-                                ) : null}
+                              <div key={`${source.url}-${sourceIndex}`} className="py-2.5">
+                                <p className="text-xs font-medium">
+                                  {[source.company_name, source.page_title || source.label || source.title].filter(Boolean).join(" - ")}
+                                </p>
                                 {source.url ? (
                                   <a
                                     href={source.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="mt-1.5 inline-flex items-center gap-1 text-xs text-[color:var(--rb-blue)] hover:underline"
+                                    className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--rb-blue)] hover:underline"
                                   >
                                     Open supporting page <ExternalLink className="size-3" />
                                   </a>

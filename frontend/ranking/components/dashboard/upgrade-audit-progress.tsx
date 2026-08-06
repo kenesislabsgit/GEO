@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Play } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { AuditProgress } from "@/components/scan/audit-progress";
 import { PRO_AUDIT_QUESTION_COUNT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -19,13 +21,19 @@ export function UpgradeAuditProgress({
 }) {
   const router = useRouter();
   const started = useRef(false);
+  const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(1);
   const [message, setMessage] = useState("Preparing your full report");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // A Pro run costs real money and about five minutes, so it waits for a
+  // click. This used to start on mount, which meant a refresh, a back-then-
+  // forward, or a second tab each paid for another full audit.
+  function startAudit() {
     if (started.current) return;
     started.current = true;
+    setRunning(true);
+    setError(null);
 
     async function continueAudit() {
       try {
@@ -78,11 +86,14 @@ export function UpgradeAuditProgress({
         throw new Error("The audit ended before the report was saved");
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Audit continuation failed");
+        // Let them try again without reloading the page.
+        started.current = false;
+        setRunning(false);
       }
     }
 
     void continueAudit();
-  }, [brandId, domain, providers, router]);
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -91,12 +102,26 @@ export function UpgradeAuditProgress({
         <p className="mt-2 text-sm text-muted-foreground">
           Reusing the existing website crawl and free results, then collecting the additional provider, competitor, source, and improvement evidence.
         </p>
-        <AuditProgress
-          progress={progress}
-          message={message}
-          questionCount={5}
-          providerCount={providers.length}
-        />
+        {running ? (
+          <AuditProgress
+            progress={progress}
+            message={message}
+            questionCount={PRO_AUDIT_QUESTION_COUNT}
+            providerCount={providers.length}
+          />
+        ) : (
+          <div className="mt-5 border-t border-border pt-5">
+            <p className="text-sm text-muted-foreground">
+              {PRO_AUDIT_QUESTION_COUNT} buyer questions across{" "}
+              {providers.length} AI {providers.length === 1 ? "provider" : "providers"}.
+              This takes about five minutes.
+            </p>
+            <Button className="mt-4 w-full" onClick={startAudit}>
+              <Play data-icon="inline-start" />
+              Start my Pro audit
+            </Button>
+          </div>
+        )}
         {error ? (
           <Alert variant="destructive" className="mt-5">
             <AlertTitle>Could not complete the report</AlertTitle>

@@ -12,7 +12,12 @@ import {
   type ScanBrandOption,
 } from "@/components/dashboard/new-scan-form";
 import { AddBrandScanForm } from "@/components/dashboard/add-brand-scan-form";
-import { FREE_AUDIT_PROVIDER, FREE_SCAN_CACHE_DAYS } from "@/lib/constants";
+import {
+  FREE_AUDIT_PROVIDER,
+  FREE_AUDIT_QUESTION_COUNT,
+  FREE_SCAN_CACHE_DAYS,
+  PRO_AUDIT_QUESTION_COUNT,
+} from "@/lib/constants";
 
 export const metadata = { title: "New audit" };
 
@@ -73,9 +78,10 @@ export default async function NewScanPage({
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           New audit
         </h1>
+        {/* Was hardcoded to "five-question", which is only the free size. */}
         <p className="mt-1 text-sm text-muted-foreground">
           {brands.length === 0
-            ? "Add your website and run a five-question AI visibility audit."
+            ? `Add your website and run a ${isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT}-question AI visibility audit.`
             : "Choose a website and compare how AI providers answer buyer questions."}
         </p>
       </div>

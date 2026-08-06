@@ -6,6 +6,7 @@ import { z } from "zod";
 import { importAuditExport, type AuditExport } from "@/lib/audit/import-export";
 import { acquireSiteRead } from "@/lib/audit/site-read-cache";
 import {
+  AUDIT_PROVIDER_CONCURRENCY,
   AUDIT_SEARCH_BATCH_SIZE,
   FREE_AUDIT_ACTION_COUNT,
   FREE_AUDIT_COMPETITORS_CRAWLED,
@@ -97,8 +98,12 @@ export async function POST(request: NextRequest) {
         String(body.limitPerAssistant ?? FREE_AUDIT_QUESTION_COUNT),
         "--analyzer-batch-size",
         "5",
+        // One task per question for the searching provider, plus one batched
+        // task per Bedrock model. A Pro run is 23 of those, and at 5 at a time
+        // they queued in four waves — about 170 of the run's 298 seconds was
+        // spent waiting rather than working. The work itself did not change.
         "--provider-concurrency",
-        "5",
+        String(AUDIT_PROVIDER_CONCURRENCY),
         // Every question searches in parallel, each with a bounded search depth.
         "--openai-search-batch-size",
         String(AUDIT_SEARCH_BATCH_SIZE),
@@ -271,6 +276,13 @@ export async function POST(request: NextRequest) {
             });
             const exportPath = path.resolve(geoRoot, runSummary.audit_export_path);
             const audit = JSON.parse(await readFile(exportPath, "utf8")) as AuditExport;
+            // The runner derives the brand domain from the crawl, but if it
+            // ever comes back empty the import rejects the whole export and a
+            // finished audit — every answer, competitor and action — is lost.
+            // We asked for this domain, so we can always supply it.
+            if (!audit.brand?.domain) {
+              audit.brand = { ...audit.brand, domain };
+            }
             const importResult = await importAuditExport(audit, {
               ownerId: domainBrand?.owner_id ?? user?.id ?? null,
               brandId: domainBrand?.id,

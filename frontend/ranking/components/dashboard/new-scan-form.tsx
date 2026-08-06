@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Clock, Loader2, Lock, Play } from "lucide-react";
@@ -14,8 +14,6 @@ import {
   FREE_AUDIT_PROVIDER,
   PRO_AUDIT_QUESTION_COUNT,
   providerDisplayName,
-  SUPPORTED_COUNTRIES,
-  SUPPORTED_LANGUAGES,
 } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 import type { ProviderId } from "@/types/database";
@@ -77,8 +75,6 @@ export function NewScanForm({
   const [providers, setProviders] = useState<string[]>(
     plan.isPaid ? [...plan.allowedProviders] : [FREE_AUDIT_PROVIDER],
   );
-  const [country, setCountry] = useState<string>("us");
-  const [language, setLanguage] = useState<string>("en");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -89,19 +85,14 @@ export function NewScanForm({
   } | null>(null);
 
   const brand = brands.find((b) => b.id === brandId) ?? initialBrand;
-  const questionsPerProvider = Math.min(5, brand.prompts.length);
+  // This form always starts a Pro run, so the estimate has to be the Pro
+  // question count. It used to cap at five — the old Pro size — which made a
+  // twenty-question run look like a five-question one and under-counted the
+  // monthly allowance by four times.
+  const questionsPerProvider = PRO_AUDIT_QUESTION_COUNT;
   const estimatedChecks = questionsPerProvider * providers.length;
   const remaining = Math.max(plan.checksLimit - plan.checksUsed, 0);
   const overAllowance = estimatedChecks > remaining;
-
-  const countryOptions = useMemo(
-    () => SUPPORTED_COUNTRIES.slice(0, Math.max(plan.countries, 1)),
-    [plan.countries],
-  );
-  const languageOptions = useMemo(
-    () => SUPPORTED_LANGUAGES.slice(0, Math.max(plan.languages, 1)),
-    [plan.languages],
-  );
 
   function toggleProvider(id: string) {
     if (!plan.isPaid) return;
@@ -235,15 +226,24 @@ export function NewScanForm({
         <section className="rb-panel">
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
             <h2 className="text-sm font-semibold">
-              2. Buyer question library
+              2. Questions from your last audit
             </h2>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {questionsPerProvider} of {brand.prompts.length} used
+              {brand.prompts.length} questions
             </Badge>
           </div>
+          {/* These are history, not a selection. Every run reads the website
+              again and writes fresh questions from what it finds, then
+              replaces the list below. Labelling this a "library" made it look
+              like the questions you see are the ones about to be asked. */}
+          <p className="px-5 pt-4 text-xs leading-relaxed text-muted-foreground">
+            This audit will write {questionsPerProvider} new buyer questions from a
+            fresh read of the website. The questions below are what the last audit
+            asked, and they will be replaced.
+          </p>
           {brand.prompts.length === 0 ? (
             <p className="px-5 py-6 text-sm text-muted-foreground">
-              No buyer questions are available for this website yet.
+              No questions yet — this is the first audit for this website.
             </p>
           ) : (
             <div className="max-h-72 divide-y divide-border overflow-y-auto">
@@ -310,51 +310,11 @@ export function NewScanForm({
                 </p>
               ) : null}
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="scan-country" className="text-sm font-medium">
-                  Country
-                </label>
-                <select
-                  id="scan-country"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  disabled={!plan.isPaid || countryOptions.length <= 1}
-                  className="mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {countryOptions.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="scan-language" className="text-sm font-medium">
-                  Language
-                </label>
-                <select
-                  id="scan-language"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  disabled={!plan.isPaid || languageOptions.length <= 1}
-                  className="mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {languageOptions.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {plan.isPaid && plan.countries <= 1 ? (
-              <p className="text-xs text-muted-foreground">
-                Multiple countries and languages are available on Growth and
-                Agency plans.
-              </p>
-            ) : null}
+            {/* Country and language pickers used to sit here. Nothing sent
+                them to the audit runner and the runner has no flag for them,
+                so every run was US/English whatever was chosen. Put them back
+                when geo_audit can actually ask in another country or
+                language. */}
           </div>
         </section>
 
@@ -416,7 +376,7 @@ export function NewScanForm({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Questions</dt>
-              <dd className="font-medium">{brand.prompts.length}</dd>
+              <dd className="font-medium">{questionsPerProvider}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Providers</dt>
@@ -451,11 +411,12 @@ export function NewScanForm({
               }}
             />
           </div>
+          {/* An empty question list is no longer a reason to block: the run
+              writes its own questions. Blocking on it meant a website whose
+              first audit died could never be audited again from this page. */}
           <Button
             className="mt-5 w-full"
-            disabled={
-              loading || brand.prompts.length === 0 || overAllowance
-            }
+            disabled={loading || overAllowance}
             onClick={startScan}
           >
             {loading ? (
