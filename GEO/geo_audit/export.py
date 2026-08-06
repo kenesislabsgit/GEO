@@ -20,6 +20,7 @@ def build_frontend_export(
     *,
     free_preview: bool = False,
     summary: str = "",
+    website_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     web_presence = web_presence or {}
     score = build_scorecard(
@@ -36,7 +37,7 @@ def build_frontend_export(
         allow_answer_only=free_preview,
     )
     brand_name = company_profile.get("company_name", "Unknown")
-    domain = extract_domain(company_profile)
+    domain = audited_domain(company_profile, website_snapshot)
     prompt_matrix = build_prompt_matrix(prompts, recommendation_patterns)
     query_results = build_query_results(raw_results, brand_name, web_presence)
     provider_coverage = build_provider_coverage(raw_results)
@@ -686,12 +687,59 @@ def official_site_url(value: Any) -> str | None:
         return None
 
 
+def audited_domain(
+    company_profile: dict[str, Any],
+    website_snapshot: dict[str, Any] | None = None,
+) -> str | None:
+    """Which website this audit is about.
+
+    This used to be read only out of the profile's ``supporting_pages``, which
+    the model fills in. When a run produced no validated field evidence that
+    list came back empty, the export carried ``"domain": null``, and the
+    frontend threw away an otherwise complete audit with
+    "audit_export.brand.domain is required" — about eighty seconds and every
+    answer, competitor and recommendation, lost at the last step.
+
+    The website we were told to audit is known before any model runs, so take
+    it from the crawl and keep the model's evidence only as a fallback.
+    """
+    snapshot = website_snapshot or {}
+    for key in ("domain", "normalized_url", "input_url"):
+        domain = host_from_value(snapshot.get(key))
+        if domain:
+            return domain
+    for page in snapshot.get("pages", []) or []:
+        if isinstance(page, dict):
+            domain = host_from_value(page.get("url"))
+            if domain:
+                return domain
+    return extract_domain(company_profile)
+
+
 def extract_domain(company_profile: dict[str, Any]) -> str | None:
     for page in company_profile.get("evidence", {}).get("supporting_pages", []):
         domain = safe_domain(page)
         if domain:
             return domain
     return None
+
+
+def host_from_value(value: Any) -> str | None:
+    """Host from either a full URL or a bare hostname.
+
+    The snapshot stores ``domain`` as a bare host and ``normalized_url`` as a
+    URL, and urlparse returns an empty netloc for the bare form.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if "://" in text:
+        return safe_domain(text)
+    host = text.split("/", 1)[0].lower()
+    host = host.removeprefix("www.")
+    return host or None
 
 
 def safe_domain(url: str) -> str | None:

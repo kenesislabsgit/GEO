@@ -1122,6 +1122,7 @@ def main() -> None:
             else raw_path.parent / "quality_summary.json"
         )
         web_presence_path = raw_path.parent / "web_presence.json"
+        snapshot_path = raw_path.parent / "website_snapshot.json"
         export = build_frontend_export(
             json.loads(profile_path.read_text(encoding="utf-8")),
             json.loads(Path(args.prompts).read_text(encoding="utf-8")),
@@ -1136,6 +1137,9 @@ def main() -> None:
             json.loads(web_presence_path.read_text(encoding="utf-8"))
             if web_presence_path.exists()
             else {},
+            website_snapshot=json.loads(snapshot_path.read_text(encoding="utf-8"))
+            if snapshot_path.exists()
+            else None,
         )
         export_path = raw_path.parent / "audit_export.json"
         export_path.write_text(
@@ -1621,6 +1625,9 @@ def main() -> None:
             web_presence,
             free_preview=args.free_preview,
             summary=audit_summary,
+            # The crawl knows which website this is. Without it the export
+            # depends on the model having produced supporting_pages.
+            website_snapshot=snapshot,
         )
         export_path = run_dir / "audit_export.json"
         export_path.write_text(
