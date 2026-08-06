@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
+import { PRO_AUDIT_QUESTION_COUNT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import type { ProviderId } from "@/types/database";
 
@@ -36,7 +37,7 @@ export function UpgradeAuditProgress({
             domain,
             mode: "pro",
             assistants: providers,
-            limitPerAssistant: 5,
+            limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
             resume: true,
           }),
         });

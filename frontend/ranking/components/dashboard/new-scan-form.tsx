@@ -12,6 +12,7 @@ import { AuditProgress } from "@/components/scan/audit-progress";
 import { routes } from "@/lib/routes";
 import {
   FREE_AUDIT_PROVIDER,
+  PRO_AUDIT_QUESTION_COUNT,
   providerDisplayName,
   SUPPORTED_COUNTRIES,
   SUPPORTED_LANGUAGES,
@@ -127,7 +128,7 @@ export function NewScanForm({
           brandId,
           domain: brand.domain,
           assistants: providers,
-          limitPerAssistant: 5,
+          limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
           mode: "pro",
         }),
       });

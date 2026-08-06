@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
+import {
+  FREE_AUDIT_QUESTION_COUNT,
+  PRO_AUDIT_QUESTION_COUNT,
+} from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import type { ProviderId } from "@/types/database";
 
@@ -40,7 +44,9 @@ export function AddBrandScanForm({
           domain,
           mode: isPaid ? "pro" : "free",
           assistants: providers,
-          limitPerAssistant: 5,
+          limitPerAssistant: isPaid
+            ? PRO_AUDIT_QUESTION_COUNT
+            : FREE_AUDIT_QUESTION_COUNT,
         }),
       });
       if (!res.ok || !res.body) {

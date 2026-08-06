@@ -60,6 +60,14 @@ export const FREE_AUDIT_ACTION_COUNT = 1;
 /** Caps how much searching each free question does, so runs stay predictable. */
 export const FREE_AUDIT_SEARCH_CONTEXT = "low" as const;
 export const PRO_AUDIT_SEARCH_CONTEXT = "medium" as const;
+/**
+ * What Pro actually buys. Five questions is too small a sample to measure
+ * anything: on a live run the free audit put Kenesis at an average rank of 3.5
+ * because it happened to catch its two worst placements, where twenty
+ * questions showed 1.83 and first place in half of them. Every Pro caller was
+ * still asking for five, so the deep scan was the shallow one.
+ */
+export const PRO_AUDIT_QUESTION_COUNT = 20;
 /** 1 question per call, so all five run at the same time. */
 export const AUDIT_SEARCH_BATCH_SIZE = 1;
 export const MAX_PROVIDER_ANSWER_CHARS = Number(
