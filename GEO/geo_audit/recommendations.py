@@ -7,6 +7,7 @@ from json import JSONDecodeError
 import re
 from typing import Any
 
+from .firecrawl import environment_int
 from .json_tools import extract_json_object
 from .llm import (
     LLMNotConfigured,
@@ -317,6 +318,12 @@ def collect_openai_recommendations(
     return results, prompt_payloads, None
 
 
+# How many questions travel in one Bedrock call. Small enough that the calls
+# run alongside each other, large enough that the question set does not turn
+# into one call per question.
+BEDROCK_BATCH_SIZE = environment_int("GEO_BEDROCK_BATCH_SIZE", 5)
+
+
 def collect_multi_model_recommendations(
     prompts: list[Any],
     *,
@@ -337,7 +344,7 @@ def collect_multi_model_recommendations(
     errors: list[dict[str, str]] = []
 
     tasks: list[tuple[str, int, dict[str, str]]] = []
-    for assistant_index, assistant in enumerate(assistants):
+    for assistant in assistants:
         normalized_assistant = assistant.strip().lower()
         if normalized_assistant not in supported_assistants():
             errors.append(
@@ -353,14 +360,16 @@ def collect_multi_model_recommendations(
 
         if assistant_prompt_indexes and normalized_assistant in assistant_prompt_indexes:
             indexes = assistant_prompt_indexes[normalized_assistant]
-        elif limit_per_assistant and len(assistants) > 1:
-            shared_count = min(2, limit_per_assistant)
-            unique_count = max(0, limit_per_assistant - shared_count)
-            unique_start = shared_count + assistant_index * unique_count
-            indexes = list(range(1, shared_count + 1)) + list(
-                range(unique_start + 1, unique_start + unique_count + 1)
-            )
         else:
+            # Every assistant answers the same questions. They used to be split
+            # — two shared, then a private slice each — which needed
+            # 2 + assistants x (limit - 2) questions to work out. A live Pro
+            # run asked for 20 each across four assistants, which needs 74, and
+            # the writer produces 30. OpenAI Search got its 20, Claude got 12,
+            # and Llama and Mistral answered the 2 shared questions and nothing
+            # else: 36 answers where 80 were paid for. Worse, the answers could
+            # not be compared, because no two assistants had been asked the
+            # same thing.
             limit = limit_per_assistant or len(prompt_records)
             indexes = list(range(1, min(limit, len(prompt_records)) + 1))
 
@@ -386,7 +395,20 @@ def collect_multi_model_recommendations(
     chunk = max(1, openai_search_batch_size)
     for start in range(0, len(search_tasks), chunk):
         task_groups.append(search_tasks[start : start + chunk])
-    task_groups.extend(bedrock_batches.values())
+
+    # The same argument applies to a Bedrock model. All of its questions used
+    # to travel in one call, and a model writes its reply one token at a time,
+    # so twenty answers in a single response is twenty answers written one
+    # after another. Raising the number of workers could not help, because
+    # there was only ever one task per model to hand out: a live run went from
+    # 36 answers in 298 seconds to 80 answers in 635, with the whole increase
+    # inside that one call. Splitting the questions gives the workers
+    # something to do in parallel.
+    for tasks_for_assistant in bedrock_batches.values():
+        for start in range(0, len(tasks_for_assistant), BEDROCK_BATCH_SIZE):
+            task_groups.append(
+                tasks_for_assistant[start : start + BEDROCK_BATCH_SIZE]
+            )
 
     max_workers = max(1, min(provider_concurrency, len(task_groups) or 1))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -505,7 +527,20 @@ def collect_recommendation_group(
         if assistant == "bedrock_mistral"
         else BATCH_BUYER_ANSWER_SYSTEM_PROMPT
     )
-    max_tokens = 3000 if assistant == "bedrock_mistral" else 4000
+    # Room for every answer in the batch, not a fixed ceiling. One call carries
+    # all of an assistant's questions, so the reply grows with the batch. At
+    # 4000 tokens a twenty-question batch runs out, the reply comes back
+    # missing answers, and the code falls back to asking one question at a
+    # time — which is the slowest path in the audit.
+    per_answer_tokens = 250 if assistant == "bedrock_mistral" else 320
+    ceiling = 6000 if assistant == "bedrock_mistral" else 12000
+    max_tokens = min(
+        ceiling,
+        max(
+            3000 if assistant == "bedrock_mistral" else 4000,
+            per_answer_tokens * len(group) + 600,
+        ),
+    )
     try:
         raw_response, metadata = call_bedrock_converse(
             system_prompt,
