@@ -3,13 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { importAuditExport, type AuditExport } from "@/lib/audit/import-export";
-import {
-  getLatestScanForBrand,
-  getQueryResults,
-  getRecommendationsForScan,
-  getScoreForScan,
-} from "@/lib/db/repository";
+import type { AuditExport } from "@/lib/audit/import-export";
 
 // The fixture is hand-written and drifts from what the audit really produces.
 // This reads an export written by an actual run, so a field the Python side
@@ -43,10 +37,14 @@ describe("an export written by a real audit run", () => {
 
   beforeAll(async () => {
     workDir = await mkdtemp(path.join(tmpdir(), "geo-real-export-"));
-    process.env.LOCAL_DB_DIR = workDir;
+    // Read when local-store is first imported, so it must be set before the
+    // dynamic imports below. LOCAL_DB_DIR does not exist and silently wrote
+    // into the developer's own .data directory.
+    process.env.LOCAL_STORE_PATH = path.join(workDir, "local-store.json");
   });
 
   afterAll(async () => {
+    delete process.env.LOCAL_STORE_PATH;
     if (workDir) await rm(workDir, { recursive: true, force: true });
   });
 
@@ -57,6 +55,14 @@ describe("an export written by a real audit run", () => {
       expect(true).toBe(true);
       return;
     }
+
+    const { importAuditExport } = await import("@/lib/audit/import-export");
+    const {
+      getLatestScanForBrand,
+      getQueryResults,
+      getRecommendationsForScan,
+      getScoreForScan,
+    } = await import("@/lib/db/repository");
 
     const result = await importAuditExport(audit, { scanType: "free" });
     const latest = await getLatestScanForBrand(result.brandId);

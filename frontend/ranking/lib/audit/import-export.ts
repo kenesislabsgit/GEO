@@ -7,6 +7,7 @@ import {
   replaceCompetitors,
   replacePrompts,
   replaceRecommendations,
+  updateScanRun,
   upsertBrand,
   upsertScore,
 } from "@/lib/db/repository";
@@ -133,11 +134,17 @@ export async function importAuditExport(
     })),
   );
 
+  // Recorded as running, and marked finished only once every panel the report
+  // shows has been stored. A run that dies partway through importing used to
+  // leave a scan already labelled "completed" holding answers but no score,
+  // competitors or actions, and the dashboard showed that as a finished audit
+  // with empty panels rather than as the failure it was.
+  const finalStatus = audit.scan?.status === "partial" ? "partial" : "completed";
   const scan = await createScanRun({
     brand_id: brand.id,
     initiated_by: options.initiatedBy ?? null,
     scan_type: options.scanType ?? "free",
-    status: audit.scan?.status === "partial" ? "partial" : "completed",
+    status: "running",
     provider_ids: providerIds,
     total_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
     completed_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
@@ -255,6 +262,8 @@ export async function importAuditExport(
       scan_run_id: scan.id,
     });
   }
+
+  await updateScanRun(scan.id, { status: finalStatus });
 
   return {
     brandId: brand.id,
