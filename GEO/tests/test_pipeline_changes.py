@@ -9,9 +9,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 from geo_audit.export import (
+    audited_domain,
     build_action_rows,
     build_competitor_report_rows,
     build_query_results,
+    host_from_value,
 )
 from geo_audit.audit_recommendations import (
     build_audit_recommendations_payload,
@@ -21,7 +23,11 @@ from geo_audit.audit_recommendations import (
     readable_evidence_row,
     user_page_excerpts,
     ensure_top_competitor_finding,
+    keep_evidence_from_the_companies_that_won,
+    normalize_recommendation,
+    page_excerpt,
     resolve_recommendation_evidence,
+    strip_internal_references,
     verify_selected_evidence_with_firecrawl,
 )
 from geo_audit.competitor_evidence import enhance_competitor_snapshot
@@ -43,7 +49,7 @@ from geo_audit.firecrawl import (
     should_enrich_user_snapshot,
 )
 from geo_audit.crawler import same_page_key
-from geo_audit.evidence import build_website_evidence
+from geo_audit.evidence import build_website_evidence, readable_excerpt
 from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
     build_customer_intent_review_payload,
@@ -2758,6 +2764,275 @@ class PipelineChangeTests(unittest.TestCase):
         )
         self.assertIn("Vintra", rows[0]["observation"])
         self.assertIn("not verified", rows[0]["evidence"])
+
+    def test_audited_domain_comes_from_the_crawl_not_the_model(self):
+        """A live free run of kenesis.ai produced no validated field evidence,
+        so the profile's supporting_pages was empty, the export carried
+        "domain": null, and the frontend discarded a complete audit with
+        "audit_export.brand.domain is required". The crawl knew the answer the
+        whole time."""
+        profile_without_evidence = {
+            "company_name": "Kenesis",
+            "evidence": {"supporting_pages": []},
+        }
+        snapshot = {
+            "input_url": "kenesis.ai",
+            "normalized_url": "https://kenesis.ai/",
+            "domain": "kenesis.ai",
+            "pages": [{"url": "https://kenesis.ai/"}],
+        }
+        self.assertEqual(
+            audited_domain(profile_without_evidence, snapshot), "kenesis.ai"
+        )
+
+    def test_audited_domain_falls_back_to_snapshot_pages(self):
+        snapshot = {"pages": [{"url": "https://www.acme.io/about"}]}
+        self.assertEqual(audited_domain({}, snapshot), "acme.io")
+
+    def test_audited_domain_still_reads_profile_evidence_without_a_crawl(self):
+        profile = {
+            "evidence": {"supporting_pages": ["https://www.example.com/pricing"]}
+        }
+        self.assertEqual(audited_domain(profile, None), "example.com")
+
+    def test_internal_reference_ids_never_reach_the_reader(self):
+        """A live report read "...suitable for industrial sites (ev-004,
+        ev-005, ev-006)." Those are how the model is asked to point at a piece
+        of evidence, not words for a customer."""
+        written = (
+            "Fenec Labs is built as an on-prem appliance with low local "
+            "inference latency (ev-004, ev-005, ev-006). Kenesis mentions PPE "
+            "violations but only in brief."
+        )
+        cleaned = strip_internal_references(written)
+        self.assertNotIn("ev-004", cleaned)
+        # The bracket that held them goes with them; taking only the ids left
+        # a stranded ")" behind.
+        self.assertNotIn(")", cleaned)
+        self.assertIn("low local inference latency. Kenesis", cleaned)
+
+    def test_internal_reference_stripping_leaves_ordinary_text_alone(self):
+        for text in ("No ids here at all.", "Version 2-3 of the platform.", ""):
+            self.assertEqual(strip_internal_references(text), text)
+
+    def test_normalize_recommendation_strips_ids_from_every_written_field(self):
+        cleaned = normalize_recommendation(
+            {
+                "observation": "Lost loss-001 to Triya.",
+                "evidence": "Shown on their site (ev-002).",
+                "suggested_change": "Publish a page. See ev-003.",
+                "expected_impact": "Clearer for buyers, per loss-001.",
+            }
+        )
+        for field in (
+            "observation",
+            "evidence",
+            "suggested_change",
+            "expected_impact",
+        ):
+            self.assertNotRegex(cleaned[field], r"(?:ev|loss)-\d+")
+        self.assertEqual(cleaned["observation"], "Lost to Triya.")
+
+    def test_excerpts_do_not_open_with_website_furniture(self):
+        """All three competitor quotes in a live report began "Skip to main
+        content", and one began "##"."""
+        excerpt = readable_excerpt(
+            "Skip to main content Product # One appliance.Every camera.Local "
+            "safety AI."
+        )
+        self.assertFalse(excerpt.lower().startswith("skip to"))
+        self.assertNotIn("#", excerpt)
+        # The line breaks the page used for layout took the spaces with them.
+        self.assertIn("One appliance. Every camera. Local safety AI.", excerpt)
+
+    def test_excerpts_drop_markdown_emphasis(self):
+        self.assertEqual(
+            readable_excerpt("## AtomVision Features: How It Works"),
+            "AtomVision Features: How It Works",
+        )
+        self.assertEqual(
+            readable_excerpt("**Bold opener** and the rest."),
+            "Bold opener and the rest.",
+        )
+
+    def test_recommendation_excerpts_get_the_same_cleaning(self):
+        """This path skipped readable_excerpt, which is why the report quoted
+        pages that opened with a skip-link."""
+        excerpt = page_excerpt(
+            {
+                "main_text": "Skip to main content ## Use cases Detect missing PPE.",
+                "title": "Use cases",
+            }
+        )
+        self.assertFalse(excerpt.lower().startswith("skip to"))
+        self.assertNotIn("##", excerpt)
+
+    def test_investigation_priority_ignores_questions_already_won(self):
+        """The numbers here are a live free audit of kenesis.ai. AtomVision led
+        the competitor list with three mentions, but two were in questions
+        Kenesis had already won and the third put it fifth. Triya was named
+        twice and came first both times, in questions Kenesis was absent from.
+        The audit read AtomVision's site and cited it under a finding about a
+        question AtomVision also lost."""
+        raw = [
+            {
+                "prompt": "lost one",
+                "recommended_companies": [
+                    {"company_name": "Triya", "rank": 1},
+                    {"company_name": "AtomVision", "rank": 5},
+                ],
+            },
+            {
+                "prompt": "lost two",
+                "recommended_companies": [{"company_name": "Triya", "rank": 1}],
+            },
+            {
+                "prompt": "won one",
+                "recommended_companies": [
+                    {"company_name": "AtomVision", "rank": 2},
+                    {"company_name": "Kenesis", "rank": 4},
+                ],
+            },
+            {
+                "prompt": "won two",
+                "recommended_companies": [
+                    {"company_name": "AtomVision", "rank": 1},
+                    {"company_name": "Kenesis", "rank": 3},
+                ],
+            },
+        ]
+        patterns = aggregate_recommendations(
+            raw, user_company="Kenesis", user_aliases=["Kenesis"]
+        )
+        priority = patterns["investigation_priority"]
+        self.assertEqual(priority[0]["company_name"], "Triya")
+        self.assertEqual(priority[0]["priority_score"], 200)
+        atom = next(
+            row for row in priority if row["company_name"] == "AtomVision"
+        )
+        # Fifth place in the one question it was actually in, and nothing for
+        # the question Kenesis beat it in.
+        self.assertEqual(atom["priority_score"], 20)
+        # The list the dashboard shows is deliberately left alone: being named
+        # three times is true and worth showing.
+        self.assertEqual(
+            patterns["top_competitors"][0]["company_name"], "AtomVision"
+        )
+
+    def test_investigation_priority_falls_back_when_nothing_was_lost(self):
+        """Recommended everywhere still leaves the companies placed above."""
+        raw = [
+            {
+                "prompt": "won but second",
+                "recommended_companies": [
+                    {"company_name": "Triya", "rank": 1},
+                    {"company_name": "Kenesis", "rank": 2},
+                    {"company_name": "Later Co", "rank": 3},
+                ],
+            }
+        ]
+        patterns = aggregate_recommendations(
+            raw, user_company="Kenesis", user_aliases=["Kenesis"]
+        )
+        priority = patterns["investigation_priority"]
+        self.assertEqual([row["company_name"] for row in priority], ["Triya"])
+        self.assertEqual(priority[0]["basis"], "outranked_questions")
+
+    def test_losses_carry_the_reason_each_winner_was_chosen(self):
+        raw = [
+            {
+                "prompt": "lost one",
+                "recommended_companies": [
+                    {
+                        "company_name": "Triya",
+                        "rank": 1,
+                        "reasoning": "On-premise edge deployment on existing cameras.",
+                    }
+                ],
+            }
+        ]
+        patterns = aggregate_recommendations(
+            raw, user_company="Kenesis", user_aliases=["Kenesis"]
+        )
+        loss = patterns["user_recommendation_summary"][
+            "prompts_where_user_was_not_recommended"
+        ][0]
+        self.assertEqual(loss["winners"][0]["company_name"], "Triya")
+        self.assertEqual(loss["winners"][0]["rank"], 1)
+        self.assertIn("edge deployment", loss["winners"][0]["reason"])
+
+    def test_a_finding_cannot_cite_a_company_that_lost_the_same_question(self):
+        """AtomVision placed fifth in the question this finding is about, and
+        was cited under it because its was the only website that had been
+        read."""
+        recommendations = [
+            {
+                "observation": "Lost the zone breach question.",
+                "affected_prompts": [
+                    {
+                        "loss_id": "loss-001",
+                        "prompt": "zone breach detection?",
+                        # AtomVision is in the answer, in last place. With the
+                        # audited company absent, every name here is nominally
+                        # ahead of it, so presence alone cannot be the test.
+                        "recommended_instead": [
+                            "Triya",
+                            "Visionify",
+                            "Witvix",
+                            "AtomVision",
+                        ],
+                        "winners": [
+                            {"company_name": "Triya", "rank": 1},
+                            {"company_name": "Visionify", "rank": 2},
+                            {"company_name": "Witvix", "rank": 3},
+                        ],
+                    }
+                ],
+                "supporting_evidence": [
+                    {
+                        "evidence_id": "ev-001",
+                        "company_name": "AtomVision",
+                        "evidence_type": "homepage_message",
+                    },
+                    {
+                        "evidence_id": "ev-002",
+                        "company_name": "Triya",
+                        "evidence_type": "homepage_message",
+                    },
+                ],
+                "evidence_validation": {"accepted_refs": ["ev-001", "ev-002"]},
+            }
+        ]
+        cleaned = keep_evidence_from_the_companies_that_won(recommendations)
+        kept = cleaned[0]["supporting_evidence"]
+        self.assertEqual([row["company_name"] for row in kept], ["Triya"])
+        rejected = cleaned[0]["evidence_validation"]["rejected_refs"]
+        self.assertEqual(rejected[0]["company_name"], "AtomVision")
+        self.assertEqual(
+            rejected[0]["reason"], "company_did_not_win_the_cited_question"
+        )
+
+    def test_a_finding_with_no_question_keeps_its_citation(self):
+        recommendations = [
+            {
+                "observation": "General website gap.",
+                "affected_prompts": [],
+                "supporting_evidence": [
+                    {"evidence_id": "ev-001", "company_name": "AtomVision"}
+                ],
+            }
+        ]
+        cleaned = keep_evidence_from_the_companies_that_won(recommendations)
+        self.assertEqual(len(cleaned[0]["supporting_evidence"]), 1)
+
+    def test_host_from_value_accepts_bare_hosts_and_urls(self):
+        # The snapshot stores `domain` bare and `normalized_url` as a URL;
+        # urlparse returns an empty netloc for the bare form.
+        self.assertEqual(host_from_value("kenesis.ai"), "kenesis.ai")
+        self.assertEqual(host_from_value("www.kenesis.ai"), "kenesis.ai")
+        self.assertEqual(host_from_value("https://www.kenesis.ai/about"), "kenesis.ai")
+        self.assertIsNone(host_from_value(""))
+        self.assertIsNone(host_from_value(None))
 
 
 if __name__ == "__main__":
