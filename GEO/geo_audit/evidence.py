@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -111,8 +112,14 @@ SKIP_LINK_PREFIXES = (
 
 
 def readable_excerpt(main_text: Any, max_length: int = 320) -> str:
-    """Page text without the accessibility skip-links and cookie banners that
-    sit at the top of most pages. These excerpts are quoted in the report."""
+    """Page text fit to be quoted back to a reader.
+
+    These excerpts are shown as a competitor's own words, so anything that is
+    not their words undermines them. A live report opened three quotes with
+    "Skip to main content", showed a leading "##" from the markdown, and read
+    "One appliance.Every camera" because the line breaks the page used for
+    layout vanished without leaving a space behind.
+    """
     text = " ".join(str(main_text or "").split())
     changed = True
     while changed:
@@ -123,7 +130,27 @@ def readable_excerpt(main_text: Any, max_length: int = 320) -> str:
                 text = text[len(prefix) :].lstrip(" .:-|")
                 changed = True
                 break
-    return text[:max_length]
+    return strip_markdown_marks(space_after_sentences(text))[:max_length]
+
+
+def strip_markdown_marks(value: str) -> str:
+    """Drop the formatting characters Firecrawl's markdown leaves behind."""
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", value)
+    text = re.sub(r"(?<!\w)#{1,6}\s+", "", text)
+    text = text.replace("**", "").replace("__", "")
+    text = re.sub(r"(?<![\w`])[*_`]{1,2}(?=\S)", "", text)
+    return " ".join(text.split())
+
+
+def space_after_sentences(value: str) -> str:
+    """Put back the gap a dropped line break took with it.
+
+    Only where a sentence clearly ended: a full stop, question or exclamation
+    mark immediately followed by a capital letter. Words fused without any
+    punctuation between them ("PPEbeforethe") cannot be split back apart
+    without guessing, so they are left alone rather than mangled further.
+    """
+    return re.sub(r"([.!?])([A-Z])", r"\1 \2", value)
 
 
 def find_matching_urls(

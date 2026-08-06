@@ -5,6 +5,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
+from .evidence import readable_excerpt
 from .json_tools import extract_json_array, extract_json_object
 from .firecrawl import (
     FirecrawlClient,
@@ -112,23 +113,53 @@ Every recommendation must include:
 
 Start from the buyer questions the audited company lost.
 recommendation_patterns.user_company_recommendation_summary.prompt_losses lists
-each lost question with a loss_id and the companies recommended instead.
+each lost question with a loss_id, the companies recommended instead, and
+winners: who took the question, at what position, and the assistant's own
+reason for choosing them.
 Order recommendations so the ones addressing lost questions come first.
 Select up to 3 affected_loss_refs, using loss_id values only from prompt_losses.
 Only select a loss when the suggested change would change what a reader learns
 about that specific question. Return an empty list when none apply.
 
+One recommendation is one lost question, the company that took it, and the
+change that answers it. The question you name, the reason that company won, and
+the page you cite must all be about the same thing. A reader should never have
+to work out how the three relate.
+
+Use the winners' reasons. Saying a question was lost tells the reader nothing
+they can act on; saying what the assistant liked about the winner does.
+
+Cite only a company listed in the losses you selected. A page from a company
+that lost the same question proves nothing and reads as though the evidence was
+picked at random.
+
 Worked example of the expected specificity:
 
-  observation: "Three lost questions asked about PPE compliance monitoring, and
-    the site has no page describing that workflow."
-  evidence: "Lost loss-002 and loss-005 to Coram and Triya. Both publish a
-    dedicated PPE compliance page describing detection, alerting, and reporting."
-  suggested_change: "Publish a PPE compliance monitoring page covering detection
-    coverage, alert routing, and the reporting output, with a named deployment."
+  observation: "Buyers asking for PPE compliance monitoring are sent to Coram
+    and Triya. This site has no page describing that workflow."
+  evidence: "Triya took loss-002 and loss-005 at first place. The assistant
+    picked it for on-premise PPE detection on existing cameras. Triya gives
+    that a page of its own; this site mentions it once on the home page."
+  suggested_change: "Give PPE compliance monitoring its own page. Cover what is
+    detected, who gets the alert, and what the report shows, with one named
+    factory."
   affected_loss_refs: ["loss-002", "loss-005"]
 
 Avoid recommendations that would read the same for any company in this category.
+
+Write for somebody reading once. Short sentences. Ordinary words. One idea per
+sentence. No sentence should need reading twice.
+
+loss_id and evidence_id values belong in affected_loss_refs and evidence_refs
+and nowhere else. Never write one into observation, evidence, suggested_change
+or expected_impact. They are addressing labels for this system, and the reader
+sees your sentences. Name the question or the company instead: "Triya took the
+zone breach question", never "Triya took loss-002".
+
+Write "buyers looking for X are sent to Y", not "the audited company exhibits
+suboptimal alignment with observed competitor patterns in the X category".
+Never use: leverage, utilize, robust, holistic, synergy, optimize, seamless.
+Say "shows" not "demonstrates", "uses" not "utilises", "about" not "regarding".
 
 Do not give generic SEO advice.
 Do not frame impact as search engine ranking, search snippets, or SEO visibility.
@@ -283,7 +314,9 @@ def generate_audit_recommendations(
     else:
         response = extract_json_object(raw_response)
         parsed = response.get("recommendations", [])
-        summary = concise_text(response.get("summary"), AUDIT_SUMMARY_LENGTH)
+        summary = strip_internal_references(
+            concise_text(response.get("summary"), AUDIT_SUMMARY_LENGTH)
+        )
     if not isinstance(parsed, list):
         parsed = []
     # Where the report stands is written once, in the call that already knows
@@ -314,6 +347,7 @@ def generate_audit_recommendations(
         with_top_finding, evidence_catalog
     )
     resolved = resolve_affected_prompts(resolved, prompt_losses)
+    resolved = keep_evidence_from_the_companies_that_won(resolved)
     if firecrawl_client is not None:
         resolved = verify_selected_evidence_with_firecrawl(
             resolved, firecrawl_client
@@ -383,6 +417,17 @@ def compact_recommendation_patterns(
                     "category": item.get("category"),
                     "assistant": item.get("assistant"),
                     "recommended_instead": item.get("recommended_instead", [])[:5],
+                    # The assistant already said what it liked about each
+                    # winner. Handing that over means the report can explain
+                    # why a question was lost instead of only that it was.
+                    "winners": [
+                        {
+                            "company_name": winner.get("company_name"),
+                            "rank": winner.get("rank"),
+                            "reason": concise_text(winner.get("reason"), 300),
+                        }
+                        for winner in item.get("winners", [])[:3]
+                    ],
                 }
                 for position, item in enumerate(
                     user_summary.get(
@@ -723,10 +768,42 @@ def verify_selected_evidence_with_firecrawl(
     return recommendations
 
 
+# "ev-004" and "loss-001" are how the model is asked to point at a piece of
+# evidence or a lost question. They are addressing labels for the machine, and
+# a live report printed them inside the sentence the customer reads: "suitable
+# for industrial sites (ev-004, ev-005, ev-006)". Asking the prompt not to do
+# it is the kind of rule that does not stick; removing them afterwards does.
+INTERNAL_ID = r"(?:ev|loss)-\d+"
+# A bracketed run of nothing but ids goes whole, brackets included. Taking the
+# ids out first left the closing bracket stranded: "...low inference latency )."
+BRACKETED_IDS = re.compile(
+    rf"\s*[(\[]\s*{INTERNAL_ID}(?:\s*(?:,|and|&)\s*{INTERNAL_ID})*\s*[)\]]",
+    re.IGNORECASE,
+)
+LOOSE_IDS = re.compile(
+    rf"\b{INTERNAL_ID}(?:\s*(?:,|and|&)\s*{INTERNAL_ID})*", re.IGNORECASE
+)
+
+
+def strip_internal_references(value: Any) -> str:
+    text = str(value or "")
+    if not text:
+        return text
+    cleaned = BRACKETED_IDS.sub("", text)
+    cleaned = LOOSE_IDS.sub("", cleaned)
+    cleaned = re.sub(r"[(\[]\s*[)\]]", "", cleaned)
+    # A conjunction that was joining two ids has nothing left to join.
+    cleaned = re.sub(r"\s*\b(?:and|&)\s*([.;:,])", r"\1", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+([.,;:!?])", r"\1", cleaned)
+    cleaned = re.sub(r"([.,;:])\s*\1+", r"\1", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned.strip(" ,;:")
+
+
 def normalize_recommendation(item: Any) -> dict[str, Any]:
     if not isinstance(item, dict):
         return {
-            "observation": str(item),
+            "observation": strip_internal_references(item),
             "evidence": "Unknown",
             "suggested_change": "Unknown",
             "expected_impact": "Unknown",
@@ -736,10 +813,14 @@ def normalize_recommendation(item: Any) -> dict[str, Any]:
             "affected_loss_refs": [],
         }
     return {
-        "observation": str(item.get("observation", "Unknown")),
-        "evidence": item.get("evidence", "Unknown"),
-        "suggested_change": item.get("suggested_change", "Unknown"),
-        "expected_impact": str(item.get("expected_impact", "Unknown")),
+        "observation": strip_internal_references(item.get("observation", "Unknown")),
+        "evidence": strip_internal_references(item.get("evidence", "Unknown")),
+        "suggested_change": strip_internal_references(
+            item.get("suggested_change", "Unknown")
+        ),
+        "expected_impact": strip_internal_references(
+            item.get("expected_impact", "Unknown")
+        ),
         "confidence": normalize_confidence(item.get("confidence", "Low")),
         "evidence_types": normalize_evidence_types(item.get("evidence_types", [])),
         "evidence_refs": normalize_string_list(item.get("evidence_refs", []))[:3],
@@ -779,6 +860,10 @@ def resolve_affected_prompts(
                     "category": loss.get("category"),
                     "assistant": loss.get("assistant"),
                     "recommended_instead": loss.get("recommended_instead", [])[:5],
+                    # Carried through so the report can say why the question
+                    # was lost, in the assistant's own words, without a second
+                    # call to ask.
+                    "winners": loss.get("winners", [])[:3],
                 }
             )
         resolved.append({**recommendation, "affected_prompts": accepted})
@@ -834,6 +919,98 @@ def resolve_recommendation_evidence(
             }
         )
     return resolved
+
+
+def winning_company_names(affected_prompts: list[dict[str, Any]]) -> set[str]:
+    """Who actually took a question, not merely who was listed in it.
+
+    When the audited company is absent from an answer, every name in that
+    answer is technically ahead of it — including the one placed fifth. Reading
+    it that way let AtomVision keep its citation under a question it came fifth
+    in. `winners` carries the top placements, so use those and fall back to the
+    full list only for older runs that predate the field.
+    """
+    names: set[str] = set()
+    for loss in affected_prompts:
+        winners = loss.get("winners") or []
+        if winners:
+            names.update(
+                normalize_name(winner.get("company_name"))
+                for winner in winners
+                if winner.get("company_name")
+            )
+        else:
+            names.update(
+                normalize_name(name)
+                for name in loss.get("recommended_instead", [])
+                if name
+            )
+    names.discard("")
+    return names
+
+
+def keep_evidence_from_the_companies_that_won(
+    recommendations: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """A finding may only cite the companies that took the question it names.
+
+    The three blocks on the improvements page were arriving unrelated to each
+    other. A live free audit told kenesis.ai it had lost a question to Triya,
+    Visionify and Witvix, and then offered a page from AtomVision as the
+    supporting evidence — a company that placed fifth in that same question. It
+    was the only competitor whose website had been read, so it was the only
+    thing available to cite, and the model cited it.
+
+    Reading the right website is the first half of the fix and happens earlier.
+    This is the second half: if a page does not belong to a company that beat
+    the audited company in the cited question, it is not evidence for this
+    finding, and citing nothing is more honest than citing a bystander.
+    """
+    cleaned = []
+    for recommendation in recommendations:
+        winners = winning_company_names(recommendation.get("affected_prompts", []))
+        supporting = recommendation.get("supporting_evidence", [])
+        # With no question attached there is nothing to check against, so the
+        # citation stands on the model's own judgement as before.
+        if not winners or not supporting:
+            cleaned.append(recommendation)
+            continue
+
+        kept = [
+            row
+            for row in supporting
+            if normalize_name(row.get("company_name")) in winners
+        ]
+        dropped = [
+            {
+                "evidence_id": row.get("evidence_id"),
+                "company_name": row.get("company_name"),
+                "reason": "company_did_not_win_the_cited_question",
+            }
+            for row in supporting
+            if normalize_name(row.get("company_name")) not in winners
+        ]
+        if not dropped:
+            cleaned.append(recommendation)
+            continue
+
+        validation = dict(recommendation.get("evidence_validation", {}))
+        validation["accepted_refs"] = [row.get("evidence_id") for row in kept]
+        validation["rejected_refs"] = [
+            *validation.get("rejected_refs", []),
+            *dropped,
+        ]
+        cleaned.append(
+            {
+                **recommendation,
+                "supporting_evidence": kept,
+                "evidence_types": normalize_evidence_types(
+                    [row.get("evidence_type") for row in kept]
+                ),
+                "evidence_validation": validation,
+            }
+        )
+    return cleaned
 
 
 def normalize_confidence(value: Any) -> str:
@@ -989,9 +1166,14 @@ def page_provenance(page: dict[str, Any] | None) -> str:
 
 
 def page_excerpt(page: dict[str, Any] | None, max_length: int = 320) -> str:
+    """The same cleaning the competitor panels get.
+
+    This path skipped it, which is why the report quoted three competitor
+    pages that each began "Skip to main content" and one that began "##".
+    """
     if not page:
         return ""
-    text = " ".join(str(page.get("main_text", "")).split())
+    text = readable_excerpt(page.get("main_text"), max_length=100_000)
     title = " ".join(str(page.get("title", "")).split())
     if title and text.lower().startswith(title.lower()):
         text = text[len(title) :].lstrip(" :-|")
