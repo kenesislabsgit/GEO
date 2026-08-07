@@ -13,6 +13,8 @@ MCP_PROTOCOL_VERSION = "2025-03-26"
 
 
 class AgentCoreWebSearchClient:
+    provider = "aws_agentcore_web_search"
+
     def __init__(
         self,
         gateway_url: str,

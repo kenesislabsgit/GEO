@@ -73,15 +73,26 @@ class DDGSSearchClient:
 
 
 class FallbackWebSearchClient:
-    provider = "duckduckgo_with_agentcore_fallback"
+    """Try one search provider, then the other.
+
+    Which one goes first is the caller's decision, so nothing here names a
+    provider. It used to, and the names outlived the arrangement: DuckDuckGo
+    was tried first long after it had stopped returning anything.
+    """
 
     def __init__(
         self,
-        primary: DDGSSearchClient,
-        fallback: AgentCoreWebSearchClient | None = None,
+        primary: Any,
+        fallback: Any | None = None,
     ) -> None:
         self.primary = primary
         self.fallback = fallback
+
+    @property
+    def provider(self) -> str:
+        if self.fallback is None:
+            return str(self.primary.provider)
+        return f"{self.primary.provider}_with_{self.fallback.provider}_fallback"
 
     def search(
         self,
@@ -103,7 +114,7 @@ class FallbackWebSearchClient:
                     self.primary.provider,
                     query,
                     "empty_results",
-                    "DuckDuckGo returned no usable search results.",
+                    f"{self.primary.provider} returned no usable search results.",
                 )
             )
         except Exception as exc:  # noqa: BLE001 - fallback handles provider failures.
@@ -118,7 +129,7 @@ class FallbackWebSearchClient:
 
         if self.fallback is None:
             LOGGER.warning(
-                "Web search failed without AgentCore fallback: query=%r errors=%r",
+                "Web search failed with no fallback configured: query=%r errors=%r",
                 query,
                 errors,
             )
@@ -133,27 +144,29 @@ class FallbackWebSearchClient:
             rows = self.fallback.search(query, max_results)
             if rows:
                 LOGGER.warning(
-                    "DuckDuckGo search failed; AgentCore fallback succeeded: query=%r",
+                    "%s search failed; %s fallback succeeded: query=%r",
+                    self.primary.provider,
+                    self.fallback.provider,
                     query,
                 )
                 return {
-                    "results": add_provider(rows, "aws_agentcore_web_search"),
-                    "provider": "aws_agentcore_web_search",
+                    "results": add_provider(rows, self.fallback.provider),
+                    "provider": self.fallback.provider,
                     "fallback_used": True,
                     "errors": errors,
                 }
             errors.append(
                 search_error(
-                    "aws_agentcore_web_search",
+                    self.fallback.provider,
                     query,
                     "empty_results",
-                    "AgentCore returned no usable search results.",
+                    f"{self.fallback.provider} returned no usable search results.",
                 )
             )
         except Exception as exc:  # noqa: BLE001 - errors are persisted by the audit.
             errors.append(
                 search_error(
-                    "aws_agentcore_web_search",
+                    self.fallback.provider,
                     query,
                     "request_failed",
                     str(exc),

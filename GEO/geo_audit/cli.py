@@ -1403,7 +1403,7 @@ def main() -> None:
         if args.skip_web_presence:
             web_presence = {
                 "status": "skipped",
-                "provider": "duckduckgo_with_agentcore_fallback",
+                "provider": "web_search_with_fallback",
                 "entities": [],
                 "summary": {
                     "entities_checked": 0,

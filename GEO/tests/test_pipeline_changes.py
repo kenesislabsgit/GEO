@@ -49,6 +49,7 @@ from geo_audit.firecrawl import (
     should_enrich_user_snapshot,
 )
 from geo_audit.crawler import same_page_key
+from geo_audit.web_search import FallbackWebSearchClient
 from geo_audit.web_presence import (
     MAX_MENTION_WINDOWS,
     check_cited_extract,
@@ -1900,7 +1901,9 @@ class PipelineChangeTests(unittest.TestCase):
     def test_agentcore_is_used_after_duckduckgo_failure(self) -> None:
         primary = Mock(provider="duckduckgo")
         primary.search.side_effect = RuntimeError("rate limited")
-        fallback = Mock()
+        # The reported provider is taken from the client that answered, rather
+        # than being a fixed string that assumed which one that would be.
+        fallback = Mock(provider="aws_agentcore_web_search")
         fallback.search.return_value = [
             {
                 "url": "https://example.test/acme",
@@ -3105,6 +3108,59 @@ class WebPresenceEntityCheckTests(unittest.TestCase):
             return_value=(html, 200, "https://example.com/listing"),
         ):
             self.assertIsNone(verify_search_result(row, company_profile={}))
+
+
+class SearchProviderOrderTests(unittest.TestCase):
+    """Which provider is tried first is a decision, not a name in a string."""
+
+    class FakeClient:
+        def __init__(self, provider, rows=None, error=None):
+            self.provider = provider
+            self.rows = rows or []
+            self.error = error
+            self.calls = 0
+
+        def search(self, query, max_results=4):
+            self.calls += 1
+            if self.error:
+                raise self.error
+            return self.rows
+
+    def test_the_fallback_is_left_alone_while_the_first_choice_answers(self):
+        # Every query used to pay about 31 seconds for DuckDuckGo to fail
+        # before the provider that works was asked at all.
+        primary = self.FakeClient("aws_agentcore_web_search", [{"url": "https://a.test"}])
+        fallback = self.FakeClient("duckduckgo")
+        client = FallbackWebSearchClient(primary, fallback)
+
+        result = client.search("anything")
+
+        self.assertEqual(result["provider"], "aws_agentcore_web_search")
+        self.assertFalse(result["fallback_used"])
+        self.assertEqual(fallback.calls, 0)
+
+    def test_the_fallback_still_runs_when_the_first_choice_fails(self):
+        primary = self.FakeClient("aws_agentcore_web_search", error=RuntimeError("down"))
+        fallback = self.FakeClient("duckduckgo", [{"url": "https://b.test"}])
+        client = FallbackWebSearchClient(primary, fallback)
+
+        result = client.search("anything")
+
+        self.assertEqual(result["provider"], "duckduckgo")
+        self.assertTrue(result["fallback_used"])
+        self.assertEqual(result["results"][0]["search_provider"], "duckduckgo")
+
+    def test_the_reported_provider_follows_the_order_it_was_given(self):
+        primary = self.FakeClient("aws_agentcore_web_search")
+        fallback = self.FakeClient("duckduckgo")
+        self.assertEqual(
+            FallbackWebSearchClient(primary, fallback).provider,
+            "aws_agentcore_web_search_with_duckduckgo_fallback",
+        )
+        self.assertEqual(
+            FallbackWebSearchClient(fallback, None).provider,
+            "duckduckgo",
+        )
 
 
 if __name__ == "__main__":

@@ -87,7 +87,17 @@ def collect_web_presence(
         recommendation_patterns,
         max_competitors=max_competitors,
     )
-    fallback = (
+    # AgentCore goes first because it is the one that answers. Measured over
+    # six live queries, DuckDuckGo failed all six and spent about 31 seconds
+    # each time doing it, while AgentCore returned results for all six in
+    # 1.3-3.3s. Every query was paying the full cost of a provider that had
+    # already stopped working, and because DuckDuckGo fails two ways — rate
+    # limited straight away, or a connect timeout thirty seconds later — the
+    # same run took 79s one day and 585s the next.
+    #
+    # DuckDuckGo stays as the fallback rather than being deleted, so a
+    # gateway outage still leaves a way to search.
+    agentcore = (
         AgentCoreWebSearchClient.from_environment(
             gateway_url=configured_gateway_url,
             tool_name=gateway_tool_name,
@@ -96,7 +106,12 @@ def collect_web_presence(
         else None
     )
     try:
-        client = FallbackWebSearchClient(DDGSSearchClient(), fallback)
+        duckduckgo = DDGSSearchClient()
+        client = (
+            FallbackWebSearchClient(agentcore, duckduckgo)
+            if agentcore is not None
+            else FallbackWebSearchClient(duckduckgo, None)
+        )
     except Exception as exc:  # noqa: BLE001 - report setup/auth failures explicitly.
         configuration_error = {
             "provider": "duckduckgo",
@@ -108,7 +123,7 @@ def collect_web_presence(
         append_error_log(error_log_path, configuration_error)
         return {
             "status": "configuration_error",
-            "provider": "duckduckgo_with_agentcore_fallback",
+            "provider": "web_search_with_fallback",
             "generated_at": generated_at,
             "message": str(exc),
             "search_errors": [configuration_error],
@@ -299,13 +314,13 @@ def collect_web_presence(
     )
     return {
         "status": status,
-        "provider": "duckduckgo_with_agentcore_fallback",
+        "provider": client.provider,
         "generated_at": generated_at,
         "fallback_provider": (
-            "aws_agentcore_web_search" if configured_gateway_url else "not_configured"
+            "duckduckgo" if configured_gateway_url else "not_configured"
         ),
         "region": AGENTCORE_REGION if configured_gateway_url else None,
-        "method": "duckduckgo_search_agentcore_fallback_and_page_verification",
+        "method": "web_search_with_fallback_and_page_verification",
         "entities": entity_rows,
         "search_errors": search_errors,
         "summary": {
