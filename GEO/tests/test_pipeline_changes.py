@@ -49,6 +49,12 @@ from geo_audit.firecrawl import (
     should_enrich_user_snapshot,
 )
 from geo_audit.crawler import same_page_key
+from geo_audit.web_presence import (
+    MAX_MENTION_WINDOWS,
+    check_cited_extract,
+    mention_windows,
+    verify_search_result,
+)
 from geo_audit.evidence import build_website_evidence, readable_excerpt
 from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
@@ -3033,6 +3039,72 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(host_from_value("https://www.kenesis.ai/about"), "kenesis.ai")
         self.assertIsNone(host_from_value(""))
         self.assertIsNone(host_from_value(None))
+
+
+class WebPresenceEntityCheckTests(unittest.TestCase):
+    """The step counts how widely a company is written about, so a page that
+    belongs to somebody with the same name moves the number being reported."""
+
+    def test_a_mention_late_in_a_long_page_is_still_read(self):
+        # A forum thread names the company in comment forty. Reading the top of
+        # the page finds nothing, which is how a real mention gets thrown away.
+        page = ("unrelated chatter. " * 400) + "Horus does video analytics for factories."
+        windows = mention_windows(page, ["Horus"])
+        self.assertEqual(len(windows), 1)
+        self.assertIn("video analytics for factories", windows[0])
+
+    def test_one_name_repeated_in_a_paragraph_costs_one_extract(self):
+        page = "Triya and Triya and Triya all in one breath, then video analytics."
+        self.assertEqual(len(mention_windows(page, ["Triya"])), 1)
+
+    def test_a_page_that_never_names_the_company_yields_nothing(self):
+        self.assertEqual(mention_windows("a page about something else", ["Horus"]), [])
+
+    def test_extracts_are_capped(self):
+        page = " ".join(f"Horus paragraph {index}. " + "filler " * 200 for index in range(9))
+        self.assertLessEqual(len(mention_windows(page, ["Horus"])), MAX_MENTION_WINDOWS)
+
+    def test_a_verdict_the_model_cannot_point_at_is_rejected(self):
+        # Asked whether a page is about a company, a model tends to agree.
+        # Making it cite the extract turns the answer into something testable.
+        row = {"mention_windows": ["Horus builds video analytics software."]}
+        keep, reason = check_cited_extract(row, ["Horus"], (True, 4, "looks right"))
+        self.assertFalse(keep)
+        self.assertEqual(reason, "cited_extract_does_not_exist")
+
+    def test_an_extract_that_does_not_name_the_company_is_rejected(self):
+        row = {"mention_windows": ["Skip to main content. Contact sales today."]}
+        keep, reason = check_cited_extract(row, ["Horus"], (True, 1, "it is them"))
+        self.assertFalse(keep)
+        self.assertEqual(reason, "cited_extract_does_not_name_the_company")
+
+    def test_a_cited_extract_that_names_the_company_is_kept(self):
+        row = {"mention_windows": ["Horus builds video analytics software."]}
+        keep, reason = check_cited_extract(row, ["Horus"], (True, 1, "video analytics"))
+        self.assertTrue(keep)
+        self.assertEqual(reason, "model_cited_extract_1")
+
+    def test_a_model_saying_no_is_taken_at_its_word(self):
+        row = {"mention_windows": ["Horus, an ancient Egyptian deity."]}
+        keep, reason = check_cited_extract(row, ["Horus"], (False, 0, "mythology"))
+        self.assertFalse(keep)
+        self.assertTrue(reason.startswith("model:"))
+
+    def test_a_search_snippet_cannot_stand_in_for_the_page(self):
+        # The snippet is written by the search provider, not by the page. A
+        # page that never names the company was admitted on the strength of a
+        # summary about it, and then had no extract to show.
+        html = "<html><head><title>Some Directory</title></head><body>Listings of vendors.</body></html>"
+        row = {
+            "url": "https://example.com/listing",
+            "company_name": "Horus",
+            "snippet": "Horus is a video analytics company",
+        }
+        with patch(
+            "geo_audit.web_presence.fetch_html",
+            return_value=(html, 200, "https://example.com/listing"),
+        ):
+            self.assertIsNone(verify_search_result(row, company_profile={}))
 
 
 if __name__ == "__main__":

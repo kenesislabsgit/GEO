@@ -643,17 +643,28 @@ We are counting how often a company is written about on the web. A page that
 carries the name but belongs to somebody else inflates that count, and the
 company is then told it has a web presence it does not have.
 
-You are given a company, what its industry is, and a list of pages: address,
-title and an extract. For each page, say whether it is about this company.
+You are given a company, what it does, and a list of pages. Each page comes
+with numbered extracts, and every extract is the text surrounding one place
+where the name appears on that page.
+
+For each page return two things:
+
+- is_this_company: whether the page is about this company.
+- line: the number of the single extract that shows it, or 0 if none does.
 
 - Same name, different business is the thing to catch. An investment firm and
-  a video analytics vendor can both be called Vintra.
+  a video analytics vendor can both be called Vintra, and a research paper, an
+  open-source project, a mythological figure and a company can all share one
+  name.
+- The extract you cite must be the one that identifies the company. Do not
+  cite an extract that merely sits near the name.
 - A page can be about the company without being flattering or detailed. A
   forum thread asking "has anyone used them" counts.
 - A page that only lists the name among many others still counts, as long as
   it is this company being listed.
-- When the page gives you nothing to tell the two apart, answer false. An
-  uncounted real mention is a smaller error than a counted false one.
+- When the extracts give you nothing to tell two same-named things apart,
+  answer false. An uncounted real mention is a smaller error than a counted
+  false one.
 
 Return only the required JSON object.
 """
@@ -670,18 +681,18 @@ SAME_COMPANY_SCHEMA = {
                 "properties": {
                     "url": {"type": "string"},
                     "is_this_company": {"type": "boolean"},
+                    "line": {"type": "integer"},
                     "reason": {"type": "string"},
                 },
-                "required": ["url", "is_this_company", "reason"],
+                "required": ["url", "is_this_company", "line", "reason"],
             },
         }
     },
     "required": ["pages"],
 }
 
-# Two industry words on a page is enough to settle it without asking a model.
-CLEAR_CONTEXT_MATCHES = 2
-GATE_EXTRACT_LENGTH = 300
+MENTION_WINDOW_RADIUS = 300
+MAX_MENTION_WINDOWS = 4
 
 
 def gate_entity_mentions(
@@ -697,29 +708,37 @@ def gate_entity_mentions(
     about, a wrong page does not merely add noise — it moves the number being
     reported.
 
-    Cheap signals settle most pages: their own domain, or the industry showing
-    up in the text. Only what is left over is worth asking a model about.
+    Every page is checked. Counting industry words used to settle a page
+    without a model, and it settles the wrong ones: an investment firm reads as
+    finance, a research paper on video retrieval reads as video analytics.
+    Words on a page say what the page is about, never whose it is.
+
+    The model is asked to cite the extract that identifies the company, and
+    code then checks that extract exists and carries the name. A verdict the
+    model cannot point at is not evidence.
     """
     decided: dict[str, tuple[bool, str]] = {}
-    ambiguous: list[dict[str, Any]] = []
+    pending: list[dict[str, Any]] = []
 
     for entity in entity_rows:
         for row in entity.get("verified_mentions", []):
-            key = f"{entity['company_name']}|{row.get('url')}"
             # Matching the resolved official domain is deliberately not a free
             # pass. That domain is itself a guess made from name similarity,
             # and on a live run it resolved Vintra, a video analytics company,
             # to vintracapital.com. Trusting it here would have waved the
             # investment firm straight through on the strongest signal we have.
-            if len(row.get("matched_context_terms", [])) >= CLEAR_CONTEXT_MATCHES:
-                decided[key] = (True, "industry_context_on_page")
-            else:
-                ambiguous.append({"entity": entity, "row": row, "key": key})
+            pending.append(
+                {
+                    "entity": entity,
+                    "row": row,
+                    "key": f"{entity['company_name']}|{row.get('url')}",
+                }
+            )
 
     model_calls = 0
-    if ambiguous:
+    if pending:
         by_company: dict[str, list[dict[str, Any]]] = {}
-        for item in ambiguous:
+        for item in pending:
             by_company.setdefault(str(item["entity"]["company_name"]), []).append(item)
         workers = max(1, min(len(by_company), PRESENCE_QUERY_CONCURRENCY))
         with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -742,8 +761,11 @@ def gate_entity_mentions(
                 for item in items:
                     url = str(item["row"].get("url"))
                     if url in verdicts:
-                        keep, reason = verdicts[url]
-                        decided[item["key"]] = (keep, f"model:{reason}")
+                        decided[item["key"]] = check_cited_extract(
+                            item["row"],
+                            company_aliases(str(item["entity"]["company_name"])),
+                            verdicts[url],
+                        )
                     else:
                         # Nothing came back for this page. Keeping it would put
                         # an unchecked page into a count that is meant to be
@@ -758,6 +780,10 @@ def gate_entity_mentions(
         for row in entity.get("verified_mentions", []):
             key = f"{entity['company_name']}|{row.get('url')}"
             keep, reason = decided.get(key, (False, "unchecked"))
+            # The extracts existed so this decision could be made. Carrying
+            # them into the saved run would put a copy of every page read into
+            # every audit on disk, and nothing downstream reads them.
+            row = {key_: value for key_, value in row.items() if key_ != "mention_windows"}
             if keep:
                 kept.append({**row, "accepted_because": reason})
             else:
@@ -781,23 +807,52 @@ def gate_entity_mentions(
         "checked": len(kept_rows) + len(dropped_rows),
         "kept": len(kept_rows),
         "dropped": len(dropped_rows),
-        "settled_without_a_model": len(kept_rows) + len(dropped_rows) - len(ambiguous),
         "model_calls": model_calls,
         "dropped_pages": dropped_rows[:25],
     }
+
+
+def check_cited_extract(
+    row: dict[str, Any],
+    aliases: list[str],
+    verdict: tuple[bool, int, str],
+) -> tuple[bool, str]:
+    """Check the extract the model cited, rather than take its word for it.
+
+    A model asked whether a page is about a company will tend to agree. Making
+    it name the extract that proves it turns the answer into something code can
+    test: the extract has to exist, and it has to carry the company's name. A
+    page kept because of an extract that says nothing about who the page
+    belongs to is the failure this whole step exists to prevent.
+    """
+    keep, line_number, reason = verdict
+    if not keep:
+        return False, f"model:{reason}"
+
+    windows = row.get("mention_windows", [])
+    if line_number < 1 or line_number > len(windows):
+        return False, "cited_extract_does_not_exist"
+    if not any(contains_phrase(windows[line_number - 1], alias) for alias in aliases):
+        return False, "cited_extract_does_not_name_the_company"
+    return True, f"model_cited_extract_{line_number}"
 
 
 def confirm_same_company(
     company_name: str,
     company_profile: dict[str, Any],
     rows: list[dict[str, Any]],
-) -> dict[str, tuple[bool, str]]:
-    """One call per company, covering every unclear page found for it."""
+) -> dict[str, tuple[bool, int, str]]:
+    """One call per company, covering every page found for it."""
     pages = [
         {
             "url": row.get("url"),
             "title": row.get("title"),
-            "extract": str(row.get("snippet") or "")[:GATE_EXTRACT_LENGTH],
+            "extracts": [
+                {"line": number, "text": window}
+                for number, window in enumerate(
+                    row.get("mention_windows", []), start=1
+                )
+            ],
         }
         for row in rows
     ]
@@ -823,16 +878,22 @@ def confirm_same_company(
         },
     }
     response = extract_json_object(call_chat_completion(payload))
-    verdicts: dict[str, tuple[bool, str]] = {}
+    verdicts: dict[str, tuple[bool, int, str]] = {}
     for item in response.get("pages", []):
         if not isinstance(item, dict):
             continue
         url = str(item.get("url", "")).strip()
-        if url:
-            verdicts[url] = (
-                bool(item.get("is_this_company")),
-                str(item.get("reason", ""))[:200],
-            )
+        if not url:
+            continue
+        try:
+            line_number = int(item.get("line", 0))
+        except (TypeError, ValueError):
+            line_number = 0
+        verdicts[url] = (
+            bool(item.get("is_this_company")),
+            line_number,
+            str(item.get("reason", ""))[:200],
+        )
     return verdicts
 
 
@@ -845,11 +906,14 @@ def verify_search_result(
     if status_code < 200 or status_code >= 400:
         return None
     parsed = parse_page(final_url, html, status_code)
+    # The search provider's own summary used to be part of this text. It is
+    # written by the search engine and not by the page, so a page that never
+    # names the company could be admitted on the strength of a snippet about
+    # it, and the extracts read later would have nothing to show.
     page_text = " ".join(
         [
             str(parsed.get("title", "")),
             str(parsed.get("meta_description", "")),
-            str(row.get("snippet", "")),
             str(parsed.get("main_text", ""))[:25000],
         ]
     )
@@ -859,6 +923,10 @@ def verify_search_result(
         None,
     )
     if not matched_alias:
+        return None
+
+    windows = mention_windows(page_text, aliases)
+    if not windows:
         return None
 
     context_terms = build_context_terms(company_profile)
@@ -886,6 +954,9 @@ def verify_search_result(
         "source_type": source_type,
         "matched_alias": matched_alias,
         "matched_context_terms": context_matches[:8],
+        # Read by the same-company gate and removed once it has decided, so the
+        # stored run does not carry a copy of every page it looked at.
+        "mention_windows": windows,
         "relevance_score": relevance_score,
         "http_status": status_code,
         "verified": True,
@@ -995,6 +1066,48 @@ def contains_phrase(text: str, phrase: str) -> bool:
             flags=re.IGNORECASE,
         )
     )
+
+
+def mention_windows(text: str, aliases: list[str]) -> list[str]:
+    """The neighbourhoods of the name, rather than the opening of the page.
+
+    Where a company is written about is not knowable in advance: it can be
+    comment forty of a forum thread, one row of a comparison table, or a
+    sentence halfway down an article. Reading the first N characters finds it
+    only when the page happens to be about that company from the top, which is
+    the easy case and not the one that goes wrong.
+
+    Overlapping windows are merged so a name repeated in one paragraph costs a
+    single extract instead of four near-identical ones.
+    """
+    spans: list[tuple[int, int]] = []
+    for alias in aliases:
+        if not alias:
+            continue
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])"
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            spans.append(
+                (
+                    max(0, match.start() - MENTION_WINDOW_RADIUS),
+                    min(len(text), match.end() + MENTION_WINDOW_RADIUS),
+                )
+            )
+    if not spans:
+        return []
+
+    spans.sort()
+    merged: list[tuple[int, int]] = [spans[0]]
+    for start, end in spans[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+
+    return [
+        " ".join(text[start:end].split())
+        for start, end in merged[:MAX_MENTION_WINDOWS]
+    ]
 
 
 def canonical_url(url: str) -> str:
