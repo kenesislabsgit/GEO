@@ -12,7 +12,6 @@ from .audit_recommendations import (
     generate_audit_recommendations,
 )
 from .comparison import compare_user_to_competitors
-from .competitors import generate_competitor_seeds
 from .competitor_evidence import build_competitor_evidence
 from .crawler import crawl_website, ensure_url
 from .evidence import build_website_evidence
@@ -440,12 +439,6 @@ def main() -> None:
     )
     intents_parser.add_argument("profile", help="Path to company_profile.json.")
 
-    competitors_parser = subparsers.add_parser(
-        "competitors",
-        help="Step 2c: create probable_competitors.json from a company profile.",
-    )
-    competitors_parser.add_argument("profile", help="Path to company_profile.json.")
-
     collect_parser = subparsers.add_parser(
         "collect",
         help="Step 4: collect OpenAI recommendation results for customer prompts.",
@@ -790,31 +783,6 @@ def main() -> None:
             encoding="utf-8",
         )
         print(f"Saved company profile: {profile_path}")
-
-    if args.command == "competitors":
-        profile_path = Path(args.profile)
-        company_profile = json.loads(profile_path.read_text(encoding="utf-8"))
-
-        competitors, payload, error = generate_competitor_seeds(company_profile)
-
-        payload_path = profile_path.parent / "probable_competitors_prompt.json"
-        payload_path.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-
-        if competitors is None:
-            print(f"Saved competitor seed prompt: {payload_path}")
-            print(f"Competitor seeds not generated: {error}")
-            return
-
-        competitors_path = profile_path.parent / "probable_competitors.json"
-        competitors_path.write_text(
-            json.dumps(competitors, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        print(f"Saved probable competitors: {competitors_path}")
-        print(f"Competitors generated: {len(competitors)}")
 
     if args.command == "intents":
         profile_path = Path(args.profile)
@@ -1311,40 +1279,11 @@ def main() -> None:
             if profile_issue:
                 save_firecrawl_usage(run_dir, firecrawl_client)
                 raise SystemExit(profile_issue)
-            if args.free_preview:
-                competitor_seeds = []
-                (run_dir / "probable_competitors_skipped.txt").write_text(
-                    "Skipped because competitor seeds are not used by the free preview.",
-                    encoding="utf-8",
-                )
-                emit_run_progress(
-                    "competitor_seeds",
-                    32,
-                    "Skipping unused competitor seed generation",
-                )
-            else:
-                competitor_seeds, competitor_payload, competitor_error = (
-                    generate_competitor_seeds(profile)
-                )
-                emit_run_progress(
-                    "competitor_seeds",
-                    32,
-                    "Generating probable competitor seeds",
-                )
-                (run_dir / "probable_competitors_prompt.json").write_text(
-                    json.dumps(competitor_payload, indent=2, ensure_ascii=False),
-                    encoding="utf-8",
-                )
-            if competitor_seeds is not None and not args.free_preview:
-                (run_dir / "probable_competitors.json").write_text(
-                    json.dumps(competitor_seeds, indent=2, ensure_ascii=False),
-                    encoding="utf-8",
-                )
-            elif not args.free_preview:
-                (run_dir / "probable_competitors_error.txt").write_text(
-                    str(competitor_error),
-                    encoding="utf-8",
-                )
+            # A guessed competitor list used to be written here. The competitors
+            # this audit reports are the ones the assistants actually named in
+            # their answers, and nothing ever read the guess, so a paid run was
+            # buying an AI call whose output went straight to disk and stayed
+            # there.
             if args.free_preview:
                 prompts, prompts_payload, prompts_error = (
                     generate_free_customer_intents(profile)

@@ -72,24 +72,6 @@ If no API key is set, the tool saves:
 outputs/<run-folder>/company_profile_prompt.json
 ```
 
-## Run Step 2c
-
-```bash
-python -m geo_audit competitors outputs/<run-folder>/company_profile.json
-```
-
-This saves:
-
-```text
-outputs/<run-folder>/probable_competitors.json
-```
-
-If no API key is set, the tool saves:
-
-```text
-outputs/<run-folder>/probable_competitors_prompt.json
-```
-
 ## Run Step 3
 
 ```bash
