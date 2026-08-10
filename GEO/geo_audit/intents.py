@@ -104,6 +104,37 @@ Return only valid JSON:
 
 INTENT_SYSTEM_PROMPT = """You write the questions real buyers type into an AI assistant when they are looking for a provider.
 
+What these questions are for, because it decides everything else you do here.
+This company is being audited on whether AI assistants recommend it. Every
+question you write is put to ChatGPT, Claude, Gemini and others word for word,
+and the audit reads their answers to see which companies get named and in what
+order. The assistants are never told which company commissioned the audit. So
+if this company's name comes back, it came back because the company is
+findable and well described on the open web, and that is the single thing
+being measured.
+
+Two kinds of question destroy that measurement, and no rule below will save a
+set that contains them, so reason it through yourself each time.
+
+A question carrying the company's name, its website or its customers' names
+measures nothing, because the answer was handed over in the question. Note
+that this is about the company as an identity, not about particular words. If
+the company is called Horus Analytics and sells video analytics, "analytics"
+is the name of the trade and belongs in questions; "Horus" is the company.
+Judge which is which from what the company actually sells.
+
+A question so generic that every provider in the category would be returned
+measures nothing either, because the same answer would come back whoever
+commissioned the audit. "Best CRM software" tells you nothing. "CRM a
+30-person insurance brokerage can set up without a consultant" tells you
+something.
+
+What is wanted is the question a real buyer types before they know any vendor
+exists: their own problem, in their own words, specific enough that a company
+genuinely suited to it ought to surface. Write questions worth reading either
+way. If this company is named, that is a result. If its competitors are named
+and it is not, that is the finding the audit exists to produce.
+
 Understand the company first. Read what it sells, the problems it solves, the
 customers it has actually worked for and how a purchase happens there, and work
 out what this business really is and who ends up paying it. buyer_band is that
@@ -115,6 +146,12 @@ Then write the way those people write. Somebody searching types the problem in
 their head and enough about themselves to make the answer useful, in the words
 they already use for their own work. words_they_use and buyer_facing_terms hold
 those words.
+
+Every question is one sentence. Not one sentence with three clauses hung off
+it: one short sentence, the length a person actually types before they get
+bored of typing. Nobody sits down and writes out twenty-five words of
+requirements. They write the problem and the one thing about themselves that
+changes the answer, and they stop.
 
 Name the kind of company with buyer_words_for_provider, in every question,
 exactly as it is written there. This is the one wording decision already made
@@ -150,6 +187,9 @@ Never:
 - make the buyer bigger or more important than the evidence supports. One large
   customer among five does not make every buyer a large enterprise, and asking
   on behalf of one summons vendors this company never competes with
+- write more than one sentence, or one long sentence carrying a list. One
+  short sentence is the whole question. If it needs a comma to hold another
+  requirement on the end, that requirement belongs in a different question
 - stack three or four demands into one question. A person asks for one thing
   and mentions one or two things about their situation
 - write out capabilities like a requirements document. If it reads as a
@@ -180,6 +220,14 @@ Return only a valid JSON array with exactly requested_question_count objects:
 
 INTENT_REVIEW_SYSTEM_PROMPT = """You are the final quality reviewer for buyer questions used in an AI visibility audit.
 
+These questions go to ChatGPT, Claude, Gemini and others word for word, and the
+audit reads back which companies each one names. The assistants are never told
+who commissioned the audit, so a question naming the audited company, its site
+or its customers hands over the answer and measures nothing. Judge that by
+identity rather than by spelling: a company called Horus Analytics that sells
+video analytics owns "Horus", while "analytics" is the name of its trade and
+buyers use it freely.
+
 Review the complete candidate set against required_search_frame. Judge meaning,
 buyer intent, provider scope, customer scope, and market fit using reasoning,
 not keyword matching.
@@ -205,8 +253,9 @@ Preserve variety across real discovery, problem, use-case, comparison, and
 decision-stage searches.
 Reject marketing-style or overstuffed wording. Each question should normally be
 one short sentence with one buyer need and no more than two scope details.
-Anything past twenty-five words is overstuffed and must be cut back, and a
-question longer than thirty words is discarded before you see the results.
+Anything past twenty-five words is overstuffed and must be cut back. Nothing
+downstream will delete an overlong or brand-led question for you; you are the
+last reader before these go to the assistants, so fix them here.
 Strip vendor framing while you cut. required_search_frame is worded from the
 company's own pages, so it sets scope but never wording; name the kind of
 company with buyer_words_for_provider instead. Partner, solutions, platform and
@@ -835,7 +884,24 @@ def sanitize_prompt_records(
     prompts: list[Any],
     company_profile: dict[str, Any],
 ) -> list[dict[str, str]]:
-    banned_terms = build_banned_terms(company_profile)
+    """Tidy the writer's questions. Throw away only what cannot be judged wrong.
+
+    This step used to delete any question containing a word from the company's
+    name, on the theory that such a word is the brand. It is not. Horus
+    Analytics sells video analytics, so the ban list held "analytics", and
+    every one of thirty questions was deleted twice over before the run gave
+    up. The rule was a guess about language written by someone who could not
+    see the company, and language wins those arguments: Zoom, Square, Monday
+    and Apple are all ordinary words before they are brands.
+
+    Whether a word names the company or names its trade is a judgment, and it
+    now belongs to the writer, which is the only party here that knows what the
+    company sells. What is left is the handful of facts no reading could get
+    wrong: a question is empty, or it repeats one already written. Everything
+    else is recorded on the question and kept, because a note costs nothing to
+    ignore and a deletion cost us the run.
+    """
+    long_limit = MAX_QUESTION_WORDS
     sanitized = []
     seen: set[str] = set()
     for item in prompts:
@@ -852,19 +918,17 @@ def sanitize_prompt_records(
         if prompt and not prompt.endswith("?"):
             prompt = f"{prompt.rstrip('.')}?"
         key = prompt.lower()
-        if (
-            not prompt
-            or len(prompt) > 260
-            or len(prompt.split()) > MAX_QUESTION_WORDS
-            or key in seen
-            or contains_banned_term(prompt, banned_terms)
-        ):
+        if not prompt or key in seen:
             continue
         seen.add(key)
         sanitized.append(
             {
                 "category": category,
                 "buying_stage": buying_stage,
+                # Kept, not dropped. A question that ran long is still a
+                # question, and the count it would have emptied is what ends
+                # the run.
+                "overlong": len(prompt.split()) > long_limit,
                 "persona_id": str(item.get("persona_id", "Unknown")).strip()
                 if isinstance(item, dict)
                 else "Unknown",
@@ -908,46 +972,3 @@ def natural_provider_type(company_profile: dict[str, Any]) -> str:
         if value and value.lower() != "unknown":
             return value
     return "Unknown"
-
-
-def build_banned_terms(company_profile: dict[str, Any]) -> set[str]:
-    terms = set()
-    company_name = str(company_profile.get("company_name", "")).strip()
-    if company_name and company_name != "Unknown":
-        terms.add(company_name.lower())
-        for part in company_name.split():
-            if len(part) > 3:
-                terms.add(part.lower())
-
-    for page in company_profile.get("evidence", {}).get("supporting_pages", []):
-        value = str(page).lower()
-        if "://" in value:
-            domain = value.split("://", 1)[1].split("/", 1)[0]
-            terms.add(domain)
-            terms.add(domain.removeprefix("www.").split(".", 1)[0])
-
-    # A question naming a client is written for that client, not for the band
-    # they stand for. Nobody searching today has heard of them. Only the full
-    # name is banned: single words like "India" or "College" belong to buyers
-    # as much as to the customer they were taken from.
-    for customer in named_customers(company_profile):
-        name = customer["name"].strip().lower()
-        if len(name) > 3:
-            terms.add(name)
-
-    # The company's own marketing wording. No buyer types "premium global
-    # technology partner" into a search box, and a question carrying it is
-    # written in the seller's voice rather than the buyer's.
-    signals = company_profile.get("buying_signals")
-    if isinstance(signals, dict):
-        for claim in signals.get("company_self_description") or []:
-            phrase = " ".join(str(claim).split()).strip(" .").lower()
-            if len(phrase.split()) >= 3:
-                terms.add(phrase)
-
-    return {term for term in terms if term}
-
-
-def contains_banned_term(prompt: str, banned_terms: set[str]) -> bool:
-    value = prompt.casefold()
-    return any(term.casefold() in value for term in banned_terms)

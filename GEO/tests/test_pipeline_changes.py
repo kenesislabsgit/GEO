@@ -59,6 +59,7 @@ from geo_audit.web_presence import (
 from geo_audit.evidence import build_website_evidence, readable_excerpt
 from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
+    MAX_QUESTION_WORDS,
     build_customer_intent_review_payload,
     build_customer_intent_payload,
     build_required_search_frame,
@@ -1043,46 +1044,54 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(normalize_buyer_band({"geography": "India"}, 6)["geography"],
                          "India")
 
-    def test_a_question_may_not_borrow_the_companys_marketing_words(self) -> None:
-        # No buyer types "premium global technology partner" into a search box.
+    def test_a_word_from_the_company_name_is_not_treated_as_the_brand(self) -> None:
+        # The failure this whole change exists to prevent. Horus Analytics
+        # sells video analytics, so the old ban list held "analytics" and
+        # deleted all thirty questions, twice, and ended the run. Whether a
+        # word names the company or names its trade is a judgment, and it
+        # belongs to the writer that can see what the company sells.
+        profile = {
+            "company_name": "Horus Analytics",
+            "category": "AI Video Analytics Software",
+            "evidence": {"supporting_pages": ["https://horusapp.io/"]},
+        }
+        kept = sanitize_prompt_records(
+            [
+                {"prompt": "best video analytics software for retail stores"},
+                {"prompt": "on-premise analytics that works with existing cameras"},
+            ],
+            profile,
+        )
+        self.assertEqual(
+            [row["prompt"] for row in kept],
+            [
+                "best video analytics software for retail stores?",
+                "on-premise analytics that works with existing cameras?",
+            ],
+        )
+
+    def test_the_sanitizer_never_empties_the_question_set(self) -> None:
+        # A filter that removes everything it was given is broken, whatever it
+        # was filtering for. Marketing wording, a customer's name and the
+        # company's own name are all judgments now made by the writer, so
+        # nothing here may delete on their account.
         profile = {
             "company_name": "WeDigi",
+            "named_customers": [{"name": "Brakes India", "described_as": ""}],
             "buying_signals": {
                 "company_self_description": ["premium global technology partner"]
             },
-            "evidence": {"supporting_pages": []},
+            "evidence": {"supporting_pages": ["https://wedigi.test/"]},
         }
         kept = sanitize_prompt_records(
             [
                 {"prompt": "looking for a premium global technology partner"},
+                {"prompt": "web development partner for Brakes India"},
                 {"prompt": "who can rebuild our college admissions portal"},
             ],
             profile,
         )
-        self.assertEqual(
-            [row["prompt"] for row in kept],
-            ["who can rebuild our college admissions portal?"],
-        )
-
-    def test_a_question_may_not_name_one_of_the_customers(self) -> None:
-        # A question built around a named client is written for that client.
-        # Nobody searching today has heard of them.
-        profile = {
-            "company_name": "WeDigi",
-            "named_customers": [{"name": "Brakes India", "described_as": ""}],
-            "evidence": {"supporting_pages": []},
-        }
-        kept = sanitize_prompt_records(
-            [
-                {"prompt": "web development partner for Brakes India"},
-                {"prompt": "web development partner for an auto parts maker"},
-            ],
-            profile,
-        )
-        self.assertEqual(
-            [row["prompt"] for row in kept],
-            ["web development partner for an auto parts maker?"],
-        )
+        self.assertEqual(len(kept), 3)
 
     def test_service_company_questions_use_buyer_context_naturally(self) -> None:
         profile = {
@@ -1352,7 +1361,10 @@ class PipelineChangeTests(unittest.TestCase):
             evidence["use_case_pages_found"]["urls"],
         )
 
-    def test_question_sanitizer_only_enforces_structure_and_brand_safety(self) -> None:
+    def test_question_sanitizer_only_enforces_structure(self) -> None:
+        # Shape, not judgment: a question mark on the end, no exact repeats,
+        # and a note on anything that ran long. Brand safety is the writer's
+        # job, and it is told why in its own prompt rather than policed here.
         prompts = sanitize_prompt_records(
             [
                 {
@@ -1361,8 +1373,13 @@ class PipelineChangeTests(unittest.TestCase):
                     "buying_stage": "Discovery",
                 },
                 {
-                    "prompt": "Which companies provide factory safety monitoring software?",
+                    "prompt": "Which companies provide factory safety monitoring software",
                     "category": "Vendor",
+                    "buying_stage": "Discovery",
+                },
+                {
+                    "prompt": "How can I improve factory safety monitoring?",
+                    "category": "Problem",
                     "buying_stage": "Discovery",
                 },
                 {
@@ -1373,9 +1390,23 @@ class PipelineChangeTests(unittest.TestCase):
             ],
             PROFILE,
         )
+        # Four in, one an exact repeat of the first.
+        self.assertEqual(len(prompts), 3)
+        self.assertTrue(all(item["prompt"].endswith("?") for item in prompts))
+        self.assertIn("Kenesis", " ".join(item["prompt"] for item in prompts))
+        self.assertFalse(any(item["overlong"] for item in prompts))
+
+    def test_an_overlong_question_is_flagged_and_kept(self) -> None:
+        # It used to be deleted. Deleting it is what emptied the set and ended
+        # the run, so it is now carried with a note the reader can act on.
+        long_question = " ".join(["word"] * (MAX_QUESTION_WORDS + 5))
+        prompts = sanitize_prompt_records(
+            [{"prompt": long_question}, {"prompt": "short enough"}],
+            PROFILE,
+        )
         self.assertEqual(len(prompts), 2)
-        self.assertTrue(prompts[0]["prompt"].endswith("?"))
-        self.assertNotIn("Kenesis", " ".join(item["prompt"] for item in prompts))
+        self.assertTrue(prompts[0]["overlong"])
+        self.assertFalse(prompts[1]["overlong"])
 
     def test_question_quality_is_assigned_to_ai_reviewer(self) -> None:
         payload = build_customer_intent_review_payload(
