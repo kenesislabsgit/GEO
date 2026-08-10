@@ -52,7 +52,9 @@ from geo_audit.crawler import same_page_key
 from geo_audit.web_search import FallbackWebSearchClient
 from geo_audit.web_presence import (
     MAX_MENTION_WINDOWS,
+    build_presence_entities,
     check_cited_extract,
+    confirm_same_company,
     mention_windows,
     verify_search_result,
 )
@@ -3078,6 +3080,53 @@ class PipelineChangeTests(unittest.TestCase):
 class WebPresenceEntityCheckTests(unittest.TestCase):
     """The step counts how widely a company is written about, so a page that
     belongs to somebody with the same name moves the number being reported."""
+
+    def test_the_audited_company_carries_the_address_it_was_audited_at(self):
+        # The one identity in this step that was not worked out from a name.
+        # A live run counted app.horuslab.xyz, titled "HORUS Analytics", as web
+        # presence for Horus Analytics of horusapp.io.
+        entities = build_presence_entities(
+            {
+                "company_name": "Horus Analytics",
+                "evidence": {
+                    "supporting_pages": ["https://horusapp.io/industries"]
+                },
+            },
+            [],
+            {"top_competitors": [{"company_name": "Agent Vi"}]},
+            max_competitors=2,
+        )
+        audited = entities[0]
+        self.assertEqual(audited["entity_type"], "user_company")
+        self.assertEqual(audited["audited_domain"], "horusapp.io")
+        # A competitor's site is resolved by name matching, which is the thing
+        # this step doubts. Handing it over as identity would launder a guess.
+        self.assertIsNone(entities[1].get("audited_domain"))
+
+    def test_the_judge_is_told_the_address_only_when_it_is_known(self):
+        seen = {}
+
+        def fake_call(payload):
+            seen.update(json.loads(payload["messages"][1]["content"]))
+            return json.dumps({"pages": []})
+
+        rows = [
+            {
+                "url": "https://app.horuslab.xyz/login",
+                "domain": "app.horuslab.xyz",
+                "title": "HORUS Analytics",
+                "mention_windows": ["HORUS Analytics sign in"],
+            }
+        ]
+        with patch("geo_audit.web_presence.call_chat_completion", fake_call):
+            confirm_same_company("Horus Analytics", {}, rows, "horusapp.io")
+        self.assertEqual(seen["company_website"], "horusapp.io")
+        self.assertEqual(seen["pages"][0]["domain"], "app.horuslab.xyz")
+
+        seen.clear()
+        with patch("geo_audit.web_presence.call_chat_completion", fake_call):
+            confirm_same_company("Agent Vi", {}, rows)
+        self.assertNotIn("company_website", seen)
 
     def test_a_mention_late_in_a_long_page_is_still_read(self):
         # A forum thread names the company in comment forty. Reading the top of

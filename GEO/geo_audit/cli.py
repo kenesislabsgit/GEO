@@ -643,7 +643,16 @@ def main() -> None:
         choices=sorted(supported_assistants()),
         default=["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral"],
     )
-    run_parser.add_argument("--limit-per-assistant", type=int, default=5)
+    run_parser.add_argument(
+        "--limit-per-assistant",
+        type=int,
+        default=10,
+        help=(
+            "Questions put to every assistant, and therefore the number "
+            "written. All assistants answer the same set so their answers can "
+            "be compared."
+        ),
+    )
     run_parser.add_argument("--model", help="Generic OpenAI model override.")
     run_parser.add_argument("--openai-model", help="OpenAI chat model override.")
     run_parser.add_argument("--openai-search-model", help="OpenAI search model override.")
@@ -654,7 +663,11 @@ def main() -> None:
     run_parser.add_argument("--bedrock-llama-model", help="AWS Bedrock Llama model ID override.")
     run_parser.add_argument("--bedrock-mistral-model", help="AWS Bedrock Mistral model ID override.")
     run_parser.add_argument("--analyzer-batch-size", type=int, default=5)
-    run_parser.add_argument("--provider-concurrency", type=int, default=4)
+    # One job per web-search question, plus one per five Bedrock questions, so
+    # ten questions across four assistants is sixteen jobs. Four workers ran
+    # them in four waves and spent most of the step waiting for a slot rather
+    # than for a model.
+    run_parser.add_argument("--provider-concurrency", type=int, default=12)
     run_parser.add_argument(
         "--search-context-size",
         choices=["low", "medium", "high"],
@@ -1289,8 +1302,18 @@ def main() -> None:
                     generate_free_customer_intents(profile)
                 )
             else:
+                # Write as many questions as will actually be asked, and no
+                # more. These were two independent numbers: the writer made
+                # thirty and every assistant answered the first five, so a run
+                # paid to draft and review twenty-five questions that were
+                # saved to disk and never put to anybody. Nothing announced it,
+                # because both numbers were doing exactly what they said.
+                # Deriving one from the other is what stops them drifting apart
+                # again.
                 prompts, prompts_payload, prompts_error = (
-                    generate_customer_intents(profile)
+                    generate_customer_intents(
+                        profile, count=args.limit_per_assistant
+                    )
                 )
             emit_run_progress("buyer_prompts", 40, "Generating buyer questions")
             (run_dir / "customer_prompts_prompt.json").write_text(

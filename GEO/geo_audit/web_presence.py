@@ -365,6 +365,13 @@ def build_presence_entities(
                 "entity_type": "user_company",
                 "aliases": company_aliases(user_company),
                 "known_website": known_website,
+                # The one address in this step that was not inferred: the site
+                # the audit was commissioned for. Carried separately from
+                # known_website because that name is also used for competitor
+                # sites, which are guesses.
+                "audited_domain": domain_from_url(known_website)
+                if known_website
+                else None,
             }
         )
 
@@ -659,8 +666,19 @@ carries the name but belongs to somebody else inflates that count, and the
 company is then told it has a web presence it does not have.
 
 You are given a company, what it does, and a list of pages. Each page comes
-with numbered extracts, and every extract is the text surrounding one place
-where the name appears on that page.
+with its domain and numbered extracts, and every extract is the text
+surrounding one place where the name appears on that page.
+
+Where a company_website is given it is the audited company's real address,
+taken from the site the audit was commissioned for rather than guessed. Use it
+as identity. A page served from that domain is that company's own. A page on
+any other domain may still be about it — reviews, directories, comparisons and
+forum threads all live elsewhere and all count — but a page that reads as some
+other organisation's own site or product, on a domain that is not this one, is
+a different company wearing the same name. HORUS Analytics at horuslab.xyz is
+not Horus Analytics at horusapp.io, however exactly the names agree. No
+company_website is given for companies whose address we do not reliably know,
+and then the extracts are all you have.
 
 For each page return two things:
 
@@ -763,6 +781,12 @@ def gate_entity_mentions(
                     name,
                     company_profile,
                     [item["row"] for item in items],
+                    # Only the audited company has an address we did not work
+                    # out from its name. A competitor's resolved site is a
+                    # guess made by the same name matching this step exists to
+                    # doubt, and handing it over as identity would launder that
+                    # guess into a fact.
+                    items[0]["entity"].get("audited_domain"),
                 ): items
                 for name, items in by_company.items()
             }
@@ -856,11 +880,21 @@ def confirm_same_company(
     company_name: str,
     company_profile: dict[str, Any],
     rows: list[dict[str, Any]],
+    own_website: str | None = None,
 ) -> dict[str, tuple[bool, int, str]]:
-    """One call per company, covering every page found for it."""
+    """One call per company, covering every page found for it.
+
+    own_website is passed only where it is known rather than inferred. For the
+    audited company it is the address the audit was commissioned for, which is
+    the one piece of identity in this whole step that was not worked out from a
+    name. Without it the question being answered is "is this page about a
+    company called X", and app.horuslab.xyz, titled "HORUS Analytics", is a
+    correct answer to it and the wrong answer to ours.
+    """
     pages = [
         {
             "url": row.get("url"),
+            "domain": row.get("domain"),
             "title": row.get("title"),
             "extracts": [
                 {"line": number, "text": window}
@@ -879,6 +913,8 @@ def confirm_same_company(
         ),
         "pages": pages,
     }
+    if own_website:
+        request["company_website"] = own_website
     payload = build_chat_payload(
         SAME_COMPANY_SYSTEM_PROMPT,
         json.dumps(request, ensure_ascii=False),
