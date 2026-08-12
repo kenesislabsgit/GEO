@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Logo } from "@/components/site/logo";
+import { googleConfigured } from "@/lib/auth/auth";
 import { LoginForm } from "./login-form";
 
 export const metadata = {
@@ -26,7 +27,9 @@ export default function LoginPage() {
               </p>
             }
           >
-            <LoginForm />
+            {/* Decided on the server: the browser never learns whether the
+                keys exist, and a button that cannot work is never rendered. */}
+            <LoginForm googleEnabled={googleConfigured} />
           </Suspense>
         </div>
       </div>

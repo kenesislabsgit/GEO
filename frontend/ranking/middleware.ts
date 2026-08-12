@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getSessionCookie } from "better-auth/cookies";
 
 function safePath(value: string | null): string | null {
   if (!value) return null;
@@ -18,9 +19,16 @@ export async function middleware(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const supabaseConfigured = Boolean(url && key);
 
-  let authenticated = false;
+  // Presence only, deliberately. This runs on every protected request and
+  // cannot reach the database, so it is a cheap gate to keep signed-out people
+  // off the page — never the authorisation check. Every page still calls
+  // getSessionUser(), which validates the session properly and is what decides
+  // whose data gets loaded. Reading the cookie through better-auth's own
+  // helper rather than by name keeps the secure- prefix used in production
+  // from silently failing this check.
+  let authenticated = Boolean(getSessionCookie(request));
 
-  if (supabaseConfigured) {
+  if (!authenticated && supabaseConfigured) {
     const supabase = createServerClient(url!, key!, {
       cookies: {
         getAll() {
@@ -41,7 +49,7 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     authenticated = Boolean(user);
-  } else {
+  } else if (!authenticated) {
     // Local demo auth cookie set by /api/auth/local.
     authenticated = Boolean(request.cookies.get("rbai_local_user")?.value);
   }

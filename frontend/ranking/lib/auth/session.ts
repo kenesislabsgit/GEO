@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth/auth";
 import { createClient } from "@/lib/db/supabase/server";
 import { usingLocalDb } from "@/lib/db/repository";
 
@@ -7,6 +9,16 @@ export type SessionUser = {
 };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // Asked first, and on every path. Someone who signed in with Google is
+  // signed in whether or not a database is configured, and the two older
+  // routes below stay in place so nobody is logged out by this change.
+  const session = await auth.api
+    .getSession({ headers: await headers() })
+    .catch(() => null);
+  if (session?.user?.email) {
+    return { id: session.user.id, email: session.user.email };
+  }
+
   if (usingLocalDb()) {
     // Local demo auth via cookie set by /api/auth/local
     const { cookies } = await import("next/headers");

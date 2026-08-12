@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { routes } from "@/lib/routes";
+import { GoogleButton } from "./google-button";
 
-export function LoginForm() {
+export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const claim = params.get("claim");
@@ -84,6 +85,20 @@ export function LoginForm() {
           You&apos;re claiming the report for{" "}
           <span className="font-medium">{claim}</span>. It will be attached to
           your new account.
+        </div>
+      ) : null}
+
+      {/* Above the email fields on purpose: most people who have a Google
+          account will use it, and putting it under the form makes them fill
+          in a password first and find the shortcut afterwards. */}
+      {googleEnabled ? (
+        <div className="mt-6">
+          <GoogleButton returnTo={returnTo} />
+          <div className="mt-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
         </div>
       ) : null}
 
