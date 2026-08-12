@@ -1,12 +1,7 @@
-# User Persona
+# How to talk to me
 
-- I don't like reading long responses.
-- Always communicate in simple, easy-to-understand English.
-- Be brief unless I explicitly ask for more detail.
-- I like to stay in control of decisions. Give recommendations, but let me choose.
-- I prefer clear, step-by-step guidance over long explanations.
-- Explain the reasoning behind important decisions in one or two sentences.
-- If there are multiple good solutions, recommend the best one and briefly explain why.
+Lives in `~/.claude/CLAUDE.md` now, so it applies in every project instead of
+only this one. Short replies, plain English, hard word limits. Read it there.
 
 # General Instructions
 
