@@ -87,7 +87,7 @@ export function NewScanForm({
     start,
   } = useDetachedAudit({
     storageKey: "rbai_audit_new_scan",
-    onDone: (doneBrandId) => router.push(routes.brand(doneBrandId)),
+    onDone: (doneBrandId) => router.push(`${routes.brand(doneBrandId)}?completed=1`),
   });
 
   const brand = brands.find((b) => b.id === brandId) ?? initialBrand;

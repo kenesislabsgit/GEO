@@ -1,0 +1,23 @@
+import { Suspense } from "react";
+import { Logo } from "@/components/site/logo";
+import { ForgotPasswordForm } from "./forgot-password-form";
+
+export const metadata = { title: "Forgot password" };
+
+export default function ForgotPasswordPage() {
+  return (
+    <main className="rb-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
+      <div aria-hidden className="rb-mesh pointer-events-none absolute inset-0 opacity-70" />
+      <div className="relative w-full max-w-sm">
+        <div className="flex justify-center">
+          <Logo />
+        </div>
+        <div className="rb-glass mt-8 p-6 sm:p-8">
+          <Suspense>
+            <ForgotPasswordForm />
+          </Suspense>
+        </div>
+      </div>
+    </main>
+  );
+}

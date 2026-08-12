@@ -6,14 +6,12 @@ import {
   EntitlementError,
   PLAN_CONFIG,
 } from "@/lib/billing/entitlements";
-import { providerKeyMissing } from "@/lib/ai/providers/demo";
-import { METHODOLOGY_VERSION } from "@/lib/constants";
+import { PRO_AUDIT_QUESTION_COUNT } from "@/lib/constants";
 import { withIdempotency } from "@/lib/rate-limit";
+import { startDetachedAudit } from "@/lib/audit/runner";
 import {
-  createScanRun,
   getBrandById,
   getPrompts,
-  getScanRun,
   getUserOnboarding,
   listAllPrompts,
   replaceCompetitors,
@@ -22,7 +20,6 @@ import {
   upsertBrandMonitoringSettings,
   upsertUserOnboarding,
 } from "@/lib/db/repository";
-import { enqueueScan } from "@/lib/jobs/inngest";
 import type { ProviderId } from "@/types/database";
 
 export async function POST() {
@@ -127,25 +124,17 @@ export async function POST() {
       );
     }
 
-    const scan = await createScanRun({
-      brand_id: brand.id,
-      initiated_by: user.id,
-      scan_type: "manual",
-      status: "queued",
-      provider_ids: providers,
-      total_queries: estimatedChecks,
-      completed_queries: 0,
-      started_at: null,
-      completed_at: null,
-      error_summary: null,
-      methodology_version: METHODOLOGY_VERSION,
-      demo_mode: providers.some((p) => providerKeyMissing(p)),
-      cancelled_at: null,
-      country: state.country.toUpperCase(),
-      language: state.language.toLowerCase(),
+    // The real Python audit, detached from this request — the same runner
+    // every other audit uses. The old TypeScript engine and its queue are
+    // deliberately not called from here any more.
+    const started = await startDetachedAudit({
+      domain: brand.canonical_domain,
+      mode: "pro",
+      assistants: providers,
+      limitPerAssistant: Math.min(activePrompts.length, PRO_AUDIT_QUESTION_COUNT),
+      userId: user.id,
+      brand,
     });
-
-    await enqueueScan(scan.id);
 
     await upsertBrandMonitoringSettings(brand.id, {
       monitoringFrequency: state.monitoringFrequency,
@@ -163,9 +152,9 @@ export async function POST() {
       updatedAt: new Date().toISOString(),
     });
 
-    const created = await getScanRun(scan.id);
     return NextResponse.json({
-      scanRunId: created?.id ?? scan.id,
+      scanRunId: started.scanRunId,
+      brandId: started.brandId,
       completed: true,
     });
   } catch (error) {

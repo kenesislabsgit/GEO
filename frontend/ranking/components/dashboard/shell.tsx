@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   CreditCard,
   LogOut,
   Package,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: routes.brands, label: "Websites", icon: Package, exact: false },
   { href: routes.scans, label: "Audit history", icon: Radar, exact: false },
+  { href: routes.alerts, label: "Alerts", icon: Bell, exact: false },
   {
     href: routes.billing(),
     label: "Billing",
@@ -37,12 +39,14 @@ export function DashboardShell({
   isAdmin = false,
   planName = "Free",
   paid = false,
+  unreadAlerts = 0,
 }: {
   children: React.ReactNode;
   email: string;
   isAdmin?: boolean;
   planName?: string;
   paid?: boolean;
+  unreadAlerts?: number;
 }) {
   const pathname = usePathname();
 
@@ -76,6 +80,11 @@ export function DashboardShell({
                 >
                   <link.icon className="size-4" />
                   {link.label}
+                  {link.href === routes.alerts && unreadAlerts > 0 ? (
+                    <span className="ml-auto rounded-full bg-[color:var(--rb-blue)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {unreadAlerts > 9 ? "9+" : unreadAlerts}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

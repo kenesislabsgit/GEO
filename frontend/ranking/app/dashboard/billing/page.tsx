@@ -8,7 +8,7 @@ import { BillingActions } from "@/components/billing/billing-actions";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; returnTo?: string }>;
+  searchParams: Promise<{ plan?: string; returnTo?: string; status?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) return null;
@@ -27,6 +27,15 @@ export default async function BillingPage({
 
   return (
     <div className="space-y-8">
+      {params.status === "cancelled" ? (
+        <div className="rounded-lg border border-border bg-[color:var(--rb-mist)] px-4 py-3 text-sm">
+          <p className="font-medium">Checkout was cancelled</p>
+          <p className="mt-0.5 text-muted-foreground">
+            No subscription was activated and nothing was charged. Pick a plan
+            below whenever you&apos;re ready.
+          </p>
+        </div>
+      ) : null}
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           Billing

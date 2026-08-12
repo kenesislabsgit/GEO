@@ -140,7 +140,17 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <div className="flex items-center justify-between">
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              {mode === "signin" ? (
+                <Link
+                  href={routes.forgotPassword}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
+              ) : null}
+            </div>
             <Input
               id="password"
               name="password"

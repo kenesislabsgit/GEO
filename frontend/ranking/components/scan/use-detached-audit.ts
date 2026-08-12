@@ -95,7 +95,14 @@ export function useDetachedAudit(options: {
         const data = (await res.json().catch(() => ({}))) as {
           scanRunId?: string;
           error?: string;
+          code?: string;
         };
+        if (data.code === "email_unverified") {
+          // The audit needs a confirmed address; the page there explains and
+          // offers a resend.
+          window.location.assign("/verify-email");
+          return;
+        }
         if (!res.ok || !data.scanRunId) {
           throw new Error(data.error || "Could not start audit");
         }

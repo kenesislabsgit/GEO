@@ -32,7 +32,7 @@ export function AddBrandScanForm({
   const [domain, setDomain] = useState(initialDomain ?? "");
   const { loading, error, progress, step, start } = useDetachedAudit({
     storageKey: "rbai_audit_add_brand",
-    onDone: (brandId) => router.push(routes.brand(brandId)),
+    onDone: (brandId) => router.push(`${routes.brand(brandId)}?completed=1`),
   });
 
   function startAudit() {

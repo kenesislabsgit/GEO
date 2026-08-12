@@ -26,7 +26,7 @@ export function UpgradeAuditProgress({
   const { loading, error, progress, step, start } = useDetachedAudit({
     storageKey: `rbai_audit_upgrade_${brandId}`,
     onDone: (doneBrandId) => {
-      router.replace(routes.brand(doneBrandId));
+      router.replace(`${routes.brand(doneBrandId)}?completed=1`);
       router.refresh();
     },
   });

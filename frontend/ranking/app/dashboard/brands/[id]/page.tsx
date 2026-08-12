@@ -19,6 +19,7 @@ import { BrandNav } from "@/components/dashboard/brand-nav";
 import { RescanButton } from "@/components/dashboard/rescan-button";
 import { routes } from "@/lib/routes";
 import { CompetitorLLMChart } from "@/components/dashboard/competitor-llm-chart";
+import { AuditCompleteBanner } from "@/components/dashboard/audit-complete-banner";
 import type { CompetitorWithLLM } from "@/components/dashboard/competitor-llm-chart";
 
 type CompetitorSignal = {
@@ -130,6 +131,7 @@ export default async function WebsiteReportSummary({
 
   return (
     <div className="space-y-7">
+      <AuditCompleteBanner />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

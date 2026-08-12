@@ -51,11 +51,13 @@ export async function POST(request: Request) {
     });
   }
 
+  // Checkout always comes back to the confirmation page, which waits for
+  // the webhook rather than believing the redirect. The original destination
+  // rides along and is re-validated there.
   const requestedReturn = safeReturnTo(body.returnTo);
-  const returnUrl = requestedReturn
-    ? `${process.env.NEXT_PUBLIC_APP_URL}${requestedReturn}`
-    : process.env.DODO_PAYMENTS_RETURN_URL ||
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`;
+  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}${routes.billingSuccess(
+    requestedReturn ? { returnTo: requestedReturn } : undefined,
+  )}`;
 
   // Test keys only work against Dodo's test server, live keys against the
   // live one. The environment variable decides; live is the default so a

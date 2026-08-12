@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
+import { sendAlertEmail } from "@/lib/email/resend";
 
 /**
  * Login, owned by this application.
@@ -52,9 +53,54 @@ export const auth = betterAuth({
     })(),
   emailAndPassword: {
     enabled: true,
-    // Nothing sends email yet. Requiring verification here would let people
-    // sign up and then lock them out of the account they just made.
+    // Sign-in stays open to unverified accounts so nobody is locked out of
+    // an account they just made; running an audit is what requires a
+    // verified address, and that is enforced at the audit door.
     requireEmailVerification: false,
+    sendResetPassword: async ({ user, url }) => {
+      await sendAlertEmail({
+        to: user.email,
+        subject: "Reset your password",
+        body:
+          `Someone asked to reset the password for this address. If it was you, ` +
+          `open this link within the hour:\n\n${url}\n\nIf it was not you, ` +
+          `ignore this email — nothing changes without the link.`,
+      });
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendAlertEmail({
+        to: user.email,
+        subject: "Confirm your email address",
+        body:
+          `Welcome! Confirm this address to unlock your first audit:\n\n${url}\n\n` +
+          `If you did not create an account, ignore this email.`,
+      });
+    },
+  },
+  // Auth endpoints are a favourite for abuse; the built-in limiter covers
+  // sign-in attempts, reset requests and verification resends.
+  rateLimit: {
+    enabled: true,
+  },
+  account: {
+    accountLinking: {
+      enabled: true,
+      // Someone who signed up with a password and later clicks "Continue
+      // with Google" on the same address is the same person: Google has
+      // verified they own that inbox. Without this the second method is
+      // refused with account_not_linked and the person is locked out of
+      // half their own login.
+      trustedProviders: ["google"],
+      // Nothing sends verification email yet, so every password account is
+      // unverified and the default (only link to verified accounts) would
+      // refuse everybody. Accepted trade-off until email verification
+      // exists: Google's own check that you own the inbox is the proof.
+      requireLocalEmailVerified: false,
+    },
   },
   socialProviders: googleConfigured
     ? {

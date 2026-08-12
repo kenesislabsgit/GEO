@@ -454,6 +454,35 @@ export async function listAlerts(userId: string) {
   );
 }
 
+export async function countUnreadAlerts(userId: string): Promise<number> {
+  const row = await one<{ n: number }>(
+    `select count(*)::int as n from alerts where user_id = $1 and read_at is null`,
+    [userId],
+  );
+  return row?.n ?? 0;
+}
+
+/** Scoped to the owner so nobody can mark another person's alert. */
+export async function markAlertRead(
+  userId: string,
+  alertId: string,
+): Promise<boolean> {
+  const touched = await exec(
+    `update alerts set read_at = timezone('utc', now())
+     where id = $1 and user_id = $2 and read_at is null`,
+    [alertId, userId],
+  );
+  return touched > 0;
+}
+
+export async function markAllAlertsRead(userId: string): Promise<number> {
+  return exec(
+    `update alerts set read_at = timezone('utc', now())
+     where user_id = $1 and read_at is null`,
+    [userId],
+  );
+}
+
 export async function recordWebhookEvent(
   row: Omit<WebhookEvent, "id" | "processed_at">,
 ) {

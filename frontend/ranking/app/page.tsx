@@ -76,7 +76,7 @@ const faqs = [
   },
   {
     q: "Do free scans require an account?",
-    a: "No. Enter a domain and get a shareable public report. One free scan per domain every 30 days — claim the brand later to unlock monitoring.",
+    a: "Yes — a free account, no card. Sign up, run your free audit, and your report is saved to your dashboard so you can come back to it any time.",
   },
   {
     q: "Do you guarantee ranking improvements?",

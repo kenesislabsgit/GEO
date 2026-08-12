@@ -5,6 +5,7 @@ import { authorizeAudit } from "@/lib/billing/enforce";
 import { startDetachedAudit } from "@/lib/audit/runner";
 import { FREE_AUDIT_PROVIDER } from "@/lib/constants";
 import { getBrandByDomainForOwner, getBrandById } from "@/lib/db/repository";
+import { one } from "@/lib/db/pg";
 import { normalizeDomain, UrlValidationError } from "@/lib/security/url";
 
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ const requestSchema = z.object({
         "gemini",
         "perplexity",
         "bedrock_claude",
+        "bedrock_nova",
         "bedrock_llama",
         "bedrock_mistral",
       ]),
@@ -46,6 +48,25 @@ export async function POST(request: NextRequest) {
       { error: "Sign in to run an audit." },
       { status: 401 },
     );
+  }
+  // A confirmed email is what stops throwaway signups burning provider
+  // credit. Google accounts arrive verified; password accounts confirm once.
+  // Only enforced when email sending is configured — otherwise nobody could
+  // ever verify and the whole product would lock itself.
+  if (process.env.RESEND_API_KEY) {
+    const row = await one<{ emailVerified: boolean }>(
+      `select "emailVerified" from "user" where id = $1`,
+      [user.id],
+    );
+    if (row && !row.emailVerified) {
+      return NextResponse.json(
+        {
+          error: "Confirm your email address before running an audit.",
+          code: "email_unverified",
+        },
+        { status: 403 },
+      );
+    }
   }
   const existingBrand = body.brandId ? await getBrandById(body.brandId) : null;
   if (body.brandId && (!existingBrand || existingBrand.owner_id !== user.id)) {
