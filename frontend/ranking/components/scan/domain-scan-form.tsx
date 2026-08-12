@@ -18,13 +18,15 @@ export function DomainScanForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
-  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  // The runner's own step name, not its log line. The wording shown to the
+  // customer lives in lib/audit/progress-copy.
+  const [scanStep, setScanStep] = useState<string | null>(null);
 
   async function startAudit() {
     setLoading(true);
     setError(null);
     setScanProgress(1);
-    setScanMessage("Starting audit");
+    setScanStep("starting");
     try {
       const res = await fetch("/api/audit-run/stream", {
         method: "POST",
@@ -62,12 +64,13 @@ export function DomainScanForm() {
         if (!line.trim()) continue;
         const event = JSON.parse(line) as {
           event?: string;
+          step?: string;
           progress?: number;
           message?: string;
           reportPath?: string;
         };
         if (typeof event.progress === "number") setScanProgress(event.progress);
-        if (event.message) setScanMessage(event.message);
+        if (event.step) setScanStep(event.step);
         if (event.event === "done" && event.reportPath) {
           router.push(event.reportPath);
           return;
@@ -123,7 +126,13 @@ export function DomainScanForm() {
           ) : null}
         </form>
         {loading ? (
-          <AuditProgress progress={scanProgress} message={scanMessage} questionCount={5} providerCount={1} />
+          <AuditProgress
+            progress={scanProgress}
+            step={scanStep}
+            plan="free"
+            providers={[FREE_AUDIT_PROVIDER]}
+            questionCount={FREE_AUDIT_QUESTION_COUNT}
+          />
         ) : null}
         {error ? (
           <Alert variant="destructive" className="mt-4">

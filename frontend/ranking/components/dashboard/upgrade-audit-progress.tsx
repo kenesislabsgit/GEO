@@ -23,7 +23,7 @@ export function UpgradeAuditProgress({
   const started = useRef(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(1);
-  const [message, setMessage] = useState("Preparing your full report");
+  const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // A Pro run costs real money and about five minutes, so it waits for a
@@ -33,6 +33,7 @@ export function UpgradeAuditProgress({
     if (started.current) return;
     started.current = true;
     setRunning(true);
+    setStep("starting");
     setError(null);
 
     async function continueAudit() {
@@ -67,12 +68,13 @@ export function UpgradeAuditProgress({
             if (!line.trim()) continue;
             const event = JSON.parse(line) as {
               event?: string;
+              step?: string;
               progress?: number;
               message?: string;
               brandId?: string;
             };
             if (typeof event.progress === "number") setProgress(event.progress);
-            if (event.message) setMessage(event.message);
+            if (event.step) setStep(event.step);
             if (event.event === "error") {
               throw new Error(event.message || "Audit continuation failed");
             }
@@ -105,9 +107,10 @@ export function UpgradeAuditProgress({
         {running ? (
           <AuditProgress
             progress={progress}
-            message={message}
+            step={step}
+            plan="pro"
+            providers={providers}
             questionCount={PRO_AUDIT_QUESTION_COUNT}
-            providerCount={providers.length}
           />
         ) : (
           <div className="mt-5 border-t border-border pt-5">

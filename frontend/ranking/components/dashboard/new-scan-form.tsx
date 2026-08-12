@@ -78,7 +78,7 @@ export function NewScanForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
-  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanStep, setScanStep] = useState<string | null>(null);
   const [recentBlock, setRecentBlock] = useState<{
     reportSlug: string;
     lastScanAt: string | null;
@@ -111,7 +111,7 @@ export function NewScanForm({
     setRecentBlock(null);
     try {
       setScanProgress(1);
-      setScanMessage("Starting audit");
+      setScanStep("starting");
       const res = await fetch("/api/audit-run/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -152,12 +152,13 @@ export function NewScanForm({
         if (!line.trim()) continue;
         const event = JSON.parse(line) as {
           event?: string;
+          step?: string;
           progress?: number;
           message?: string;
           brandId?: string;
         };
         if (typeof event.progress === "number") setScanProgress(event.progress);
-        if (event.message) setScanMessage(event.message);
+        if (event.step) setScanStep(event.step);
         if (event.event === "done") {
           router.push(routes.brand(event.brandId ?? brandId));
           return;
@@ -434,9 +435,10 @@ export function NewScanForm({
           {loading ? (
             <AuditProgress
               progress={scanProgress}
-              message={scanMessage}
+              step={scanStep}
+              plan="pro"
+              providers={providers}
               questionCount={questionsPerProvider}
-              providerCount={providers.length}
             />
           ) : null}
           {overAllowance ? (

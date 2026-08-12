@@ -29,13 +29,13 @@ export function AddBrandScanForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
+  const [step, setStep] = useState<string | null>(null);
 
   async function startAudit() {
     setLoading(true);
     setError(null);
     setProgress(1);
-    setMessage("Starting audit");
+    setStep("starting");
     try {
       const res = await fetch("/api/audit-run/stream", {
         method: "POST",
@@ -75,12 +75,13 @@ export function AddBrandScanForm({
         if (!line.trim()) continue;
         const event = JSON.parse(line) as {
           event?: string;
+          step?: string;
           progress?: number;
           message?: string;
           brandId?: string;
         };
         if (typeof event.progress === "number") setProgress(event.progress);
-        if (event.message) setMessage(event.message);
+        if (event.step) setStep(event.step);
         if (event.event === "done" && event.brandId) {
           router.push(routes.brand(event.brandId));
           return;
@@ -133,7 +134,15 @@ export function AddBrandScanForm({
           </Button>
         </div>
       </form>
-      {loading ? <AuditProgress progress={progress} message={message} questionCount={isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT} providerCount={providers.length} /> : null}
+      {loading ? (
+        <AuditProgress
+          progress={progress}
+          step={step}
+          plan={isPaid ? "pro" : "free"}
+          providers={providers}
+          questionCount={isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT}
+        />
+      ) : null}
       {error ? (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle>Audit could not continue</AlertTitle>
