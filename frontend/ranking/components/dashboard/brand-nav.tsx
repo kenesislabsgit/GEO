@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { path: "", label: "Summary", pro: false },
   { path: "/competitors", label: "Competitors", pro: true },
+  // The page at /citations was written, styled and gated, and then left out of
+  // this list, so the only way to reach it was to type the URL. Every audit
+  // has been collecting the pages behind it since.
+  { path: "/citations", label: "Sources", pro: true },
   { path: "/actions", label: "Website Improvements", pro: false },
   { path: "/prompts", label: "Audit Details", pro: false },
   { path: "/history", label: "History", pro: true },

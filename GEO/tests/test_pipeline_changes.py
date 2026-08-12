@@ -2156,6 +2156,47 @@ class PipelineChangeTests(unittest.TestCase):
         )
         self.assertEqual(rows[0]["citations"], [])
 
+    def test_a_page_is_exported_once_however_many_answers_name_its_company(
+        self,
+    ) -> None:
+        # The mention list was rebuilt per answer, so every answer naming Acme
+        # carried Acme's whole list. A live run exported 306 rows for 45 pages
+        # and the database stored all 306.
+        answer = {
+            "prompt_index": 1,
+            "prompt": "Which vendors?",
+            "assistant": "bedrock_llama",
+            "model": "test",
+            "recommended_companies": [{"company_name": "Acme", "rank": 1}],
+            "provider_source_urls": [],
+        }
+        web_presence = {
+            "entities": [
+                {
+                    "company_name": "Acme",
+                    "entity_type": "competitor",
+                    "verified_mentions": [
+                        {"url": "https://review.test/acme", "verified": True},
+                        {"url": "https://forum.test/acme", "verified": True},
+                    ],
+                }
+            ]
+        }
+        rows = build_query_results(
+            [dict(answer, prompt_index=index) for index in (1, 2, 3)],
+            "Kenesis",
+            web_presence,
+        )
+        exported = [
+            mention["url"] for row in rows for mention in row["verified_mentions"]
+        ]
+        self.assertEqual(len(exported), 2)
+        self.assertEqual(len(set(exported)), 2)
+        # Carried by the first answer that named the company, so the page is
+        # still tied to an answer rather than floating free of the audit.
+        self.assertEqual(len(rows[0]["verified_mentions"]), 2)
+        self.assertEqual(rows[1]["verified_mentions"], [])
+
     def test_competitor_report_rows_keep_claims_and_verifiable_sources(self) -> None:
         score_rows = [
             {

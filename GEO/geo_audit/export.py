@@ -173,15 +173,24 @@ def build_query_results(
     web_presence = web_presence or {}
     brand_key = brand_name.lower().strip()
     rows = []
+    # A page written about a company is a fact about that company, not about
+    # one answer. Attached per answer, the same page was written out once for
+    # every answer naming its company: a run finding 45 pages exported 306 rows
+    # and stored all 306. Each page is now carried by the first answer that
+    # named its company, which keeps the association and drops the copies.
+    exported_mentions: set[str] = set()
     for result in raw_results:
         recommendations = result.get("recommended_companies", [])
         provider_source_urls = result.get("provider_source_urls", [])
         cited_urls = sorted(set(provider_source_urls))
         brand_mentions = citation_brand_mentions(result)
-        verified_mentions = mentions_for_recommendations(
-            recommendations,
-            web_presence,
-        )
+        verified_mentions = []
+        for mention in mentions_for_recommendations(recommendations, web_presence):
+            url = str(mention.get("url", "")).strip()
+            if not url or url in exported_mentions:
+                continue
+            exported_mentions.add(url)
+            verified_mentions.append(mention)
         brand_rec = next(
             (
                 item
