@@ -59,6 +59,10 @@ export async function importAuditExport(
     scanType?: "free" | "manual" | "scheduled";
     initiatedBy?: string | null;
     recordFreeScan?: boolean;
+    // A run row created before the audit started. The import fills it in
+    // instead of creating a second one, so the page that has been polling
+    // this id sees the same run turn into the finished report.
+    scanRunId?: string;
   } = {},
 ) {
   const domain = normalizeDomain(audit.brand?.domain);
@@ -140,11 +144,11 @@ export async function importAuditExport(
   // competitors or actions, and the dashboard showed that as a finished audit
   // with empty panels rather than as the failure it was.
   const finalStatus = audit.scan?.status === "partial" ? "partial" : "completed";
-  const scan = await createScanRun({
+  const scanFields = {
     brand_id: brand.id,
     initiated_by: options.initiatedBy ?? null,
     scan_type: options.scanType ?? "free",
-    status: "running",
+    status: "running" as const,
     provider_ids: providerIds,
     total_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
     completed_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
@@ -159,7 +163,13 @@ export async function importAuditExport(
     cancelled_at: null,
     country: "us",
     language: "en",
-  });
+  };
+  const scan = options.scanRunId
+    ? await updateScanRun(options.scanRunId, scanFields)
+    : await createScanRun(scanFields);
+  if (!scan) {
+    throw new Error(`Scan run ${options.scanRunId} to import into was not found.`);
+  }
 
   await Promise.all(
     (audit.query_results ?? []).map(async (row) => {

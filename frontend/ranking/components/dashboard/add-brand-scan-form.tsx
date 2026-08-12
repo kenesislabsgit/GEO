@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
+import { useDetachedAudit } from "@/components/scan/use-detached-audit";
 import {
   FREE_AUDIT_QUESTION_COUNT,
   PRO_AUDIT_QUESTION_COUNT,
@@ -19,76 +20,30 @@ export function AddBrandScanForm({
   isPaid,
   brandLimitReached,
   providers,
+  initialDomain,
 }: {
   isPaid: boolean;
   brandLimitReached: boolean;
   providers: ProviderId[];
+  // The domain typed on the homepage before sign-up, waiting here afterwards.
+  initialDomain?: string;
 }) {
   const router = useRouter();
-  const [domain, setDomain] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [step, setStep] = useState<string | null>(null);
+  const [domain, setDomain] = useState(initialDomain ?? "");
+  const { loading, error, progress, step, start } = useDetachedAudit({
+    storageKey: "rbai_audit_add_brand",
+    onDone: (brandId) => router.push(routes.brand(brandId)),
+  });
 
-  async function startAudit() {
-    setLoading(true);
-    setError(null);
-    setProgress(1);
-    setStep("starting");
-    try {
-      const res = await fetch("/api/audit-run/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          domain,
-          mode: isPaid ? "pro" : "free",
-          assistants: providers,
-          limitPerAssistant: isPaid
-            ? PRO_AUDIT_QUESTION_COUNT
-            : FREE_AUDIT_QUESTION_COUNT,
-        }),
-      });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not start audit");
-      }
-      await readStream(res.body);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start audit");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function readStream(body: ReadableStream<Uint8Array>) {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line) as {
-          event?: string;
-          step?: string;
-          progress?: number;
-          message?: string;
-          brandId?: string;
-        };
-        if (typeof event.progress === "number") setProgress(event.progress);
-        if (event.step) setStep(event.step);
-        if (event.event === "done" && event.brandId) {
-          router.push(routes.brand(event.brandId));
-          return;
-        }
-        if (event.event === "error") throw new Error(event.message || "Audit failed");
-      }
-    }
+  function startAudit() {
+    void start({
+      domain,
+      mode: isPaid ? "pro" : "free",
+      assistants: providers,
+      limitPerAssistant: isPaid
+        ? PRO_AUDIT_QUESTION_COUNT
+        : FREE_AUDIT_QUESTION_COUNT,
+    });
   }
 
   if (brandLimitReached) {

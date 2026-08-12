@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { closeTestDb, resetTestDb } from "./pg-test-db";
 
 /**
  * End-to-end check of the free report, using a real audit export produced by a
@@ -10,12 +11,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * on the free page is proven to have real data behind it.
  */
 
-let tempDir: string;
 let report: import("@/lib/reports/public-dto").PublicReportDTO;
 
 beforeAll(async () => {
-  tempDir = await mkdtemp(path.join(tmpdir(), "rbai-free-"));
-  process.env.LOCAL_STORE_PATH = path.join(tempDir, "local-store.json");
+  await resetTestDb();
 
   const { importAuditExport } = await import("@/lib/audit/import-export");
   const repo = await import("@/lib/db/repository");
@@ -54,8 +53,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  delete process.env.LOCAL_STORE_PATH;
-  await rm(tempDir, { recursive: true, force: true });
+  await closeTestDb();
 });
 
 describe("free report page data", () => {

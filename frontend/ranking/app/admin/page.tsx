@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser, isAdminEmail } from "@/lib/auth/session";
-import { adminStats, usingLocalDb } from "@/lib/db/repository";
+import { adminStats } from "@/lib/db/repository";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,7 +38,7 @@ export default async function AdminPage() {
           Admin
         </h1>
         <Badge variant="secondary" className="rounded-full">
-          {usingLocalDb() ? "Local demo store" : "Supabase"}
+          PostgreSQL
         </Badge>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">

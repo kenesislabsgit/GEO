@@ -2,15 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSessionCookie } from "better-auth/cookies";
 
-function safePath(value: string | null): string | null {
-  if (!value) return null;
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-    return null;
-  }
-  return value;
-}
-
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -49,9 +41,6 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     authenticated = Boolean(user);
-  } else if (!authenticated) {
-    // Local demo auth cookie set by /api/auth/local.
-    authenticated = Boolean(request.cookies.get("rbai_local_user")?.value);
   }
 
   const { pathname, search } = request.nextUrl;
@@ -64,16 +53,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname === "/login" && authenticated) {
-    const claim = request.nextUrl.searchParams.get("claim");
-    if (claim) {
-      return NextResponse.redirect(
-        new URL(`/claim/${encodeURIComponent(claim)}`, request.url),
-      );
-    }
-    const returnTo = safePath(request.nextUrl.searchParams.get("returnTo"));
-    return NextResponse.redirect(new URL(returnTo ?? "/dashboard", request.url));
-  }
+  // The login page checks the session itself, properly. Bouncing here on mere
+  // cookie presence trapped anyone carrying a stale cookie in a loop: this
+  // gate sent them to the dashboard, whose real check sent them back.
 
   return response;
 }

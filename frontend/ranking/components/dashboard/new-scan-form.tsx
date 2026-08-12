@@ -4,11 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Clock, Loader2, Lock, Play } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
+import { useDetachedAudit } from "@/components/scan/use-detached-audit";
 import { routes } from "@/lib/routes";
 import {
   FREE_AUDIT_PROVIDER,
@@ -75,14 +75,20 @@ export function NewScanForm({
   const [providers, setProviders] = useState<string[]>(
     plan.isPaid ? [...plan.allowedProviders] : [FREE_AUDIT_PROVIDER],
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanStep, setScanStep] = useState<string | null>(null);
   const [recentBlock, setRecentBlock] = useState<{
     reportSlug: string;
     lastScanAt: string | null;
   } | null>(null);
+  const {
+    loading,
+    error,
+    progress: scanProgress,
+    step: scanStep,
+    start,
+  } = useDetachedAudit({
+    storageKey: "rbai_audit_new_scan",
+    onDone: (doneBrandId) => router.push(routes.brand(doneBrandId)),
+  });
 
   const brand = brands.find((b) => b.id === brandId) ?? initialBrand;
   // This form always starts a Pro run, so the estimate has to be the Pro
@@ -105,69 +111,15 @@ export function NewScanForm({
     });
   }
 
-  async function startScan() {
-    setLoading(true);
-    setError(null);
+  function startScan() {
     setRecentBlock(null);
-    try {
-      setScanProgress(1);
-      setScanStep("starting");
-      const res = await fetch("/api/audit-run/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brandId,
-          domain: brand.domain,
-          assistants: providers,
-          limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
-          mode: "pro",
-        }),
-      });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not start scan");
-      }
-      await readAuditStream(res.body);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not start scan";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function readAuditStream(body: ReadableStream<Uint8Array>) {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line) as {
-          event?: string;
-          step?: string;
-          progress?: number;
-          message?: string;
-          brandId?: string;
-        };
-        if (typeof event.progress === "number") setScanProgress(event.progress);
-        if (event.step) setScanStep(event.step);
-        if (event.event === "done") {
-          router.push(routes.brand(event.brandId ?? brandId));
-          return;
-        }
-        if (event.event === "error") {
-          throw new Error(event.message || "Audit failed");
-        }
-      }
-    }
+    void start({
+      brandId,
+      domain: brand.domain,
+      assistants: providers,
+      limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
+      mode: "pro",
+    });
   }
 
   return (

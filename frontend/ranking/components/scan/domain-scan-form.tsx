@@ -2,84 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Globe, Loader2 } from "lucide-react";
+import { ArrowRight, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AuditProgress } from "@/components/scan/audit-progress";
-import {
-  FREE_AUDIT_PROVIDER,
-  FREE_AUDIT_QUESTION_COUNT,
-} from "@/lib/constants";
+import { routes } from "@/lib/routes";
 
+/**
+ * The homepage form no longer runs the audit. Every audit costs real money,
+ * so an account comes first: this form carries the typed domain to sign-up,
+ * and the new-audit page has it waiting after the account exists. Someone
+ * already signed in never sees the login page — the middleware bounces them
+ * straight through to the new-audit page.
+ */
 export function DomainScanForm() {
   const router = useRouter();
   const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [scanProgress, setScanProgress] = useState(0);
-  // The runner's own step name, not its log line. The wording shown to the
-  // customer lives in lib/audit/progress-copy.
-  const [scanStep, setScanStep] = useState<string | null>(null);
 
-  async function startAudit() {
+  function continueToSignup() {
     setLoading(true);
-    setError(null);
-    setScanProgress(1);
-    setScanStep("starting");
-    try {
-      const res = await fetch("/api/audit-run/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          domain,
-          mode: "free",
-          assistants: [FREE_AUDIT_PROVIDER],
-          limitPerAssistant: FREE_AUDIT_QUESTION_COUNT,
-        }),
-      });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not start audit");
-      }
-      await readAuditStream(res.body);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start audit");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function readAuditStream(body: ReadableStream<Uint8Array>) {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line) as {
-          event?: string;
-          step?: string;
-          progress?: number;
-          message?: string;
-          reportPath?: string;
-        };
-        if (typeof event.progress === "number") setScanProgress(event.progress);
-        if (event.step) setScanStep(event.step);
-        if (event.event === "done" && event.reportPath) {
-          router.push(event.reportPath);
-          return;
-        }
-        if (event.event === "error") {
-          throw new Error(event.message || "Audit failed");
-        }
-      }
-    }
+    router.push(
+      routes.login({
+        mode: "signup",
+        returnTo: `/dashboard/scans/new?domain=${encodeURIComponent(domain.trim())}`,
+      }),
+    );
   }
 
   return (
@@ -91,7 +38,7 @@ export function DomainScanForm() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (domain.trim() && !loading) void startAudit();
+            if (domain.trim() && !loading) continueToSignup();
           }}
         >
           <label htmlFor="domain" className="text-sm font-medium">
@@ -112,34 +59,14 @@ export function DomainScanForm() {
               />
             </div>
             <Button type="submit" size="lg" className="h-12 rounded-xl px-6" disabled={loading || !domain.trim()}>
-              {loading ? (
-                <><Loader2 data-icon="inline-start" className="animate-spin" />Auditing...</>
-              ) : (
-                <>Start free audit<ArrowRight data-icon="inline-end" /></>
-              )}
+              Start free audit
+              <ArrowRight data-icon="inline-end" />
             </Button>
           </div>
-          {!loading ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              5 buyer questions · 1 AI provider · no account required
-            </p>
-          ) : null}
+          <p className="mt-3 text-xs text-muted-foreground">
+            5 buyer questions · 1 AI provider · free
+          </p>
         </form>
-        {loading ? (
-          <AuditProgress
-            progress={scanProgress}
-            step={scanStep}
-            plan="free"
-            providers={[FREE_AUDIT_PROVIDER]}
-            questionCount={FREE_AUDIT_QUESTION_COUNT}
-          />
-        ) : null}
-        {error ? (
-          <Alert variant="destructive" className="mt-4">
-            <AlertTitle>Audit could not continue</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
       </div>
     </div>
   );

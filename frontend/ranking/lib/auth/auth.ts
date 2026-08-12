@@ -1,7 +1,6 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
-import { LibsqlDialect } from "@libsql/kysely-libsql";
-import path from "path";
+import { Pool } from "pg";
 
 /**
  * Login, owned by this application.
@@ -13,13 +12,18 @@ import path from "path";
  * Better Auth writes the user row into our own database, so the id belongs to
  * us and the audit tables reference something we own.
  *
- * The store is a local file today and a connection string later: nothing above
- * this file knows which, so moving to RDS is a change to AUTH_DATABASE_URL and
- * nothing else.
+ * One database for everything. Accounts live in the same Postgres as the
+ * brands, scans and subscriptions that reference them, so the link between a
+ * person and their audits is a real foreign key, not a copy kept in step by
+ * hand. Moving to RDS is a change to DATABASE_URL and nothing else.
  */
-const databaseUrl =
-  process.env.AUTH_DATABASE_URL ??
-  `file:${path.join(process.cwd(), ".data", "auth.db")}`;
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  // Deliberately fatal. The old behaviour of quietly falling back to a local
+  // file made a production box with a missing variable look healthy while
+  // saving accounts somewhere nobody would ever look.
+  throw new Error("DATABASE_URL is not set. Login cannot work without the database.");
+}
 
 /**
  * Google sign-in is only offered when it is actually configured. Without this
@@ -32,14 +36,20 @@ export const googleConfigured = Boolean(
 );
 
 export const auth = betterAuth({
-  database: {
-    dialect: new LibsqlDialect({ url: databaseUrl }),
-    type: "sqlite",
-  },
+  database: new Pool({ connectionString: databaseUrl }),
   // Where callbacks come back to. Google rejects a redirect it was not given,
   // so this has to match what is registered in the Google console exactly.
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-  secret: process.env.BETTER_AUTH_SECRET ?? "dev-only-secret-change-me",
+  // The session-signing secret. A production box running on a guessable
+  // default would let anyone forge a login cookie, so refuse to start.
+  secret:
+    process.env.BETTER_AUTH_SECRET ??
+    (() => {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("BETTER_AUTH_SECRET is not set. Refusing to start.");
+      }
+      return "dev-only-secret-change-me";
+    })(),
   emailAndPassword: {
     enabled: true,
     // Nothing sends email yet. Requiring verification here would let people

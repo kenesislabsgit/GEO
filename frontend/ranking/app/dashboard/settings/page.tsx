@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/lib/auth/session";
-import { usingLocalDb } from "@/lib/db/repository";
+
 import { Badge } from "@/components/ui/badge";
 import { ExportDeleteForms } from "@/components/dashboard/export-delete-forms";
 
@@ -35,7 +35,7 @@ export default async function SettingsPage() {
             </p>
           </div>
           <Badge variant="secondary" className="rounded-full">
-            {usingLocalDb() ? "Local demo store" : "Supabase"}
+            PostgreSQL
           </Badge>
         </div>
       </div>

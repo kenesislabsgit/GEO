@@ -1,16 +1,21 @@
 import { test, expect } from "@playwright/test";
 
-async function signUp(page: import("@playwright/test").Page, email: string) {
-  const res = await page.request.post("/api/auth/local", {
-    data: {
-      email,
-      password: "password1234",
-      mode: "signup",
-      returnTo: "/dashboard/scans/new",
-    },
+async function signUp(
+  page: import("@playwright/test").Page,
+  email: string,
+  returnTo = "/dashboard/scans/new",
+) {
+  // Real signup through Better Auth; the session cookie lands on the request
+  // context. /api/auth/complete then decides where a fresh account goes.
+  const res = await page.request.post("/api/auth/sign-up/email", {
+    data: { email, password: "password1234", name: "Test User" },
   });
   expect(res.ok()).toBeTruthy();
-  const body = (await res.json()) as { redirect: string };
+  const complete = await page.request.post("/api/auth/complete", {
+    data: { returnTo },
+  });
+  expect(complete.ok()).toBeTruthy();
+  const body = (await complete.json()) as { redirect: string };
   await page.goto(body.redirect);
   await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
 }
@@ -69,17 +74,7 @@ test("after sign-in, returnTo restores the requested dashboard page", async ({
   page,
 }) => {
   const email = `return-${Date.now()}@example.com`;
-  const res = await page.request.post("/api/auth/local", {
-    data: {
-      email,
-      password: "password1234",
-      mode: "signup",
-      returnTo: "/dashboard/billing",
-    },
-  });
-  expect(res.ok()).toBeTruthy();
-  const body = (await res.json()) as { redirect: string };
-  await page.goto(body.redirect);
+  await signUp(page, email, "/dashboard/billing");
   await page.waitForURL(/\/dashboard\/billing/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: /Billing/i })).toBeVisible();
 });

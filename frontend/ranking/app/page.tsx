@@ -479,7 +479,7 @@ export default function HomePage() {
               Find out before your competitors do.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-white/55">
-              Run a free AI visibility scan. No account, no card — a shareable
+              Run a free AI visibility scan. No card needed — a shareable
               report in minutes.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">

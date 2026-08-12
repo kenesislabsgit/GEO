@@ -24,7 +24,7 @@ export const metadata = { title: "New audit" };
 export default async function NewScanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string }>;
+  searchParams: Promise<{ brand?: string; domain?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) return null;
@@ -91,6 +91,7 @@ export default async function NewScanPage({
           isPaid={isPaid}
           brandLimitReached={false}
           providers={isPaid ? [...plan.features.providers] : [FREE_AUDIT_PROVIDER]}
+          initialDomain={params.domain}
         />
       ) : (
         <>

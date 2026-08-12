@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { routes } from "@/lib/routes";
+import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 
 export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
@@ -34,17 +35,31 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/local", {
+      // Real accounts, real passwords: Better Auth checks the credentials and
+      // sets the session cookie. Only then does /api/auth/complete attach any
+      // claimed report and decide where to land.
+      const attempt =
+        mode === "signup"
+          ? await signUp.email({
+              email,
+              password,
+              name: email.split("@")[0] || email,
+            })
+          : await signIn.email({ email, password });
+      if (attempt.error) {
+        throw new Error(attempt.error.message || "Could not sign in.");
+      }
+      const res = await fetch("/api/auth/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, mode, claim, returnTo }),
+        body: JSON.stringify({ claim, returnTo }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Auth failed");
+      if (!res.ok) throw new Error(data.error || "Could not sign in.");
       router.push(data.redirect || "/dashboard");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Auth failed");
+      setError(err instanceof Error ? err.message : "Could not sign in.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +72,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {mode === "signup"
-          ? "Create a local test account to save scan results."
+          ? "Create an account to save your audits."
           : "Sign in to your dashboard."}
       </p>
 
@@ -93,7 +108,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           in a password first and find the shortcut afterwards. */}
       {googleEnabled ? (
         <div className="mt-6">
-          <GoogleButton returnTo={returnTo} />
+          <GoogleButton claim={claim} returnTo={returnTo} />
           <div className="mt-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs text-muted-foreground">or</span>
@@ -104,18 +119,11 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
 
       <form
         className="mt-6"
-        action="/api/auth/local"
-        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <input type="hidden" name="mode" value={mode} />
-        {claim ? <input type="hidden" name="claim" value={claim} /> : null}
-        {returnTo ? (
-          <input type="hidden" name="returnTo" value={returnTo} />
-        ) : null}
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -182,9 +190,6 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         </Link>
       </div>
       <p className="mt-4 text-center text-xs text-muted-foreground">
-        Local testing accepts any email with a non-empty password.
-      </p>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
           Back to home
         </Link>

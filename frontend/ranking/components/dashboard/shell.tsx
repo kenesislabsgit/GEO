@@ -35,10 +35,14 @@ export function DashboardShell({
   children,
   email,
   isAdmin = false,
+  planName = "Free",
+  paid = false,
 }: {
   children: React.ReactNode;
   email: string;
   isAdmin?: boolean;
+  planName?: string;
+  paid?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -91,6 +95,20 @@ export function DashboardShell({
             ) : null}
           </nav>
           <div className="border-t border-border/70 p-3">
+            {/* The plan, always visible. Paid accounts see what they pay for;
+                free accounts see the one-click way up. */}
+            <Link
+              href={routes.billing()}
+              className={cn(
+                "mb-2 flex items-center justify-between rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
+                paid
+                  ? "bg-[color:var(--rb-ink)] text-white"
+                  : "bg-[color:var(--rb-mist)] text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span>{planName} plan</span>
+              {!paid ? <span className="text-[color:var(--rb-blue)]">Upgrade</span> : null}
+            </Link>
             <div className="flex items-center justify-between gap-2 rounded-2xl bg-[color:var(--rb-mist)]/80 px-2.5 py-2">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-ink)] text-[11px] font-semibold text-white uppercase">

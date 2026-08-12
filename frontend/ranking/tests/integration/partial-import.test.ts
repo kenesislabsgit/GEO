@@ -1,25 +1,15 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuditExport } from "@/lib/audit/import-export";
+import { closeTestDb, resetTestDb } from "./pg-test-db";
 
-/**
- * The store path is read when lib/db/local-store is first imported, so the
- * temporary location has to be set before that happens: every import here is
- * dynamic and runs inside the test.
- */
 describe("an import that dies partway through", () => {
-  let tempDir = "";
-  let storePath = "";
   let audit: AuditExport;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(path.join(tmpdir(), "geo-partial-"));
-    storePath = path.join(tempDir, "local-store.json");
-    process.env.LOCAL_STORE_PATH = storePath;
-    vi.resetModules();
+    await resetTestDb();
     audit = JSON.parse(
       await readFile(
         path.join(process.cwd(), "tests/fixtures/free-audit-export.json"),
@@ -28,10 +18,12 @@ describe("an import that dies partway through", () => {
     ) as AuditExport;
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.restoreAllMocks();
-    delete process.env.LOCAL_STORE_PATH;
-    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  afterAll(async () => {
+    await closeTestDb();
   });
 
   it("does not leave a finished-looking report with empty panels", async () => {
@@ -48,11 +40,11 @@ describe("an import that dies partway through", () => {
       /EPERM/,
     );
 
-    const store = JSON.parse(await readFile(storePath, "utf8")) as {
-      scan_runs: Array<{ id: string; brand_id: string; status: string }>;
-    };
-    const scan = store.scan_runs.at(-1);
-    expect(scan).toBeDefined();
+    const { one } = await import("@/lib/db/pg");
+    const scan = await one<{ id: string; brand_id: string; status: string }>(
+      `select id, brand_id, status from scan_runs order by created_at desc limit 1`,
+    );
+    expect(scan).not.toBeNull();
     expect(scan!.status).toBe("running");
 
     // getLatestScanForBrand only offers finished audits, so a broken one is

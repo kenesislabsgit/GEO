@@ -23,8 +23,14 @@ export async function POST() {
     });
   }
 
+  // Same environment switch as checkout: test keys, test server.
+  const dodoBase =
+    process.env.DODO_PAYMENTS_ENVIRONMENT === "test_mode"
+      ? "https://test.dodopayments.com"
+      : "https://live.dodopayments.com";
+
   const response = await fetch(
-    "https://api.dodopayments.com/customers/portal",
+    `${dodoBase}/customers/portal`,
     {
       method: "POST",
       headers: {

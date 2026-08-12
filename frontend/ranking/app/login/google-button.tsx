@@ -32,9 +32,23 @@ function GoogleMark() {
   );
 }
 
-export function GoogleButton({ returnTo }: { returnTo?: string | null }) {
+export function GoogleButton({
+  claim,
+  returnTo,
+}: {
+  claim?: string | null;
+  returnTo?: string | null;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Google comes back through /api/auth/complete, the same landing spot the
+  // email form uses, so a claimed report is attached no matter how you sign in.
+  const params = new URLSearchParams();
+  if (claim) params.set("claim", claim);
+  if (returnTo) params.set("returnTo", returnTo);
+  const query = params.toString();
+  const callbackURL = `/api/auth/complete${query ? `?${query}` : ""}`;
 
   return (
     <div>
@@ -48,7 +62,7 @@ export function GoogleButton({ returnTo }: { returnTo?: string | null }) {
           setError(null);
           const { error: failed } = await signIn.social({
             provider: "google",
-            callbackURL: returnTo || "/dashboard",
+            callbackURL,
           });
           // A redirect never comes back, so reaching here at all means the
           // sign-in did not start. Saying so beats a button that spins forever.

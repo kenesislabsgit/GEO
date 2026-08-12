@@ -57,8 +57,15 @@ export async function POST(request: Request) {
     : process.env.DODO_PAYMENTS_RETURN_URL ||
       `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`;
 
-  // Official Dodo checkout session via REST when adapter env is present.
-  const response = await fetch("https://api.dodopayments.com/checkouts", {
+  // Test keys only work against Dodo's test server, live keys against the
+  // live one. The environment variable decides; live is the default so a
+  // production box with no setting cannot accidentally sell test products.
+  const dodoBase =
+    process.env.DODO_PAYMENTS_ENVIRONMENT === "test_mode"
+      ? "https://test.dodopayments.com"
+      : "https://live.dodopayments.com";
+
+  const response = await fetch(`${dodoBase}/checkouts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}`,

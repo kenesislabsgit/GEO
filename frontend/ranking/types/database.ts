@@ -101,6 +101,10 @@ export type ScanRun = {
   language: string | null;
   // Written when the audit finishes, so a queued or running scan has none.
   summary?: string | null;
+  // Where a running audit has got to: the runner's step name and 0-100.
+  // The page polls these instead of holding a connection open.
+  step?: string | null;
+  progress?: number;
   created_at: string;
 };
 
