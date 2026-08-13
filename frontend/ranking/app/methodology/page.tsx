@@ -38,14 +38,14 @@ const providers = [
       "Responses API with the web_search tool. Answers reflect API sampling, not consumer ChatGPT.",
   },
   {
-    name: "Claude on AWS Bedrock",
+    name: "Claude",
     detail:
-      "Claude model responses through AWS Bedrock. Source URLs are labelled as model-suggested unless independently grounded.",
+      "Claude model responses via API. Source URLs are labelled as model-suggested unless independently grounded.",
   },
   {
-    name: "Llama and Mistral on AWS Bedrock",
+    name: "Llama and Mistral",
     detail:
-      "Additional model perspectives through AWS Bedrock. The exact model is stored with every answer.",
+      "Additional model perspectives via API. The exact model is stored with every answer.",
   },
 ];
 

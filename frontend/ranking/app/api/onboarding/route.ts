@@ -67,11 +67,22 @@ const patchSchema = z.object({
 async function loadOrInitOnboarding(
   userId: string,
 ): Promise<OnboardingState | null> {
-  const existing = await getUserOnboarding(userId);
-  if (existing) return existing;
-
   const entitlements = await getAccountEntitlements(userId);
   if (!isPaidSubscription(entitlements)) return null;
+  const competitorLimit =
+    PLAN_CONFIG[entitlements.plan].features.competitorsPerBrand;
+
+  const existing = await getUserOnboarding(userId);
+  if (existing) {
+    // An audit can seed more competitors than the plan tracks (the report
+    // lists everyone AI named). Saved state over the limit made every later
+    // save fail its plan check — clamp on read so the wizard always starts
+    // from a state it is allowed to save back.
+    if (existing.competitors.length > competitorLimit) {
+      existing.competitors = existing.competitors.slice(0, competitorLimit);
+    }
+    return existing;
+  }
 
   const brands = await listBrandsForOwner(userId);
   const brand = brands[0];
@@ -85,7 +96,7 @@ async function loadOrInitOnboarding(
   const initial = createInitialOnboardingState({
     brand,
     plan: entitlements.plan,
-    competitors: competitors.map((c) => ({
+    competitors: competitors.slice(0, competitorLimit).map((c) => ({
       name: c.name,
       domain: c.domain,
     })),
@@ -160,12 +171,13 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // Keep the top of the list rather than refusing the save: the wizard UI
+    // already enforces the limit for hand-added rows, and audit-seeded lists
+    // legitimately run longer than the plan tracks.
     if (body.competitors && body.competitors.length > plan.features.competitorsPerBrand) {
-      return NextResponse.json(
-        {
-          error: `Your plan allows up to ${plan.features.competitorsPerBrand} competitors.`,
-        },
-        { status: 402 },
+      body.competitors = body.competitors.slice(
+        0,
+        plan.features.competitorsPerBrand,
       );
     }
 

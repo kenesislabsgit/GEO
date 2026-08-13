@@ -77,10 +77,10 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                 key={alert.id}
                 className={cn(
                   "flex gap-4 px-5 py-4",
-                  isRead ? "bg-card" : "bg-[color:var(--rb-blue-soft)]/40",
+                  isRead ? "bg-card" : "bg-[color:var(--rb-accent-soft)]/40",
                 )}
               >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
                   <Icon className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                     {!isRead ? (
                       <span
                         aria-label="Unread"
-                        className="size-2 rounded-full bg-[color:var(--rb-blue)]"
+                        className="size-2 rounded-full bg-[color:var(--rb-accent)]"
                       />
                     ) : null}
                   </div>

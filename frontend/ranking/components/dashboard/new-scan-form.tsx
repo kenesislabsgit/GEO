@@ -15,6 +15,8 @@ import {
   PRO_AUDIT_QUESTION_COUNT,
   providerDisplayName,
 } from "@/lib/constants";
+import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 import { cn, formatDate } from "@/lib/utils";
 import type { ProviderId } from "@/types/database";
 
@@ -47,17 +49,42 @@ type PlanInfo = {
   checksUsed: number;
 };
 
-const ALL_PROVIDERS: ProviderId[] = [
-  "openai",
+/** Providers that at least one plan actually offers, in display order. */
+const OFFERED_PROVIDERS: ProviderId[] = [
   "openai_search",
-  "claude",
-  "gemini",
-  "perplexity",
   "bedrock_claude",
-  "bedrock_nova",
   "bedrock_llama",
   "bedrock_mistral",
+  "bedrock_nova",
 ];
+
+/** The cheapest plan whose provider list includes this provider. */
+function planThatUnlocks(provider: ProviderId): PlanId | null {
+  for (const planId of ["founder", "growth", "agency"] as const) {
+    if (PLAN_CONFIG[planId].features.providers.includes(provider)) {
+      return planId;
+    }
+  }
+  return null;
+}
+
+/** Markets the engine can pin web search to (names it recognises). */
+const GEO_MARKETS = [
+  "India",
+  "United States",
+  "United Kingdom",
+  "Germany",
+  "France",
+  "Spain",
+  "Netherlands",
+  "Canada",
+  "Australia",
+  "Singapore",
+  "United Arab Emirates",
+  "Japan",
+  "Brazil",
+  "Indonesia",
+] as const;
 
 export function NewScanForm({
   brands,
@@ -75,6 +102,7 @@ export function NewScanForm({
   const [providers, setProviders] = useState<string[]>(
     plan.isPaid ? [...plan.allowedProviders] : [FREE_AUDIT_PROVIDER],
   );
+  const [market, setMarket] = useState<string>("auto");
   const [recentBlock, setRecentBlock] = useState<{
     reportSlug: string;
     lastScanAt: string | null;
@@ -92,6 +120,19 @@ export function NewScanForm({
   });
 
   const brand = brands.find((b) => b.id === brandId) ?? initialBrand;
+  // What this plan can actually use, and what a higher plan would add.
+  const availableProviders = plan.isPaid
+    ? OFFERED_PROVIDERS.filter((id) => plan.allowedProviders.includes(id))
+    : [FREE_AUDIT_PROVIDER];
+  const lockedProviders = OFFERED_PROVIDERS.filter(
+    (id) => !availableProviders.includes(id),
+  ).map((id) => ({ id, unlockPlan: planThatUnlocks(id) }));
+  // One CTA, pointing at the cheapest plan that unlocks anything above.
+  const unlockCtaPlan =
+    lockedProviders.find((item) => item.unlockPlan)?.unlockPlan ?? null;
+  const geoEnabled = Boolean(
+    PLAN_CONFIG[plan.id as PlanId]?.features.geoMarketSearch,
+  );
   // This form always starts a Pro run, so the estimate has to be the Pro
   // question count. It used to cap at five — the old Pro size — which made a
   // twenty-question run look like a five-question one and under-counted the
@@ -120,12 +161,45 @@ export function NewScanForm({
       assistants: providers,
       limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
       mode: "pro",
+      ...(geoEnabled && market !== "auto" ? { market } : {}),
     });
   }
 
+  // While the audit runs, the form gives way to a full-width progress view —
+  // the reasoning timeline was unreadable squeezed into the summary sidebar.
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <section className="rb-panel p-6">
+          <AuditProgress
+            progress={scanProgress}
+            step={scanStep}
+            plan="pro"
+            providers={providers}
+            questionCount={questionsPerProvider}
+            events={scanEvents}
+            className=""
+          />
+        </section>
+        {error ? (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Audit could not start</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          You can leave this page — the audit keeps running and the report
+          opens when it finishes.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-6">
+    // minmax(0,1fr): a long question or provider name must truncate inside
+    // its card, never widen the track and push the sidebar off-screen.
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 space-y-6">
         {/* Brand selection */}
         <section className="rb-panel">
           <div className="border-b border-border px-5 py-3.5">
@@ -206,7 +280,7 @@ export function NewScanForm({
                   key={p.id}
                   className="flex items-center justify-between gap-4 px-5 py-2.5"
                 >
-                  <p className="truncate text-sm">{p.prompt}</p>
+                  <p className="min-w-0 truncate text-sm">{p.prompt}</p>
                   <span className="shrink-0 font-mono text-[11px] text-muted-foreground capitalize">
                     {p.type.replaceAll("_", " ")}
                   </span>
@@ -224,47 +298,119 @@ export function NewScanForm({
           <div className="space-y-5 px-5 py-4">
             <div>
               <p className="text-sm font-medium">AI providers</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ALL_PROVIDERS.map((id) => {
-                  const allowed =
-                    plan.isPaid && plan.allowedProviders.includes(id);
-                  const lockedForFree = !plan.isPaid && id !== FREE_AUDIT_PROVIDER;
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Included in your {plan.name} plan. Every selected provider
+                answers the same questions.
+              </p>
+              {/* What the plan includes — selectable, with the provider's own
+                  mark. Locked providers live below, not greyed out in here. */}
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {availableProviders.map((id) => {
                   const active = providers.includes(id);
                   return (
                     <button
                       key={id}
                       type="button"
-                      disabled={lockedForFree || (!allowed && plan.isPaid)}
+                      disabled={!plan.isPaid}
                       onClick={() => toggleProvider(id)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+                        "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors",
                         active
-                          ? "border-foreground bg-foreground text-background"
+                          ? "border-foreground/40 bg-muted/60 font-medium"
                           : "border-border text-muted-foreground hover:text-foreground",
-                        (lockedForFree || (!allowed && plan.isPaid)) &&
-                          "cursor-not-allowed opacity-60 hover:text-muted-foreground",
+                        !plan.isPaid && "cursor-default",
                       )}
                     >
-                      {lockedForFree ? <Lock className="size-3" /> : null}
-                      {providerDisplayName(id)}
+                      <ProviderLogo provider={id} className="size-4" />
+                      <span className="min-w-0 truncate">
+                        {providerDisplayName(id)}
+                      </span>
+                      <span
+                        className={cn(
+                          "ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full border",
+                          active
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border",
+                        )}
+                      >
+                        {active ? <Check className="size-3" /> : null}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-              {!plan.isPaid ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Free audits use OpenAI with web search for five buyer
-                  questions.{" "}
-                  <Link
-                    href={routes.billing({ plan: "founder" })}
-                    className="text-foreground underline underline-offset-4"
-                  >
-                    Upgrade
-                  </Link>{" "}
-                  to compare Claude, Llama and Mistral on the same questions.
-                </p>
+
+              {lockedProviders.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-lg border border-dashed border-border">
+                  <p className="flex items-center gap-1.5 border-b border-dashed border-border px-3.5 py-2 text-xs font-medium text-muted-foreground">
+                    <Lock className="size-3" aria-hidden />
+                    Not in the {plan.name} plan
+                  </p>
+                  <div className="divide-y divide-border/60">
+                    {lockedProviders.map(({ id, unlockPlan }) => (
+                      <div
+                        key={id}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-muted-foreground/80"
+                      >
+                        <ProviderLogo provider={id} className="size-4 opacity-60" />
+                        {providerDisplayName(id)}
+                        {unlockPlan ? (
+                          <span className="rb-chip ml-auto">
+                            {PLAN_CONFIG[unlockPlan].name}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  {unlockCtaPlan ? (
+                    <Link
+                      href={routes.billing({
+                        plan: unlockCtaPlan,
+                        returnTo: routes.newScan(brandId),
+                      })}
+                      className="block border-t border-dashed border-border px-3.5 py-2.5 text-xs font-medium text-[color:var(--rb-accent)] transition-colors hover:bg-muted/40"
+                    >
+                      Unlock with {PLAN_CONFIG[unlockCtaPlan].name} →
+                    </Link>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+            {geoEnabled ? (
+              <div>
+                <p className="text-sm font-medium">Geographic market</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  A slice of the questions is asked the way a buyer in this
+                  market would (&ldquo;best X in India&rdquo;), with web search
+                  located there. Auto reads the market from your website.
+                </p>
+                <select
+                  value={market}
+                  onChange={(event) => setMarket(event.target.value)}
+                  className="mt-2.5 h-9 w-full max-w-xs rounded-lg border border-border bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="auto">Auto — detect from website</option>
+                  {GEO_MARKETS.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : plan.isPaid ? (
+              <p className="text-xs text-muted-foreground">
+                <Lock className="mr-1 inline size-3" aria-hidden />
+                Geographic market simulation — asking as a buyer in your home
+                market — is available on{" "}
+                <Link
+                  href={routes.billing({ plan: "growth", returnTo: routes.newScan(brandId) })}
+                  className="text-[color:var(--rb-accent)] hover:underline"
+                >
+                  Pro+
+                </Link>
+                .
+              </p>
+            ) : null}
             {/* Country and language pickers used to sit here. Nothing sent
                 them to the audit runner and the runner has no flag for them,
                 so every run was US/English whatever was chosen. Put them back
@@ -335,8 +481,12 @@ export function NewScanForm({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Providers</dt>
-              <dd className="text-right font-medium">
-                {providers.map(providerDisplayName).join(", ")}
+              <dd className="flex flex-wrap justify-end gap-1.5">
+                {providers.map((id) => (
+                  <span key={id} title={providerDisplayName(id)}>
+                    <ProviderLogo provider={id} className="size-4" />
+                  </span>
+                ))}
               </dd>
             </div>
             <div className="flex justify-between gap-4 border-t border-border pt-2.5">
@@ -386,16 +536,6 @@ export function NewScanForm({
               </>
             )}
           </Button>
-          {loading ? (
-            <AuditProgress
-              progress={scanProgress}
-              step={scanStep}
-              plan="pro"
-              providers={providers}
-              questionCount={questionsPerProvider}
-              events={scanEvents}
-            />
-          ) : null}
           {overAllowance ? (
             <p className="mt-2 text-xs text-destructive">
               This scan exceeds your remaining monthly allowance.{" "}

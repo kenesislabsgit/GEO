@@ -14,6 +14,9 @@ export type PlanFeatures = {
   teamSeats: number;
   weeklyMonitoring: boolean;
   dailyMonitoring: boolean;
+  /** Pro+ and up: a slice of audit questions asked as a buyer in the
+   * company's home market would, with web search pinned to that country. */
+  geoMarketSearch: boolean;
   fullAnswers: boolean;
   fullCitations: boolean;
   history: boolean;
@@ -67,6 +70,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       teamSeats: 1,
       weeklyMonitoring: false,
       dailyMonitoring: false,
+      geoMarketSearch: false,
       fullAnswers: false,
       fullCitations: false,
       history: false,
@@ -107,6 +111,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       teamSeats: 1,
       weeklyMonitoring: true,
       dailyMonitoring: false,
+      geoMarketSearch: false,
       fullAnswers: true,
       fullCitations: true,
       history: true,
@@ -147,6 +152,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       teamSeats: 3,
       weeklyMonitoring: true,
       dailyMonitoring: true,
+      geoMarketSearch: true,
       fullAnswers: true,
       fullCitations: true,
       history: true,
@@ -187,6 +193,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       teamSeats: 10,
       weeklyMonitoring: true,
       dailyMonitoring: true,
+      geoMarketSearch: true,
       fullAnswers: true,
       fullCitations: true,
       history: true,

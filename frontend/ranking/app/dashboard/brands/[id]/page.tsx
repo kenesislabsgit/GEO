@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, Globe } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getBrandById,
   getLatestCompletedScanForBrand,
+  getPrompts,
   getQueryResults,
   getRecommendationsForScan,
   scoresForBrand,
@@ -13,7 +14,7 @@ import { getAccountEntitlements } from "@/lib/billing/account";
 import { hasFeature } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { roundForDisplay } from "@/lib/ai/scoring/score";
-import { providerDisplayName } from "@/lib/constants";
+import { ProviderBadge } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandNav } from "@/components/dashboard/brand-nav";
@@ -45,10 +46,11 @@ export default async function WebsiteReportSummary({
   const brand = await getBrandById(id);
   if (!brand || brand.owner_id !== user.id) notFound();
 
-  const [scores, entitlements, latestScan] = await Promise.all([
+  const [scores, entitlements, latestScan, trackedPrompts] = await Promise.all([
     scoresForBrand(brand.id),
     getAccountEntitlements(user.id),
     getLatestCompletedScanForBrand(brand.id),
+    getPrompts(brand.id),
   ]);
   const [results, actions] = latestScan
     ? await Promise.all([
@@ -74,19 +76,34 @@ export default async function WebsiteReportSummary({
         .filter((url): url is string => Boolean(url)),
     ),
   );
-  const competitorSignals = (
-    Array.isArray(latest?.competitor_scores)
-      ? (latest.competitor_scores as CompetitorSignal[])
-      : []
-  ).filter((signal) => {
-    const answers = signal.answer_evidence ?? [];
-    return (
-      answers.some((item) => Boolean(item.answer_excerpt?.trim())) &&
-      ((signal.website_evidence?.length ?? 0) > 0 ||
-        (signal.verified_mentions?.length ?? 0) > 0 ||
-        answers.some((item) => (item.source_urls?.length ?? 0) > 0))
+  const evidencedSignals = (snapshot: unknown) =>
+    (Array.isArray(snapshot) ? (snapshot as CompetitorSignal[]) : []).filter(
+      (signal) => {
+        const answers = signal.answer_evidence ?? [];
+        return (
+          answers.some((item) => Boolean(item.answer_excerpt?.trim())) &&
+          ((signal.website_evidence?.length ?? 0) > 0 ||
+            (signal.verified_mentions?.length ?? 0) > 0 ||
+            answers.some((item) => (item.source_urls?.length ?? 0) > 0))
+        );
+      },
     );
-  });
+  const competitorSignals = evidencedSignals(latest?.competitor_scores);
+  // Competitors the previous audit surfaced that this one didn't — AI answers
+  // churn between runs, and the report should show that instead of silently
+  // swapping the list.
+  const currentNames = new Set(
+    competitorSignals.map((signal) => (signal.name ?? "").toLowerCase()),
+  );
+  const droppedCompetitors = evidencedSignals(previous?.competitor_scores)
+    .filter(
+      (signal) => signal.name && !currentNames.has(signal.name.toLowerCase()),
+    )
+    .slice(0, 4)
+    .map((signal) => ({
+      name: signal.name as string,
+      previousMentions: signal.mentions ?? 0,
+    }));
   const topCompetitor = competitorSignals[0];
   const topActions = actions
     .filter((action) => action.status === "open")
@@ -104,6 +121,13 @@ export default async function WebsiteReportSummary({
     latest && previous
       ? roundForDisplay(Number(latest.overall_score) - Number(previous.overall_score))
       : null;
+
+  // Market visibility lives on its own tab now; the summary only needs to
+  // know whether market answers exist to point there.
+  const hasMarketAnswers = trackedPrompts.some(
+    (prompt) =>
+      prompt.rationale && prompt.country && prompt.country !== "global",
+  );
 
   // ── Compute per-LLM mention counts for each competitor from raw results ──
   // Each QueryResult has a provider + recommended_brands (JSON array of brand names/objects)
@@ -132,11 +156,11 @@ export default async function WebsiteReportSummary({
   });
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <AuditCompleteBanner />
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="font-heading truncate text-2xl font-semibold tracking-tight">
               {brand.name}
             </h1>
@@ -144,7 +168,7 @@ export default async function WebsiteReportSummary({
               {isPaid ? "Pro report" : "Free report"}
             </Badge>
           </div>
-          <p className="mt-1 font-mono text-sm text-muted-foreground">
+          <p className="mt-1 font-mono text-[13px] text-muted-foreground">
             {brand.canonical_domain}
             {latestScan ? ` · audited ${new Date(latestScan.created_at).toLocaleDateString()}` : ""}
           </p>
@@ -183,67 +207,152 @@ export default async function WebsiteReportSummary({
             </p>
           </div>
         </div>
-        <p className="font-mono text-xs text-muted-foreground">
-          {providers.length > 0
-            ? providers.map(providerDisplayName).join(" · ")
-            : "Run an audit to collect AI answers"}
-        </p>
+        {providers.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-xs text-muted-foreground">
+            {providers.map((provider) => (
+              <ProviderBadge key={provider} provider={provider} />
+            ))}
+          </div>
+        ) : (
+          <p className="font-mono text-xs text-muted-foreground">
+            Run an audit to collect AI answers
+          </p>
+        )}
       </section>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* One stat band, hairline-divided — the quiet Vercel row. */}
+      <div className="rb-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
         {[
-          { label: "AI visibility", value: score ?? "—", detail: scoreDelta ? `${scoreDelta > 0 ? "+" : ""}${scoreDelta} since last audit` : "Composite audit score" },
-          { label: "AI mentions", value: `${mentionCount}/${results.length}`, detail: `${testedPromptIds.size} questions tested` },
-          { label: "Top competitor", value: topCompetitor?.name ?? "—", detail: topCompetitor ? `${topCompetitor.mentions ?? 0} mentions` : "No competitor signals" },
-          { label: "Sources found", value: String(sourceUrls.size), detail: isPaid ? "Grounded citations and verified mentions" : "Details available on Pro" },
+          {
+            label: "AI visibility",
+            value: score ?? "—",
+            delta: scoreDelta,
+            detail: scoreDelta ? "since last audit" : "composite score",
+          },
+          {
+            label: "AI mentions",
+            value: `${mentionCount}/${results.length}`,
+            delta: null,
+            detail: `${testedPromptIds.size} questions tested`,
+          },
+          {
+            label: "Top competitor",
+            value: topCompetitor?.name ?? "—",
+            delta: null,
+            detail: topCompetitor ? `${topCompetitor.mentions ?? 0} mentions` : "no competitor signals",
+          },
+          {
+            label: "Sources found",
+            value: String(sourceUrls.size),
+            delta: null,
+            detail: isPaid ? "citations and verified mentions" : "details on Pro",
+          },
         ].map((item) => (
-          <div key={item.label} className="rb-panel min-w-0 p-4 sm:p-5">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground">{item.label}</p>
-            <p className="rb-tabular mt-2 truncate text-xl font-semibold sm:text-2xl">{item.value}</p>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
+          <div key={item.label} className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0">
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              {item.label}
+            </p>
+            <p className="rb-tabular mt-1.5 truncate text-2xl font-semibold tracking-tight">
+              {item.value}
+              {item.delta ? (
+                <span
+                  className={`ml-2 text-sm font-medium ${
+                    item.delta > 0
+                      ? "text-[color:var(--rb-green)]"
+                      : "text-destructive"
+                  }`}
+                >
+                  {item.delta > 0 ? "↑" : "↓"}
+                  {Math.abs(item.delta)}
+                </span>
+              ) : null}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.detail}</p>
           </div>
         ))}
       </div>
 
       <BrandNav brandId={brand.id} isPaid={isPaid} />
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold">Who AI recommends instead</h2>
-            {isPaid ? <Link href={routes.brandSection(brand.id, "competitors")} className="text-sm text-muted-foreground hover:text-foreground">View evidence</Link> : null}
+      {hasMarketAnswers ? (
+        <Link
+          href={routes.brandSection(brand.id, "markets")}
+          className="rb-panel flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
+        >
+          <span className="flex min-w-0 items-center gap-2.5 text-sm">
+            <Globe className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">
+              <span className="font-medium">Market visibility measured</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — see where AI recommends you, continent by continent.
+              </span>
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      ) : null}
+
+      <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        {/* Vercel card pattern: the header lives inside the card, separated
+            by a hairline; content rows divide the rest. */}
+        <section className="rb-panel overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-5 py-3">
+            <h2 className="text-sm font-medium">Who AI recommends instead</h2>
+            {isPaid ? (
+              <Link
+                href={routes.brandSection(brand.id, "competitors")}
+                className="text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                View evidence
+              </Link>
+            ) : null}
           </div>
-          <div className="rb-panel p-5">
+          <div className="p-5">
             <CompetitorLLMChart
               competitors={competitorsWithLLM}
               allProviders={providers}
+              dropped={droppedCompetitors}
             />
           </div>
         </section>
 
-        <section>
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Top website improvements</h2>
-            <Link href={routes.brandSection(brand.id, "actions")} className="text-sm text-muted-foreground hover:text-foreground">View plan</Link>
+        <section className="rb-panel overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-5 py-3">
+            <h2 className="text-sm font-medium">Top website improvements</h2>
+            <Link
+              href={routes.brandSection(brand.id, "actions")}
+              className="text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View plan
+            </Link>
           </div>
-          <div className="mt-3 rb-list">
-            {topActions.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No improvements generated yet.</p>
-            ) : (
-              <div className="divide-y divide-border">
-                {topActions.map((action, index) => (
-                  <Link key={action.id} href={routes.brandSection(brand.id, "actions")} className="flex gap-3 bg-card px-5 py-4 hover:bg-muted/40">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-blue-soft)] text-xs font-semibold text-[color:var(--rb-blue)]">{index + 1}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{action.title}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{action.explanation}</p>
-                    </div>
-                    <ArrowRight className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          {topActions.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No improvements generated yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {topActions.map((action, index) => (
+                <Link
+                  key={action.id}
+                  href={routes.brandSection(brand.id, "actions")}
+                  className="flex gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40"
+                >
+                  <span className="rb-tabular mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{action.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      {action.explanation}
+                    </p>
+                  </div>
+                  <ArrowRight className="ml-auto size-3.5 shrink-0 self-center text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

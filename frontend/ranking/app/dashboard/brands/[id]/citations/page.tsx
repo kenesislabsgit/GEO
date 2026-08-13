@@ -224,10 +224,8 @@ export default async function SourcesPage({
                           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                             {citation.question ?? "Question unavailable"}
                           </p>
-                          {/* assistantNames, not providerDisplayName: the
-                              latter reads "Bedrock Claude Haiku", which tells
-                              the customer which endpoint we buy rather than
-                              which assistant answered them. */}
+                          {/* assistantNames: the customer-facing names of the
+                              assistants that answered, deduplicated. */}
                           <p className="mt-1 font-mono text-[11px] text-muted-foreground">
                             {assistantNames(citation.providers).join(" · ")}
                           </p>
@@ -373,7 +371,7 @@ function SourceLink({ url, label }: { url: string; label: string }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-[color:var(--rb-blue)] hover:underline"
+      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-[color:var(--rb-accent)] hover:underline"
     >
       <ExternalLink className="size-3.5 shrink-0" />
       <span className="truncate">{label}</span>

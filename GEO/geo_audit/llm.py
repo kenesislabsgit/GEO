@@ -43,7 +43,7 @@ def build_chat_payload(
     temperature: float = 0.2,
     json_response: bool = False,
 ) -> dict[str, Any]:
-    load_dotenv()
+    load_dotenv(override=True)
     payload = {
         "model": model or os.environ.get("LLM_MODEL", DEFAULT_MODEL),
         "temperature": temperature,
@@ -61,7 +61,7 @@ def build_chat_payload(
 
 
 def call_chat_completion(payload: dict[str, Any]) -> str:
-    load_dotenv()
+    load_dotenv(override=True)
     api_key = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise LLMNotConfigured(
@@ -99,11 +99,12 @@ def build_openai_response_payload(
     use_web_search: bool = True,
     search_context_size: str | None = None,
     cache_key: str | None = None,
+    country: str | None = None,
 ) -> dict[str, Any]:
     """The system prompt is always first and identical between calls, which is
     what lets the provider reuse a cached copy of it instead of charging for it
     on every question. cache_key groups requests that share that prefix."""
-    load_dotenv()
+    load_dotenv(override=True)
     payload: dict[str, Any] = {
         "model": model or os.environ.get("OPENAI_SEARCH_MODEL", DEFAULT_OPENAI_SEARCH_MODEL),
         "input": [
@@ -122,10 +123,11 @@ def build_openai_response_payload(
         ).strip().lower()
         if size in {"low", "medium", "high"}:
             tool["search_context_size"] = size
-        country = os.environ.get("OPENAI_SEARCH_COUNTRY", "").strip()
-        if country:
-            # Pins results to one market so repeat runs stay comparable.
-            tool["user_location"] = {"type": "approximate", "country": country}
+        # A per-call country (geo market questions) beats the env-wide pin.
+        # Pinning results to one market keeps repeat runs comparable.
+        location = (country or os.environ.get("OPENAI_SEARCH_COUNTRY", "")).strip()
+        if location:
+            tool["user_location"] = {"type": "approximate", "country": location}
         payload["tools"] = [tool]
     if cache_key:
         payload["prompt_cache_key"] = cache_key
@@ -133,7 +135,7 @@ def build_openai_response_payload(
 
 
 def call_openai_response(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    load_dotenv()
+    load_dotenv(override=True)
     api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY")
     if not api_key:
         raise LLMNotConfigured(
@@ -194,7 +196,7 @@ def call_bedrock_converse(
     temperature: float = 0.2,
     max_tokens: int = 2000,
 ) -> tuple[str, dict[str, Any]]:
-    load_dotenv()
+    load_dotenv(override=True)
     try:
         import boto3
         from botocore.exceptions import BotoCoreError, ClientError
@@ -252,7 +254,7 @@ def build_anthropic_payload(
     temperature: float = 0.2,
     max_tokens: int = 2000,
 ) -> dict[str, Any]:
-    load_dotenv()
+    load_dotenv(override=True)
     return {
         "model": model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
         "max_tokens": max_tokens,
@@ -263,7 +265,7 @@ def build_anthropic_payload(
 
 
 def call_anthropic_message(payload: dict[str, Any]) -> str:
-    load_dotenv()
+    load_dotenv(override=True)
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
     if not api_key:
         raise LLMNotConfigured(
@@ -323,7 +325,7 @@ def call_gemini_generate_content(
     *,
     model: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    load_dotenv()
+    load_dotenv(override=True)
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise LLMNotConfigured(
@@ -382,7 +384,10 @@ def parse_retry_delay(detail: str) -> int | None:
     return None
 
 
-def load_dotenv(path: str = ".env") -> None:
+def load_dotenv(path: str = ".env", override: bool = False) -> None:
+    """override=True lets the .env win over ambient variables. A stale AWS key
+    in the Windows user environment silently beat a freshly rotated .env for a
+    whole day of audits — the engine's own .env is its source of truth."""
     env_path = Path(path)
     if not env_path.exists():
         return
@@ -395,5 +400,5 @@ def load_dotenv(path: str = ".env") -> None:
         name, value = line.split("=", 1)
         name = name.strip()
         value = value.strip().strip('"').strip("'")
-        if name and name not in os.environ:
+        if name and (override or name not in os.environ):
             os.environ[name] = value

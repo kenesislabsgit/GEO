@@ -64,7 +64,7 @@ class FirecrawlClient:
 
     @classmethod
     def from_environment(cls) -> FirecrawlClient | None:
-        load_dotenv()
+        load_dotenv(override=True)
         api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
         if not api_key:
             return None

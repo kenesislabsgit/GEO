@@ -101,7 +101,7 @@ export function ConfirmSubscription({
 
         {state === "confirmed" && confirmed ? (
           <>
-            <CheckCircle2 className="mx-auto size-8 text-[color:var(--rb-blue)]" aria-hidden />
+            <CheckCircle2 className="mx-auto size-8 text-[color:var(--rb-accent)]" aria-hidden />
             <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
               You&apos;re on the {confirmed.plan === "founder" ? "Pro" : confirmed.plan === "growth" ? "Pro+" : "Agency"} plan
             </h1>

@@ -2,16 +2,18 @@ export const APP_NAME = "RankedByAI";
 export const APP_TAGLINE = "Does AI recommend your company?";
 export const METHODOLOGY_VERSION = "v1.1.0";
 
+/** Customer-facing model names. Which endpoint served a model is an
+ * infrastructure detail; the stored `model` field keeps the exact route. */
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: "OpenAI",
   openai_search: "OpenAI Search",
   claude: "Claude",
   gemini: "Gemini",
   perplexity: "Perplexity",
-  bedrock_claude: "Bedrock Claude Haiku",
-  bedrock_nova: "Bedrock Nova",
-  bedrock_llama: "Bedrock Llama",
-  bedrock_mistral: "Bedrock Mistral",
+  bedrock_claude: "Claude",
+  bedrock_nova: "Nova",
+  bedrock_llama: "Llama",
+  bedrock_mistral: "Mistral",
 };
 
 export function providerDisplayName(id: string): string {
@@ -59,7 +61,7 @@ export const FREE_AUDIT_QUESTION_COUNT = 5;
 /** Websites read for the most-recommended competitor, to ground one action. */
 export const FREE_AUDIT_COMPETITORS_CRAWLED = 1;
 export const FREE_AUDIT_COMPETITOR_PAGES = 3;
-export const FREE_AUDIT_ACTION_COUNT = 1;
+export const FREE_AUDIT_ACTION_COUNT = 3;
 /** Caps how much searching each free question does, so runs stay predictable. */
 export const FREE_AUDIT_SEARCH_CONTEXT = "low" as const;
 export const PRO_AUDIT_SEARCH_CONTEXT = "medium" as const;
@@ -75,7 +77,7 @@ export const PRO_AUDIT_QUESTION_COUNT = 20;
 export const AUDIT_SEARCH_BATCH_SIZE = 1;
 /**
  * How many provider calls are in flight at once. A Pro run creates one task
- * per question for the searching provider plus one batched task per Bedrock
+ * per question for the searching provider plus one batched task per hosted
  * model — 23 in total at twenty questions — so anything below that leaves
  * questions queueing for no reason.
  */

@@ -26,7 +26,7 @@ export const routes = {
   brandUpgrade: (brandId: string) => `/dashboard/brands/${brandId}/upgrade`,
   brandSection: (
     brandId: string,
-    section: "prompts" | "competitors" | "citations" | "actions" | "history",
+    section: "prompts" | "competitors" | "citations" | "markets" | "actions" | "history",
   ) => `/dashboard/brands/${brandId}/${section}`,
 
   scans: "/dashboard/scans",

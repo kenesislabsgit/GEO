@@ -12,6 +12,7 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { providerDisplayName } from "@/lib/constants";
+import { ProviderBadge, ProviderLogo } from "@/components/providers/provider-logo";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { CompetitorsManager } from "@/components/dashboard/competitors-manager";
 import { ProReportLock } from "@/components/dashboard/pro-report-lock";
@@ -122,57 +123,80 @@ export default async function CompetitorsPage({
       ) : (
         <>
           {signals.length ? (
-            <section className="rb-panel px-5 py-4">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
-                    Your position in this ranking
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold">
-                    #{brandRankPosition} of {rankedTotal} · {brand.name}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Recommended in {brandMentions} of {latestResults.length} AI answers
-                    {brandAverageRank ? `, average position #${brandAverageRank}` : ""}.
-                    {aheadOfBrand > 0
-                      ? ` ${aheadOfBrand} ${aheadOfBrand === 1 ? "company is" : "companies are"} recommended more often than you.`
-                      : " No competitor was recommended more often than you."}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                    Share of voice
-                  </p>
-                  <p className="mt-1 font-mono text-xl font-semibold">
-                    {Math.round(brandShareOfVoice * 100)}%
-                  </p>
-                </div>
+            /* Where the audited company sits, as one hairline-divided band. */
+            <section className="rb-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
+              <div className="lg:pr-5">
+                <p className="rb-eyebrow">Your position</p>
+                <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+                  #{brandRankPosition}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {" "}
+                    of {rankedTotal}
+                  </span>
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  among companies AI named with evidence
+                </p>
+              </div>
+              <div className="lg:px-5">
+                <p className="rb-eyebrow">Recommended</p>
+                <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+                  {brandMentions}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {" "}
+                    of {latestResults.length}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">AI answers</p>
+              </div>
+              <div className="lg:px-5">
+                <p className="rb-eyebrow">Avg position</p>
+                <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+                  {brandAverageRank ? `#${brandAverageRank}` : "—"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {aheadOfBrand > 0
+                    ? `${aheadOfBrand} ${aheadOfBrand === 1 ? "company" : "companies"} ahead of you`
+                    : "nobody recommended more often"}
+                </p>
+              </div>
+              <div className="lg:pl-5">
+                <p className="rb-eyebrow">Share of voice</p>
+                <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+                  {Math.round(brandShareOfVoice * 100)}%
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  of recommendations
+                </p>
               </div>
             </section>
           ) : null}
 
-          <section>
-            <h2 className="text-base font-semibold">Who AI recommends</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Open a company to inspect the answer evidence, website proof, and verified external mentions.
-            </p>
-
-            <div className="mt-3 space-y-3">
-              {signals.length ? (
-                signals.slice(0, 12).map((signal, index) => (
+          {/* One leaderboard card; each row expands into its evidence. */}
+          <section className="rb-panel overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-3">
+              <h2 className="text-sm font-medium">Who AI recommends</h2>
+              <p className="text-xs text-muted-foreground">
+                Open a company for answer evidence, website proof, and verified
+                mentions.
+              </p>
+            </div>
+            {signals.length ? (
+              <div className="divide-y divide-border">
+                {signals.slice(0, 12).map((signal, index) => (
                   <CompetitorEvidencePanel
                     key={`${signal.name}-${index}`}
                     signal={signal}
                     rank={index + 1}
                     maxMentions={maxMentions}
                   />
-                ))
-              ) : (
-                <div className="rb-empty px-5 py-8 text-center text-sm text-muted-foreground">
-                  No recommended company met the evidence threshold in this audit.
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+                No recommended company met the evidence threshold in this audit.
+              </p>
+            )}
           </section>
 
           {otherMentions.length ? (
@@ -219,56 +243,70 @@ function CompetitorEvidencePanel({
     answerEvidence.length + websiteEvidence.length + verifiedMentions.length;
 
   return (
-    <details className="rb-panel group overflow-hidden">
-      <summary className="cursor-pointer list-none px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs text-muted-foreground">#{rank}</span>
-              <p className="truncate text-sm font-semibold">{signal.name}</p>
-            </div>
-            <div className="mt-2 ml-7 h-1.5 max-w-lg overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-[color:var(--rb-blue)]"
-                style={{
-                  width: `${Math.max(
-                    ((signal.mentions ?? 0) / maxMentions) * 100,
-                    3,
-                  )}%`,
-                }}
-              />
+    <details className="group">
+      <summary className="cursor-pointer list-none px-5 py-3.5 transition-colors hover:bg-muted/40">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="rb-tabular w-6 shrink-0 font-mono text-xs text-muted-foreground">
+              {String(rank).padStart(2, "0")}
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <p className="truncate text-sm font-semibold">{signal.name}</p>
+                {/* Which assistants named them, at a glance. */}
+                <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                  {Object.keys(signal.mentions_by_assistant ?? {}).map(
+                    (provider) => (
+                      <span
+                        key={provider}
+                        title={providerDisplayName(provider as ProviderId)}
+                      >
+                        <ProviderLogo provider={provider} className="size-3" />
+                      </span>
+                    ),
+                  )}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1 max-w-sm overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-[color:var(--rb-accent)]"
+                  style={{
+                    width: `${Math.max(
+                      ((signal.mentions ?? 0) / maxMentions) * 100,
+                      3,
+                    )}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="rounded-full text-[11px]">
-              {signal.mentions ?? 0} mentions
-            </Badge>
-            {signal.average_rank ? (
-              <Badge variant="outline" className="rounded-full text-[11px]">
-                avg #{signal.average_rank}
-              </Badge>
-            ) : null}
-            <Badge variant="outline" className="rounded-full text-[11px]">
-              {evidenceCount} evidence items
-            </Badge>
-            <span className="text-xs text-muted-foreground group-open:hidden">
-              View evidence
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="rb-tabular font-mono text-xs text-muted-foreground">
+              {signal.mentions ?? 0} mention{(signal.mentions ?? 0) !== 1 ? "s" : ""}
+              {signal.average_rank ? ` · avg #${signal.average_rank}` : ""}
+              {` · ${evidenceCount} evidence`}
+            </span>
+            <span className="text-xs text-[color:var(--rb-accent)] group-open:hidden">
+              Evidence
+            </span>
+            <span className="hidden text-xs text-muted-foreground group-open:inline">
+              Close
             </span>
           </div>
         </div>
       </summary>
 
-      <div className="border-t border-border px-5 py-5">
+      <div className="border-t border-border bg-muted/20 px-5 py-5">
         <div className="flex flex-wrap items-center gap-2">
           {Object.entries(signal.mentions_by_assistant ?? {}).map(
             ([provider, count]) => (
-              <Badge
+              <span
                 key={provider}
-                variant="outline"
-                className="rounded-full text-[11px]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
               >
-                {providerDisplayName(provider as ProviderId)}: {count}
-              </Badge>
+                <ProviderLogo provider={provider} className="size-3" />
+                {providerDisplayName(provider as ProviderId)} · {count}
+              </span>
             ),
           )}
           {signal.official_website ? (
@@ -305,13 +343,14 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
           {rows.slice(0, 4).map((evidence, index) => (
             <div
               key={`${evidence.question}-${index}`}
-              className="border-l-2 border-[color:var(--rb-blue)]/30 pl-3"
+              className="border-l-2 border-[color:var(--rb-accent)]/30 pl-3"
             >
               <div className="flex flex-wrap items-center gap-2">
                 {evidence.provider ? (
-                  <Badge variant="secondary" className="rounded-full text-[10px]">
-                    {providerDisplayName(evidence.provider)}
-                  </Badge>
+                  <ProviderBadge
+                    provider={evidence.provider}
+                    className="text-[11px] font-medium"
+                  />
                 ) : null}
                 {evidence.rank ? (
                   <span className="text-[11px] text-muted-foreground">
@@ -328,7 +367,7 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
                   <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
                     Evidence from the AI answer
                   </p>
-                  <blockquote className="mt-1 border-l-2 border-[color:var(--rb-blue)]/35 pl-3 text-sm leading-relaxed">
+                  <blockquote className="mt-1 border-l-2 border-[color:var(--rb-accent)]/35 pl-3 text-sm leading-relaxed">
                     &ldquo;{evidence.answer_excerpt}&rdquo;
                   </blockquote>
                 </>
@@ -539,7 +578,7 @@ function EvidenceLink({ url, label }: { url: string; label: string }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1 text-xs text-[color:var(--rb-blue)] hover:underline"
+      className="inline-flex items-center gap-1 text-xs text-[color:var(--rb-accent)] hover:underline"
     >
       {label}
       <ExternalLink className="size-3" />

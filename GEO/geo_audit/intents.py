@@ -972,3 +972,179 @@ def natural_provider_type(company_profile: dict[str, Any]) -> str:
         if value and value.lower() != "unknown":
             return value
     return "Unknown"
+
+
+# ─── Geographic market questions ────────────────────────────────────────────
+# A Pro+ audit also asks a slice of its questions the way a buyer in the
+# company's home market would: "best X in India" instead of "best X". The
+# rewritten questions carry a market tag so collection can pin web search to
+# that country and the report can compare market answers against global ones.
+
+MARKET_COUNTRY_CODES: dict[str, str] = {
+    "india": "IN",
+    "united states": "US",
+    "usa": "US",
+    "america": "US",
+    "united kingdom": "GB",
+    "uk": "GB",
+    "germany": "DE",
+    "france": "FR",
+    "canada": "CA",
+    "australia": "AU",
+    "singapore": "SG",
+    "united arab emirates": "AE",
+    "uae": "AE",
+    "dubai": "AE",
+    "japan": "JP",
+    "brazil": "BR",
+    "netherlands": "NL",
+    "spain": "ES",
+    "italy": "IT",
+    "sweden": "SE",
+    "switzerland": "CH",
+    "israel": "IL",
+    "south africa": "ZA",
+    "mexico": "MX",
+    "indonesia": "ID",
+    "china": "CN",
+    "south korea": "KR",
+    "new zealand": "NZ",
+    "ireland": "IE",
+    "poland": "PL",
+    "nigeria": "NG",
+    "kenya": "KE",
+    "philippines": "PH",
+    "vietnam": "VN",
+    "thailand": "TH",
+    "malaysia": "MY",
+    "pakistan": "PK",
+    "bangladesh": "BD",
+    "saudi arabia": "SA",
+    "turkey": "TR",
+    "egypt": "EG",
+    "argentina": "AR",
+    "chile": "CL",
+    "colombia": "CO",
+    "portugal": "PT",
+    "belgium": "BE",
+    "austria": "AT",
+    "denmark": "DK",
+    "norway": "NO",
+    "finland": "FI",
+}
+
+
+def market_country_code(market: str) -> str | None:
+    return MARKET_COUNTRY_CODES.get(market.strip().lower())
+
+
+def detect_market(company_profile: dict[str, Any]) -> tuple[str, str] | None:
+    """Find the company's home market in its own profile. Returns
+    (market name, ISO country code) or None when nothing recognisable is
+    stated — a missing market skips geo questions rather than guessing."""
+    candidates: list[str] = []
+    for field in ("company_locations", "regions_served"):
+        value = company_profile.get(field)
+        if isinstance(value, list):
+            candidates.extend(str(item) for item in value)
+    for field in ("headquarters", "location", "country", "geography"):
+        value = company_profile.get(field)
+        if isinstance(value, str):
+            candidates.append(value)
+    display_names = {
+        "usa": "United States",
+        "america": "United States",
+        "uk": "United Kingdom",
+        "uae": "United Arab Emirates",
+        "dubai": "United Arab Emirates",
+    }
+    for candidate in candidates:
+        lowered = candidate.lower()
+        for name, code in MARKET_COUNTRY_CODES.items():
+            if name in lowered:
+                return display_names.get(name, name.title()), code
+    return None
+
+
+LOCALIZE_QUESTIONS_SYSTEM_PROMPT = """You rewrite buyer questions for
+specific geographic markets.
+
+You are given items, each pairing one question buyers ask AI assistants with
+one market. Rewrite each question the way a buyer in its market would
+naturally ask it, so the answers name providers relevant there.
+
+- Work the market into the question naturally: "best X in India",
+  "X providers for German factories", "X companies serving Brazil".
+- Vary the phrasing across questions; do not append the same suffix to all.
+- Keep each question's original intent, subject and buying stage.
+- Keep questions short and ordinary — how somebody actually types.
+- Return JSON: {"questions": ["...", "..."]} in the same order as the input
+  items, each rewritten for its own item's market.
+"""
+
+# One market per continent-ish spread. A Pro+ audit asks a slice of its
+# questions across these so the report can compare visibility by region.
+WORLD_MARKETS: list[tuple[str, str]] = [
+    ("India", "IN"),
+    ("United States", "US"),
+    ("United Kingdom", "GB"),
+    ("Germany", "DE"),
+    ("Japan", "JP"),
+    ("Brazil", "BR"),
+    ("South Africa", "ZA"),
+    ("Australia", "AU"),
+]
+
+
+def localize_questions(
+    prompt_records: list[dict[str, Any]],
+    markets: list[tuple[str, str | None]],
+    count: int,
+) -> list[dict[str, Any]]:
+    """Rewrite the last `count` untagged questions in place, cycling through
+    `markets` so each question belongs to one market. Records already carrying
+    a market tag (a resumed run) are left alone. If the rewrite call fails, a
+    plain "in {market}" suffix keeps the run moving."""
+    untagged = [record for record in prompt_records if not record.get("market")]
+    chosen = untagged[-count:] if count < len(untagged) else untagged
+    if not chosen or not markets:
+        return prompt_records
+    assigned = [markets[position % len(markets)] for position in range(len(chosen))]
+
+    rewritten: list[str] | None = None
+    payload = build_chat_payload(
+        LOCALIZE_QUESTIONS_SYSTEM_PROMPT,
+        json.dumps(
+            {
+                "items": [
+                    {"market": market_name, "question": record["prompt"]}
+                    for record, (market_name, _) in zip(chosen, assigned)
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        temperature=0.2,
+        json_response=True,
+    )
+    try:
+        response = extract_json_object(call_chat_completion(payload))
+        candidate = response.get("questions")
+        if isinstance(candidate, list) and len(candidate) == len(chosen):
+            rewritten = [str(item).strip() for item in candidate]
+    except (LLMNotConfigured, RuntimeError, TimeoutError, ValueError):
+        rewritten = None
+
+    for position, (record, (market_name, market_code)) in enumerate(
+        zip(chosen, assigned)
+    ):
+        text = rewritten[position] if rewritten else ""
+        if not text:
+            base = record["prompt"].rstrip("?").rstrip(".")
+            text = f"{base} in {market_name}?"
+        if not text.endswith("?"):
+            text = f"{text.rstrip('.')}?"
+        record["prompt"] = " ".join(text.split())
+        record["market"] = market_name
+        if market_code:
+            record["market_country"] = market_code
+    return prompt_records

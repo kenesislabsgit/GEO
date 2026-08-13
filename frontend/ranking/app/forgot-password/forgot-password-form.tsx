@@ -29,7 +29,7 @@ export function ForgotPasswordForm() {
   if (sent) {
     return (
       <div className="text-center">
-        <MailCheck className="mx-auto size-8 text-[color:var(--rb-blue)]" aria-hidden />
+        <MailCheck className="mx-auto size-8 text-[color:var(--rb-accent)]" aria-hidden />
         <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
           Check your inbox
         </h1>

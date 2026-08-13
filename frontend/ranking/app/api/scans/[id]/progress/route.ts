@@ -43,6 +43,7 @@ export async function GET(
     errorSummary: scan.error_summary,
     demoMode: scan.demo_mode,
     brandId: scan.brand_id,
+    providers: scan.provider_ids ?? [],
     slug: brand?.slug ?? null,
     progress:
       (scan.progress ?? 0) > 0

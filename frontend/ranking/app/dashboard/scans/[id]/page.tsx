@@ -30,6 +30,7 @@ export default async function DashboardScanProgressPage({
       <ScanProgress
         scanId={scan.id}
         destination={{ type: "dashboard", brandId: brand.id }}
+        plan={scan.scan_type === "free" ? "free" : "pro"}
       />
     </div>
   );

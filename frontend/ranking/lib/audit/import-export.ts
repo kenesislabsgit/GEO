@@ -106,11 +106,15 @@ export async function importAuditExport(
         prompt: asString(row.prompt, ""),
         prompt_type: asString(row.prompt_type, "unknown"),
         buyer_stage: asString(row.buyer_stage, "unknown"),
-        country: "us",
+        // Geo-localized questions carry their market's country code; every
+        // other question is "global". The market's display name rides in
+        // rationale — the one spare per-prompt column — so the report can
+        // say "India", not "in".
+        country: asString(row.market_country, "global").toLowerCase() || "global",
         language: "en",
         active: true,
         is_custom: false,
-        rationale: null,
+        rationale: asString(row.market, "") || null,
       }))
       .filter((row) => row.prompt),
   );

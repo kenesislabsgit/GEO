@@ -21,6 +21,7 @@ def build_frontend_export(
     free_preview: bool = False,
     summary: str = "",
     website_snapshot: dict[str, Any] | None = None,
+    requested_assistants: list[str] | None = None,
 ) -> dict[str, Any]:
     web_presence = web_presence or {}
     score = build_scorecard(
@@ -41,11 +42,19 @@ def build_frontend_export(
     prompt_matrix = build_prompt_matrix(prompts, recommendation_patterns)
     query_results = build_query_results(raw_results, brand_name, web_presence)
     provider_coverage = build_provider_coverage(raw_results)
+    # A provider is partial when it answered but recommended nobody — or when
+    # it was asked and never answered at all. The second case used to be
+    # invisible: four providers could fail every question and the scan still
+    # said "completed", silently reporting whoever was left.
     partial_providers = [
         provider
         for provider, coverage in provider_coverage.items()
         if coverage["responses"] > 0 and coverage["recommendations"] == 0
     ]
+    for provider in requested_assistants or []:
+        responses = provider_coverage.get(provider, {}).get("responses", 0)
+        if responses == 0 and provider not in partial_providers:
+            partial_providers.append(provider)
 
     return {
         "schema_version": "geo_audit.frontend_export.v3",
@@ -149,6 +158,9 @@ def build_prompt_matrix(
                 "prompt": prompt.get("prompt", ""),
                 "prompt_type": prompt.get("category", "Unknown"),
                 "buyer_stage": prompt.get("buying_stage", "Unknown"),
+                # Present only on geo-localized questions (Pro+ market runs).
+                "market": prompt.get("market"),
+                "market_country": prompt.get("market_country"),
                 "mentioned": any(match.get("user_recommended") for match in matches),
                 "provider_results": [
                     {

@@ -44,6 +44,10 @@ export type StartAuditOptions = {
   userId: string;
   brand: Brand | null;
   resume?: boolean;
+  /** Pro+ audits: localize a slice of questions to the company's home market. */
+  geoMarket?: boolean;
+  /** Explicit market name; empty/undefined means detect from the website. */
+  geoMarketName?: string;
 };
 
 export type StartAuditResult = {
@@ -170,6 +174,11 @@ async function runAudit(
     // every screen from audit_export.json.
     "--skip-final-report",
   ];
+  if (mode === "pro" && options.geoMarket) {
+    // An explicit market wins; "auto" reads it off the company profile the
+    // engine just built. No recognisable market skips the geo questions.
+    args.push("--market", options.geoMarketName?.trim() || "auto");
+  }
   if (mode !== "pro") {
     args.push(
       "--free-preview",

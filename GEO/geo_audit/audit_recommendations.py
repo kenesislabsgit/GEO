@@ -101,6 +101,12 @@ AUDIT_RECOMMENDATION_SYSTEM_PROMPT = """You are an AI recommendation audit analy
 
 Generate prioritized recommendations using only the provided evidence.
 
+Write at least 3 recommendations — more when the evidence supports them. When
+fewer than 3 lost questions exist, cover the strongest remaining material
+instead of stopping short: cited source patterns, recurring competitor
+patterns, and concrete gaps on the audited site. Each extra recommendation
+still has to meet every rule below; never pad with generic advice.
+
 Every recommendation must include:
 - observation
 - evidence
@@ -232,6 +238,7 @@ AUDIT_RECOMMENDATION_SCHEMA = {
     "properties": {
         "recommendations": {
             "type": "array",
+            "minItems": 3,
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -289,10 +296,10 @@ def generate_audit_recommendations(
     firecrawl_client: FirecrawlClient | None = None,
     limit: int | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
-    """limit keeps only the top N written actions. The free audit asks for one,
-    and that one must be the model's own writing — the deterministic
-    top-competitor finding is kept only as a fallback when the model returns
-    nothing at all."""
+    """limit keeps only the top N written actions. The model is asked for at
+    least three (schema-enforced via minItems); the free audit keeps the top
+    three. The deterministic top-competitor finding is kept only as a fallback
+    when the model returns nothing at all."""
     evidence_catalog = build_verified_evidence_catalog(competitor_evidence)
     payload = build_audit_recommendations_payload(
         company_profile,

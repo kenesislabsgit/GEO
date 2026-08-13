@@ -26,10 +26,8 @@ export type AuditStage = {
 };
 
 /**
- * Assistant names as customers know them, which is not how we reach them.
- * PROVIDER_DISPLAY_NAMES says "Bedrock Claude Haiku" because an engineer
- * reading a report needs to know which endpoint answered; a customer watching
- * their audit does not, and it tells them where our money goes.
+ * Assistant names as customers know them ("ChatGPT"), which can differ from
+ * the report's model names ("OpenAI Search").
  */
 const ASSISTANT_NAMES: Record<string, string> = {
   openai: "ChatGPT",

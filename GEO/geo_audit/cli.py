@@ -24,8 +24,12 @@ from .firecrawl import (
     should_enrich_user_snapshot,
 )
 from .intents import (
+    WORLD_MARKETS,
+    detect_market,
     generate_customer_intents,
     generate_free_customer_intents,
+    localize_questions,
+    market_country_code,
     question_profile_issue,
 )
 from .profile import generate_company_profile
@@ -634,7 +638,19 @@ def main() -> None:
     run_parser.add_argument(
         "--max-recommendations",
         type=int,
-        help="Keep only the top N generated improvement actions. The free audit uses 1.",
+        help="Keep only the top N generated improvement actions. The free audit uses 3.",
+    )
+    run_parser.add_argument(
+        "--market",
+        help=(
+            "Ask a slice of the buyer questions the way a buyer in this market "
+            "would ('best X in India'), with web search pinned to that country. "
+            "Pass a market name, or 'auto' to read it from the company profile."
+        ),
+    )
+    run_parser.add_argument(
+        "--market-country",
+        help="ISO 3166-1 alpha-2 country code override for the market pin (e.g. IN).",
     )
     run_parser.add_argument("--top-n", type=int, default=5)
     run_parser.add_argument(
@@ -1327,6 +1343,45 @@ def main() -> None:
                 encoding="utf-8",
             )
 
+        # Geographic market questions (Pro+): rewrite ~45% of the buyer
+        # questions across world markets — the picked (or detected) home
+        # market first, then one market per region — with each question's web
+        # search pinned to its own country. The report compares visibility by
+        # country and continent from these.
+        market_name = (args.market or "").strip()
+        market_code = (args.market_country or "").strip().upper() or None
+        if market_name.lower() == "auto":
+            detected = detect_market(profile)
+            market_name = detected[0] if detected else ""
+            market_code = market_code or (detected[1] if detected else None)
+        elif market_name and not market_code:
+            market_code = market_country_code(market_name)
+        if args.market:
+            markets: list[tuple[str, str | None]] = []
+            if market_name:
+                markets.append((market_name, market_code))
+            markets.extend(
+                (name, code)
+                for name, code in WORLD_MARKETS
+                if code != market_code
+            )
+            geo_count = max(2, min(10, round(len(prompts) * 0.45)))
+            prompts = localize_questions(prompts, markets, geo_count)
+            (run_dir / "customer_prompts.json").write_text(
+                json.dumps(prompts, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            covered = sorted(
+                {str(p.get("market")) for p in prompts if p.get("market")}
+            )
+            emit_run_progress(
+                "buyer_prompts",
+                44,
+                f"Localizing buyer questions across {len(covered)} markets"
+                + (f", starting with {market_name}" if market_name else ""),
+                markets=covered,
+            )
+
         emit_run_progress(
             "provider_questions",
             48,
@@ -1368,6 +1423,7 @@ def main() -> None:
             provider_concurrency=args.provider_concurrency,
             search_context_size=args.search_context_size,
             openai_search_batch_size=args.openai_search_batch_size,
+            market_country=market_code,
         )
         # Cited pages are fetched to confirm they load, and checked for the
         # audited company's name so the report can say which sources ignore it.
@@ -1606,6 +1662,9 @@ def main() -> None:
             # The crawl knows which website this is. Without it the export
             # depends on the model having produced supporting_pages.
             website_snapshot=snapshot,
+            # So a provider that failed every question is reported as partial
+            # instead of silently vanishing from the scan.
+            requested_assistants=list(args.assistants),
         )
         export_path = run_dir / "audit_export.json"
         export_path.write_text(

@@ -19,6 +19,9 @@ export type AuditAuthorization =
       mode: "free" | "pro";
       assistants: ProviderId[];
       limitPerAssistant: number;
+      /** Pro+ and up: localize a slice of questions to the company's home
+       * market and pin their web search there. */
+      geoMarket: boolean;
     }
   | { ok: false; status: number; error: string };
 
@@ -84,5 +87,11 @@ export async function authorizeAudit(
     };
   }
 
-  return { ok: true, mode, assistants, limitPerAssistant };
+  return {
+    ok: true,
+    mode,
+    assistants,
+    limitPerAssistant,
+    geoMarket: mode === "pro" && plan.features.geoMarketSearch,
+  };
 }

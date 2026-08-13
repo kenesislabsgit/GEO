@@ -14,9 +14,9 @@ export function AuditCompleteBanner() {
   if (params.get("completed") !== "1") return null;
 
   return (
-    <div className="mb-6 flex items-start justify-between gap-3 rounded-lg border border-[color:var(--rb-blue)]/30 bg-[color:var(--rb-blue-soft)] px-4 py-3 text-sm">
+    <div className="mb-6 flex items-start justify-between gap-3 rounded-lg border border-[color:var(--rb-accent)]/30 bg-[color:var(--rb-accent-soft)] px-4 py-3 text-sm">
       <div className="flex gap-2.5">
-        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[color:var(--rb-blue)]" aria-hidden />
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[color:var(--rb-accent)]" aria-hidden />
         <div>
           <p className="font-medium">Your audit is ready</p>
           <p className="mt-0.5 text-muted-foreground">

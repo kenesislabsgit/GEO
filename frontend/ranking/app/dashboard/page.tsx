@@ -10,7 +10,6 @@ import {
 } from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { roundForDisplay } from "@/lib/ai/scoring/score";
 import { routes } from "@/lib/routes";
@@ -48,7 +47,7 @@ function Sparkline({ values }: { values: number[] }) {
       <polyline
         points={points}
         fill="none"
-        stroke="var(--rb-blue)"
+        stroke="var(--rb-accent)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -60,7 +59,7 @@ function Sparkline({ values }: { values: number[] }) {
 const SCAN_STATUS_COLOR: Record<string, string> = {
   completed: "text-[color:var(--rb-green)]",
   partial: "text-[color:var(--rb-amber)]",
-  running: "text-[color:var(--rb-blue)]",
+  running: "text-[color:var(--rb-accent)]",
   queued: "text-muted-foreground",
   failed: "text-destructive",
   cancelled: "text-muted-foreground",
@@ -148,7 +147,7 @@ export default async function DashboardPage() {
         </Alert>
       ) : null}
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
             Overview
@@ -165,15 +164,11 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* One stat band, hairline-divided — the inspo's "Proposal Progress" row. */}
+      <div className="rb-panel grid grid-cols-2 gap-y-6 p-6 md:p-7 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rb-panel p-5"
-          >
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {stat.label}
-            </p>
+          <div key={stat.label} className="lg:px-6 lg:first:pl-0 lg:last:pr-0">
+            <p className="rb-eyebrow">{stat.label}</p>
             <p className="rb-tabular mt-2 text-2xl font-semibold tracking-tight capitalize">
               {stat.value}
             </p>
@@ -182,10 +177,8 @@ export default async function DashboardPage() {
             </p>
           </div>
         ))}
-        <div className="rb-panel p-5">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Provider checks
-          </p>
+        <div className="lg:px-6 lg:last:pr-0">
+          <p className="rb-eyebrow">Provider checks</p>
           <p className="rb-tabular mt-2 text-2xl font-semibold tracking-tight">
             {entitlements.providerChecksUsed}
             <span className="text-sm font-normal text-muted-foreground">
@@ -245,20 +238,24 @@ export default async function DashboardPage() {
                   <Link
                     key={brand.id}
                     href={routes.brand(brand.id)}
-                    className="flex items-center justify-between gap-4 bg-card px-5 py-4 transition-colors hover:bg-muted/50"
+                    className="flex items-center justify-between gap-4 bg-card px-5 py-4 transition-colors hover:bg-muted/50 md:px-6"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{brand.name}</p>
-                      <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                        {brand.canonical_domain}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3.5">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold uppercase">
+                        {brand.name[0] ?? "?"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{brand.name}</p>
+                        <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                          {brand.canonical_domain}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3.5">
                       <Sparkline values={trend} />
                       {delta !== null && delta !== 0 ? (
-                        <Badge
-                          variant="secondary"
-                          className={`rounded-full text-[11px] ${
+                        <span
+                          className={`rb-chip ${
                             delta > 0
                               ? "text-[color:var(--rb-green)]"
                               : "text-destructive"
@@ -266,7 +263,7 @@ export default async function DashboardPage() {
                         >
                           {delta > 0 ? "+" : ""}
                           {delta}
-                        </Badge>
+                        </span>
                       ) : null}
                       <span className="rb-tabular text-2xl font-semibold tracking-tight">
                         {current ?? "—"}
@@ -313,7 +310,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <span
-                    className={`text-xs font-medium capitalize ${SCAN_STATUS_COLOR[scan.status] ?? "text-muted-foreground"}`}
+                    className={`rb-chip capitalize ${SCAN_STATUS_COLOR[scan.status] ?? "text-muted-foreground"}`}
                   >
                     {scan.status.replaceAll("_", " ")}
                   </span>

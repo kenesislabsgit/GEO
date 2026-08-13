@@ -153,7 +153,7 @@ export default async function ReportPage({
           <div className="rb-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_70%_80%_at_50%_0%,black,transparent)]" />
           <div className="relative mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full bg-[color:var(--rb-blue)] text-white hover:bg-[color:var(--rb-blue)]">
+              <Badge className="rounded-full bg-[color:var(--rb-accent)] text-white hover:bg-[color:var(--rb-accent)]">
                 Public report
               </Badge>
               {report.scan.demoMode ? (
@@ -367,7 +367,7 @@ export default async function ReportPage({
                       href={report.investigatedCompetitor.website}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-[color:var(--rb-blue)] hover:underline"
+                      className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-[color:var(--rb-accent)] hover:underline"
                     >
                       <ExternalLink className="size-3.5 shrink-0" />
                       {report.investigatedCompetitor.website}
@@ -386,7 +386,7 @@ export default async function ReportPage({
                           {page.label}
                         </p>
                         {page.excerpt ? (
-                          <p className="mt-1 border-l-2 border-[color:var(--rb-blue)] pl-3 text-sm leading-relaxed text-foreground/80">
+                          <p className="mt-1 border-l-2 border-[color:var(--rb-accent)] pl-3 text-sm leading-relaxed text-foreground/80">
                             {page.excerpt}
                           </p>
                         ) : null}
@@ -395,7 +395,7 @@ export default async function ReportPage({
                             href={page.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-[color:var(--rb-blue)] hover:underline"
+                            className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-[color:var(--rb-accent)] hover:underline"
                           >
                             <ExternalLink className="size-3 shrink-0" />
                             <span className="truncate">{page.url}</span>
@@ -480,7 +480,7 @@ export default async function ReportPage({
                           href={source.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-mono text-xs text-[color:var(--rb-blue)] hover:underline"
+                          className="font-mono text-xs text-[color:var(--rb-accent)] hover:underline"
                         >
                           {source.domain}
                         </a>

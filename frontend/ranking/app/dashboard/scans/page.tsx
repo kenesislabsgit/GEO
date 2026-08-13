@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/repository";
 import { routes } from "@/lib/routes";
 import { providerDisplayName } from "@/lib/constants";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 import { roundForDisplay } from "@/lib/ai/scoring/score";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ const STATUS_STYLES: Record<ScanStatus, string> = {
   partial: "bg-[color:var(--rb-amber)]/15 text-[color:var(--rb-amber)]",
   failed: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground",
-  running: "bg-[color:var(--rb-blue-soft)] text-[color:var(--rb-blue)]",
+  running: "bg-[color:var(--rb-accent-soft)] text-[color:var(--rb-accent)]",
   queued: "bg-muted text-muted-foreground",
 };
 
@@ -131,7 +132,13 @@ export default async function ScansPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {scan.provider_ids.map(providerDisplayName).join(", ")}
+                      <span className="flex items-center gap-2">
+                        {scan.provider_ids.map((provider) => (
+                          <span key={provider} title={providerDisplayName(provider)}>
+                            <ProviderLogo provider={provider} />
+                          </span>
+                        ))}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       {Math.round(scan.total_queries / providerCount)}
@@ -165,7 +172,7 @@ export default async function ScansPage() {
                       scan.status === "partial" ? (
                         <Link
                           href={routes.brand(brand.id)}
-                          className="text-[color:var(--rb-blue)] hover:underline"
+                          className="text-[color:var(--rb-accent)] hover:underline"
                         >
                           Report
                         </Link>
@@ -173,7 +180,7 @@ export default async function ScansPage() {
                         scan.status === "running" ? (
                         <Link
                           href={routes.scanProgress(scan.id)}
-                          className="text-[color:var(--rb-blue)] hover:underline"
+                          className="text-[color:var(--rb-accent)] hover:underline"
                         >
                           Progress
                         </Link>

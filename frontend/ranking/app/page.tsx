@@ -1,13 +1,8 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Bell,
-  Copy,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { routes } from "@/lib/routes";
@@ -119,190 +114,34 @@ function ProductStage() {
   );
 }
 
+/* ------------------------------------------------------ blueprint marks -- */
+
+function Cross({ className }: { className: string }) {
+  return (
+    <span aria-hidden className={`pointer-events-none absolute z-10 ${className}`}>
+      <span className="absolute -left-2 top-0 h-px w-4 bg-foreground/30" />
+      <span className="absolute -top-2 left-0 h-4 w-px bg-foreground/30" />
+    </span>
+  );
+}
+
 /* ---------------------------------------------------- bento mini-visuals -- */
 
-function MiniScore() {
-  const parts = [
-    { label: "Mentions", pct: 72 },
-    { label: "Position", pct: 55 },
-    { label: "Sentiment", pct: 84 },
-  ];
-  return (
-    <div className="mt-5 space-y-2.5">
-      <p className="rb-tabular font-heading text-4xl font-semibold tracking-tight">
-        62<span className="text-muted-foreground">.4</span>
-      </p>
-      {parts.map((part) => (
-        <div key={part.label} className="flex items-center gap-3">
-          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">
-            {part.label}
-          </span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <span
-              className="block h-full rounded-full bg-[color:var(--rb-blue)]"
-              style={{ width: `${part.pct}%` }}
-            />
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
+const PROVIDER_PILLS = [
+  { name: "OpenAI", color: "#10a37f", className: "top-[6%] left-[10%] opacity-50" },
+  { name: "Claude", color: "#d97757", className: "top-[16%] right-[12%]" },
+  { name: "Gemini", color: "#4285f4", className: "top-[36%] left-[22%]" },
+  { name: "Perplexity", color: "#20b8cd", className: "top-[58%] left-[6%] opacity-50" },
+  { name: "Llama", color: "#0668e1", className: "top-[52%] right-[14%]" },
+  { name: "Mistral", color: "#f54e42", className: "top-[76%] left-[30%]" },
+  { name: "Nova", color: "#8b5cf6", className: "top-[88%] right-[8%] opacity-50" },
+] as const;
 
-function MiniShareOfVoice() {
-  const rows = [
-    { name: "Northstar", pct: 86, you: false },
-    { name: "You", pct: 41, you: true },
-    { name: "Metricly", pct: 33, you: false },
-  ];
-  return (
-    <div className="mt-5 space-y-2.5">
-      {rows.map((row) => (
-        <div key={row.name} className="flex items-center gap-3">
-          <span
-            className={`w-20 shrink-0 truncate text-[11px] ${row.you ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-          >
-            {row.name}
-          </span>
-          <span className="h-4 flex-1 overflow-hidden rounded-sm bg-muted">
-            <span
-              className={`block h-full rounded-sm ${row.you ? "bg-[color:var(--rb-blue)]" : "bg-[color:var(--rb-slate)]/40"}`}
-              style={{ width: `${row.pct}%` }}
-            />
-          </span>
-          <span className="rb-tabular w-8 text-right text-[11px] text-muted-foreground">
-            {row.pct}%
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MiniCitations() {
-  const rows = [
-    { domain: "g2.com", count: 7, you: false },
-    { domain: "reddit.com", count: 5, you: false },
-    { domain: "yourdocs.com", count: 2, you: true },
-  ];
-  return (
-    <div className="mt-5 divide-y divide-border border-y border-border">
-      {rows.map((row) => (
-        <div key={row.domain} className="flex items-center justify-between py-2">
-          <span className="font-mono text-xs">{row.domain}</span>
-          <span className="text-[11px] text-muted-foreground">
-            cited {row.count}×{row.you ? " · you" : ""}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MiniPrompt() {
-  return (
-    <div className="mt-5 overflow-hidden rounded-lg border border-border bg-[color:var(--rb-mist)]">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="font-mono text-[10px] text-muted-foreground">
-          master-prompt.md
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium">
-          <Copy className="size-2.5" aria-hidden /> Copy
-        </span>
-      </div>
-      <div className="space-y-1.5 px-3 py-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
-        <p>## Fix 1: Add a comparison page</p>
-        <p>Buyer questions currently lost:</p>
-        <p className="text-foreground">
-          &ldquo;Best analytics platforms…&rdquo; — lost to Northstar
-        </p>
-        <p>Paste into Cursor / Claude Code ↵</p>
-      </div>
-    </div>
-  );
-}
-
-function MiniAlert() {
-  return (
-    <div className="mt-5 space-y-2">
-      <svg viewBox="0 0 200 44" className="h-11 w-full" aria-hidden>
-        <polyline
-          points="0,34 28,30 56,32 84,24 112,26 140,16 168,18 200,8"
-          fill="none"
-          stroke="var(--rb-blue)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-        <Bell className="size-3.5 text-[color:var(--rb-blue)]" aria-hidden />
-        <span className="text-xs">
-          Visibility up{" "}
-          <span className="font-semibold text-[color:var(--rb-green)]">+6.2</span>{" "}
-          after Tuesday&rsquo;s scan
-        </span>
-      </div>
-    </div>
-  );
-}
-
-const BENTO = [
-  {
-    title: "Every answer, on the record",
-    body: "Real buyer questions asked through provider APIs — each answer stored with who was recommended and why.",
-    visual: (
-      <div className="mt-5 space-y-2">
-        {[
-          ["Best analytics platforms for startups?", "Mentioned #2", true],
-          ["Alternatives to the category leader?", "Absent", false],
-        ].map(([q, status, ok]) => (
-          <div
-            key={String(q)}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
-          >
-            <span className="truncate text-xs">{q}</span>
-            <span
-              className={`shrink-0 text-[11px] font-medium ${ok ? "text-[color:var(--rb-green)]" : "text-muted-foreground"}`}
-            >
-              {status}
-            </span>
-          </div>
-        ))}
-      </div>
-    ),
-    wide: true,
-  },
-  {
-    title: "A score you can defend",
-    body: "Mentions, position and sentiment — decomposed, never a black box.",
-    visual: <MiniScore />,
-    wide: false,
-  },
-  {
-    title: "Share of voice",
-    body: "Who owns the answers in your category, measured — including you.",
-    visual: <MiniShareOfVoice />,
-    wide: false,
-  },
-  {
-    title: "Citation intelligence",
-    body: "The exact pages that taught AI who to recommend — and where you're missing.",
-    visual: <MiniCitations />,
-    wide: false,
-  },
-  {
-    title: "An action plan your AI tool can run",
-    body: "Every fix with its evidence, compiled into one prompt you paste into Cursor or Claude Code.",
-    visual: <MiniPrompt />,
-    wide: false,
-  },
-  {
-    title: "Monitoring that emails you",
-    body: "Scheduled re-scans track the trend; alerts fire when your visibility moves.",
-    visual: <MiniAlert />,
-    wide: true,
-  },
+const SOURCE_DOTS = [
+  { className: "top-[22%] left-[26%] bg-[#52a8ff] shadow-[0_0_22px_6px_rgba(82,168,255,0.45)]" },
+  { className: "top-[44%] left-[60%] bg-[#ff6ea9] shadow-[0_0_22px_6px_rgba(255,110,169,0.4)]" },
+  { className: "top-[66%] left-[38%] bg-[#8b8bff] shadow-[0_0_22px_6px_rgba(139,139,255,0.45)]" },
+  { className: "top-[30%] left-[80%] bg-[#3ecf7a] shadow-[0_0_22px_6px_rgba(62,207,122,0.4)]" },
 ] as const;
 
 /* ----------------------------------------------------------------- page -- */
@@ -310,41 +149,53 @@ const BENTO = [
 export default function HomePage() {
   return (
     <>
-      <div className="rb-atmosphere relative overflow-hidden">
-        <div
-          aria-hidden
-          className="rb-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_70%_50%_at_50%_0%,black,transparent)]"
-        />
-        <SiteHeader />
+      <SiteHeader />
 
-        <main className="relative">
-          {/* Hero */}
-          <section className="relative">
-            <div className="mx-auto max-w-6xl px-4 pt-16 pb-8 md:px-6 md:pt-24 md:pb-10">
-              <div className="mx-auto max-w-3xl text-center">
-                <p className="rb-fade-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <main>
+        {/* Hero — editorial blueprint */}
+        <section className="relative bg-background">
+          <div aria-hidden className="rb-hatch h-8 border-b border-border" />
+          <div className="mx-auto max-w-6xl">
+            <div className="relative border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-24">
+              <Cross className="top-0 left-0" />
+              <Cross className="top-0 right-0" />
+              <Cross className="bottom-0 left-0" />
+              <Cross className="bottom-0 right-0" />
+
+              <div
+                aria-hidden
+                className="rb-halftone absolute inset-y-6 right-0 hidden w-[55%] text-foreground/25 [mask-image:radial-gradient(ellipse_75%_85%_at_100%_35%,black,transparent_72%)] md:block"
+              />
+
+              <div className="relative max-w-2xl">
+                <p className="rb-fade-up inline-flex items-center gap-2 border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
                   <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-green)]" />
                   Measured from real provider APIs — never simulated
                 </p>
 
-                <h1 className="rb-fade-up rb-fade-up-delay-1 rb-gradient-text font-heading mt-7 text-[2.6rem] leading-[1.02] font-semibold tracking-[-0.03em] text-balance sm:text-6xl md:text-[4.25rem]">
-                  Does AI recommend your company?
+                <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-6 text-[2.75rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance sm:text-6xl md:text-[4.25rem]">
+                  See what AI tells your buyers before your competitors do.
                 </h1>
 
-                <p className="rb-fade-up rb-fade-up-delay-2 mx-auto mt-5 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
+                <p className="rb-fade-up rb-fade-up-delay-2 mt-5 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
                   Buyers ask ChatGPT before they ask Google. See what it answers,
                   which competitors it names instead of you, and exactly what to
                   change.
                 </p>
 
-                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
-                  <Button asChild size="lg" className="h-10 px-5">
+                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center gap-3">
+                  <Button asChild size="lg" className="h-11 rounded-none px-6">
                     <Link href={routes.publicScanAnchor}>
                       Run your free audit
                       <ArrowRight data-icon="inline-end" />
                     </Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="h-10 px-5">
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="outline"
+                    className="h-11 rounded-none border-foreground/25 bg-transparent px-6"
+                  >
                     <Link href={routes.methodology}>How it&rsquo;s measured</Link>
                   </Button>
                 </div>
@@ -353,60 +204,223 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+          </div>
+          <div aria-hidden className="rb-hatch h-8 border-y border-border" />
+        </section>
 
-            <div className="relative px-3 pb-10 md:px-6 md:pb-14">
-              <div className="[mask-image:linear-gradient(to_bottom,black_78%,transparent)]">
-                <ProductStage />
-              </div>
+        {/* Product stage on a soft color field */}
+        <section className="relative overflow-hidden border-b border-border">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-80 dark:opacity-30"
+            style={{
+              background:
+                "radial-gradient(ellipse 40% 50% at 18% 10%, rgba(127,178,255,0.35), transparent 70%), radial-gradient(ellipse 35% 45% at 85% 25%, rgba(255,173,198,0.3), transparent 70%), radial-gradient(ellipse 40% 50% at 50% 95%, rgba(255,217,138,0.3), transparent 70%)",
+            }}
+          />
+
+          <div className="relative px-3 pt-14 pb-4 md:px-6 md:pt-20">
+            <div className="[mask-image:linear-gradient(to_bottom,black_78%,transparent)]">
+              <ProductStage />
             </div>
+          </div>
 
-            {/* Provider strip */}
-            <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
-              <p className="text-center text-xs text-muted-foreground">
-                Answers measured across
-              </p>
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
-                <span>OpenAI</span>
-                <span>Claude</span>
-                <span>Llama</span>
-                <span>Mistral</span>
-                <span>Nova</span>
-              </div>
+          {/* Provider strip */}
+          <div className="relative mx-auto max-w-6xl px-4 pb-14 md:px-6">
+            <p className="text-center text-xs text-muted-foreground">
+              Answers measured across
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
+              {["OpenAI", "Claude", "Llama", "Mistral", "Nova"].map((name) => (
+                <span key={name} className="inline-flex items-center gap-2">
+                  <ProviderLogo provider={name.toLowerCase()} />
+                  {name}
+                </span>
+              ))}
             </div>
-          </section>
-        </main>
-      </div>
-
-      <main>
-        {/* Bento */}
-        <section className="border-y border-border bg-card">
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          </div>
+        </section>
+        {/* Bento — dark evidence grid */}
+        <section className="relative overflow-hidden bg-[color:var(--rb-ink)] text-white">
+          <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.08]" />
+          <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="max-w-2xl">
-              <p className="rb-eyebrow">The report</p>
+              <p className="font-mono text-[11px] tracking-[0.14em] text-white/40 uppercase">
+                The report
+              </p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 Evidence, not vibes
               </h2>
-              <p className="mt-3 text-muted-foreground">
+              <p className="mt-3 text-white/50">
                 Everything below ships in every paid report — and the free audit
                 is a real slice of it.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {BENTO.map((item) => (
-                <div
-                  key={item.title}
-                  className={`rb-panel rb-card-hover flex flex-col p-5 ${item.wide ? "lg:col-span-2" : ""}`}
-                >
-                  <h3 className="text-sm font-semibold tracking-tight">
-                    {item.title}
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                    {item.body}
+            <div className="mt-12 grid gap-4 lg:grid-cols-3">
+              {/* Visibility score — stat + bars */}
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8 lg:col-span-2">
+                <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                  Visibility score
+                </p>
+                <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                  A score that moves when you do
+                </h3>
+                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-white/50">
+                  Mentions, position and sentiment compiled into one number —
+                  comparable scan after scan, never a black box.
+                </p>
+                <div className="mt-8 flex items-end justify-between gap-4">
+                  <p className="rb-tabular font-heading text-5xl font-semibold tracking-tight">
+                    62<span className="text-white/35">.4</span>
                   </p>
-                  <div className="mt-auto">{item.visual}</div>
+                  <p className="text-sm font-medium text-[#3ecf7a]">+6.2 this month</p>
                 </div>
-              ))}
+                <div className="mt-4 flex h-20 items-stretch gap-1 md:gap-1.5">
+                  {Array.from({ length: 40 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={`flex-1 rounded-full ${i < 25 ? "bg-[#52a8ff]" : "bg-[#52a8ff]/15"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Citations — glowing source map */}
+              <div className="relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:row-span-2">
+                <div className="relative min-h-56 flex-1">
+                  <div
+                    aria-hidden
+                    className="rb-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_95%_95%_at_55%_40%,black,transparent_78%)]"
+                  />
+                  {SOURCE_DOTS.map((dot, i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      className={`absolute size-1.5 rounded-full ${dot.className}`}
+                    />
+                  ))}
+                </div>
+                <div className="p-6 md:p-8">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                    Citations
+                  </p>
+                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                    Trace every citation
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                    The exact pages that taught each model who to recommend —
+                    mapped across the open web, including where you&rsquo;re missing.
+                  </p>
+                </div>
+              </div>
+
+              {/* Providers — floating pills */}
+              <div className="relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:row-span-2">
+                <div className="relative min-h-72 flex-1">
+                  {PROVIDER_PILLS.map((pill) => (
+                    <span
+                      key={pill.name}
+                      className={`absolute inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-sm text-white/70 ${pill.className}`}
+                    >
+                      <ProviderLogo
+                        provider={pill.name.toLowerCase()}
+                        className="size-3.5"
+                        style={{ color: pill.color }}
+                      />
+                      {pill.name}
+                    </span>
+                  ))}
+                </div>
+                <div className="p-6 md:p-8">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                    Providers
+                  </p>
+                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                    One method, every model
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                    The same buyer questions asked across OpenAI, Claude, Gemini
+                    and more — answers compared side by side.
+                  </p>
+                </div>
+              </div>
+
+              {/* Big stat card */}
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,#173a5e,#0a1626_65%)] p-6 text-center md:p-8">
+                <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.1]" />
+                <p className="rb-tabular font-heading relative bg-gradient-to-b from-white via-white/75 to-white/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
+                  120+
+                </p>
+                <p className="relative mt-1 text-white/70">
+                  real buyer questions per audit
+                </p>
+                <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
+                  {["5 providers", "Cited sources", "Share of voice"].map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white/60"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                  <span aria-hidden className="h-7 w-16 rounded-full bg-white/[0.05]" />
+                  <span aria-hidden className="h-7 w-12 rounded-full bg-white/[0.05]" />
+                </div>
+              </div>
+
+              {/* Monitoring — trend chart */}
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:col-span-2">
+                <div className="relative px-2 pt-14">
+                  <span className="absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-[#161616] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white/80">
+                    <span aria-hidden className="size-1.5 rounded-full bg-[#52a8ff]" />
+                    Avg 62.4
+                  </span>
+                  <span className="absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-[#161616] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white/80">
+                    <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
+                    Low 41.2
+                  </span>
+                  <svg
+                    viewBox="0 0 600 140"
+                    className="h-36 w-full"
+                    preserveAspectRatio="none"
+                    aria-hidden
+                  >
+                    <defs>
+                      <linearGradient id="rb-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#52a8ff" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="#52a8ff" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <line x1="186" y1="0" x2="186" y2="140" stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
+                    <line x1="414" y1="0" x2="414" y2="140" stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
+                    <path
+                      d="M0,84 L20,80 40,86 60,78 80,82 100,74 120,78 140,70 160,74 186,62 210,66 230,54 250,60 270,48 290,56 310,50 330,62 350,58 370,72 390,80 414,96 435,90 455,98 475,88 495,92 515,82 535,86 555,76 575,80 600,68 L600,140 0,140 Z"
+                      fill="url(#rb-trend-fill)"
+                    />
+                    <path
+                      d="M0,84 L20,80 40,86 60,78 80,82 100,74 120,78 140,70 160,74 186,62 210,66 230,54 250,60 270,48 290,56 310,50 330,62 350,58 370,72 390,80 414,96 435,90 455,98 475,88 495,92 515,82 535,86 555,76 575,80 600,68"
+                      fill="none"
+                      stroke="#52a8ff"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <div className="p-6 pt-4 md:p-8 md:pt-4">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                    Monitoring
+                  </p>
+                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                    Catch the moves that matter
+                  </h3>
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-white/50">
+                    Scheduled re-scans chart your visibility across providers and
+                    email you when it shifts.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -479,12 +493,12 @@ export default function HomePage() {
                     key={plan.id}
                     className={`rb-card-hover relative flex flex-col rounded-xl border bg-background p-6 ${
                       popular
-                        ? "border-[color:var(--rb-blue)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--rb-blue)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--rb-blue)_45%,transparent)]"
+                        ? "border-[color:var(--rb-accent)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--rb-accent)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--rb-accent)_45%,transparent)]"
                         : "border-border"
                     }`}
                   >
                     {popular ? (
-                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--rb-blue)] px-2.5 py-0.5 text-[11px] font-medium text-white">
+                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--rb-accent)] px-2.5 py-0.5 text-[11px] font-medium text-white">
                         Most popular
                       </span>
                     ) : null}
@@ -570,7 +584,7 @@ export default function HomePage() {
         <section className="relative overflow-hidden bg-[color:var(--rb-ink)]">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--rb-blue)_35%,transparent),transparent_60%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--rb-accent)_35%,transparent),transparent_60%)]"
           />
           <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
           <div className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">

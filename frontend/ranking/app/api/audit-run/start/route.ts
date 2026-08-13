@@ -31,6 +31,8 @@ const requestSchema = z.object({
     .optional(),
   limitPerAssistant: z.number().int().min(1).max(20).optional(),
   resume: z.boolean().optional(),
+  /** Pro+ geo search: a market name, or omitted for auto-detect. */
+  market: z.string().trim().max(40).optional(),
 });
 
 /**
@@ -107,6 +109,8 @@ export async function POST(request: NextRequest) {
     userId: user.id,
     brand,
     resume: body.resume,
+    geoMarket: authorized.geoMarket,
+    geoMarketName: body.market,
   });
 
   return NextResponse.json(started);

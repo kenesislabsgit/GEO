@@ -12,6 +12,7 @@ const tabs = [
   // this list, so the only way to reach it was to type the URL. Every audit
   // has been collecting the pages behind it since.
   { path: "/citations", label: "Sources", pro: true },
+  { path: "/markets", label: "Markets", pro: true },
   { path: "/actions", label: "Website Improvements", pro: false },
   { path: "/prompts", label: "Audit Details", pro: false },
   { path: "/history", label: "History", pro: true },
@@ -24,7 +25,7 @@ export function BrandNav({ brandId, isPaid }: { brandId: string; isPaid: boolean
   // Underline tabs on a single baseline — quieter than the old pill row,
   // and the active page reads at a glance.
   return (
-    <nav className="flex gap-0.5 overflow-x-auto border-b border-border">
+    <nav className="rb-scrollbar-none flex gap-0.5 overflow-x-auto border-b border-border">
       {tabs.map((tab) => {
         const href = `${base}${tab.path}`;
         const active = pathname === href;

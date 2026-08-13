@@ -196,7 +196,7 @@ function AnswerBlock({
                   href={citation.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-start gap-1.5 text-xs text-[color:var(--rb-blue)] hover:underline"
+                  className="flex items-start gap-1.5 text-xs text-[color:var(--rb-accent)] hover:underline"
                 >
                   <ExternalLink aria-hidden className="mt-0.5 size-3 shrink-0" />
                   <span className="break-all">{citation.label}</span>
@@ -224,7 +224,7 @@ function highlightBrand(text: string, brandName: string) {
     part.toLowerCase() === key ? (
       <mark
         key={index}
-        className="rounded bg-[color:var(--rb-blue-soft)] px-0.5 font-medium text-inherit"
+        className="rounded bg-[color:var(--rb-accent-soft)] px-0.5 font-medium text-inherit"
       >
         {part}
       </mark>

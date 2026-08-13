@@ -337,6 +337,7 @@ def collect_multi_model_recommendations(
     search_context_size: str | None = None,
     openai_search_batch_size: int = 1,
     progress_callback: Any = None,
+    market_country: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
     prompt_records = normalize_prompt_records(prompts)
     model_overrides = model_overrides or {}
@@ -392,10 +393,17 @@ def collect_multi_model_recommendations(
 
     # Web search is the slowest part of an audit and it runs once per question.
     # Chunking the questions into separate calls lets them run at the same time
-    # instead of one after another inside a single response.
+    # instead of one after another inside a single response. Questions chunk
+    # per market so a batch is never half-pinned: each geo batch carries its
+    # own country's user_location, the global batches stay unpinned.
     chunk = max(1, openai_search_batch_size)
-    for start in range(0, len(search_tasks), chunk):
-        task_groups.append(search_tasks[start : start + chunk])
+    tasks_by_market: dict[str, list[tuple[str, int, dict[str, str]]]] = {}
+    for task in search_tasks:
+        market_key = str(task[2].get("market_country") or task[2].get("market") or "")
+        tasks_by_market.setdefault(market_key, []).append(task)
+    for tasks_subset in tasks_by_market.values():
+        for start in range(0, len(tasks_subset), chunk):
+            task_groups.append(tasks_subset[start : start + chunk])
 
     # The same argument applies to a Bedrock model. All of its questions used
     # to travel in one call, and a model writes its reply one token at a time,
@@ -421,6 +429,7 @@ def collect_multi_model_recommendations(
                 model=model_overrides.get(group[0][0]),
                 defer_analysis=analysis_mode,
                 search_context_size=search_context_size,
+                market_country=market_country,
             ): group
             for group in task_groups
         }
@@ -501,14 +510,25 @@ def collect_recommendation_group(
     model: str | None,
     defer_analysis: bool,
     search_context_size: str | None = None,
+    market_country: str | None = None,
 ) -> list[tuple[int, dict[str, Any] | None, dict[str, Any], str | None]]:
     assistant = group[0][0]
+    # Only batches made of market questions get the location pin; groups are
+    # chunked per market upstream so the first record speaks for the batch.
+    # Each record carries its own country; the run-level market_country is a
+    # fallback for records tagged before per-question codes existed.
+    country = (
+        str(group[0][2].get("market_country") or "") or market_country
+        if group[0][2].get("market")
+        else None
+    )
     if assistant == "openai_search":
         try:
             return collect_openai_search_batch(
                 group,
                 model=model,
                 search_context_size=search_context_size,
+                country=country,
             )
         except (TimeoutError, JSONDecodeError, ValueError):
             # A malformed or slow structured answer is worth one retry before
@@ -518,6 +538,7 @@ def collect_recommendation_group(
                     group,
                     model=model,
                     search_context_size=search_context_size,
+                    country=country,
                 )
             except (LLMNotConfigured, RuntimeError, JSONDecodeError, ValueError, TimeoutError):
                 pass
@@ -660,6 +681,7 @@ def collect_openai_search_batch(
     *,
     model: str | None,
     search_context_size: str | None = None,
+    country: str | None = None,
 ) -> list[tuple[int, dict[str, Any] | None, dict[str, Any], str | None]]:
     """Answers a group of questions with web search. Groups of one run side by
     side, so five questions take as long as the slowest one rather than the sum,
@@ -675,6 +697,7 @@ def collect_openai_search_batch(
         use_web_search=True,
         search_context_size=search_context_size,
         cache_key=PROMPT_CACHE_KEY,
+        country=country,
     )
     payload["text"] = {
         "format": {

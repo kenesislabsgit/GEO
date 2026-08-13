@@ -74,7 +74,7 @@ def collect_web_presence(
     fetch_concurrency: int = 8,
     error_log_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    load_dotenv()
+    load_dotenv(override=True)
     configured_gateway_url = (
         gateway_url
         or os.getenv("AGENTCORE_GATEWAY_URL")

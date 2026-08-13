@@ -96,7 +96,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       </div>
 
       {claim ? (
-        <div className="mt-4 rounded-lg border border-[color:var(--rb-blue)]/30 bg-[color:var(--rb-blue-soft)] px-3.5 py-2.5 text-sm">
+        <div className="mt-4 rounded-lg border border-[color:var(--rb-accent)]/30 bg-[color:var(--rb-accent-soft)] px-3.5 py-2.5 text-sm">
           You&apos;re claiming the report for{" "}
           <span className="font-medium">{claim}</span>. It will be attached to
           your new account.

@@ -134,7 +134,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
               return (
                 <div key={action.id} className="bg-card px-5 py-6 sm:px-6">
                   <div className="flex flex-wrap items-start gap-4">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-blue-soft)] text-sm font-semibold text-[color:var(--rb-blue)]">{index + 1}</span>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-accent-soft)] text-sm font-semibold text-[color:var(--rb-accent)]">{index + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {/* action_type is "content" on every row the audit
@@ -203,8 +203,8 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </div>
                       ) : null}
 
-                      <div className="mt-4 bg-[color:var(--rb-blue-soft)]/45 px-4 py-3">
-                        <p className="text-[11px] font-semibold uppercase text-[color:var(--rb-blue)]">
+                      <div className="mt-4 bg-[color:var(--rb-accent-soft)]/45 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase text-[color:var(--rb-accent)]">
                           Action needed
                         </p>
                         <p className="mt-1.5 text-sm font-medium leading-relaxed">{action.explanation}</p>
@@ -242,7 +242,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </div>
                       ) : null}
                       {evidence.summary ? (
-                        <div className="mt-3 border-l-2 border-[color:var(--rb-blue)]/30 pl-3">
+                        <div className="mt-3 border-l-2 border-[color:var(--rb-accent)]/30 pl-3">
                           <p className="text-[11px] font-medium uppercase text-muted-foreground">Observed evidence</p>
                           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{evidence.summary}</p>
                         </div>
@@ -267,7 +267,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                                     href={source.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--rb-blue)] hover:underline"
+                                    className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--rb-accent)] hover:underline"
                                   >
                                     Open supporting page <ExternalLink className="size-3" />
                                   </a>
