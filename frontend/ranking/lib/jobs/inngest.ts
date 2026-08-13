@@ -11,6 +11,7 @@ import {
   listMonitorableBrandCandidates,
   getLatestCompletedScanForBrand,
   getActiveScanForBrand,
+  getBrandMonitoringSettings,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { METHODOLOGY_VERSION } from "@/lib/constants";
@@ -36,26 +37,30 @@ export const runScanFunction = inngest.createFunction(
   },
 );
 
-export const weeklyMonitoringFunction = inngest.createFunction(
+export const monitoringTickFunction = inngest.createFunction(
   {
-    id: "scheduled-weekly-scans",
+    id: "scheduled-monitoring-tick",
     retries: 1,
-    triggers: [{ cron: "0 9 * * 1" }],
+    // Fires every day. Whether a given brand actually scans is decided per
+    // brand by isMonitoringScanDue — weekly plans simply come up "not due"
+    // six days out of seven. The old Monday-only cron meant "daily
+    // monitoring" could never run more than once a week.
+    triggers: [{ cron: "0 9 * * *" }],
   },
   async ({ step }) => {
     await step.sendEvent("emit-monitor-tick", {
-      name: "monitoring/weekly-tick",
+      name: "monitoring/tick",
       data: { at: new Date().toISOString() },
     });
     return { ok: true };
   },
 );
 
-export const processWeeklyTick = inngest.createFunction(
+export const processMonitoringTick = inngest.createFunction(
   {
-    id: "process-weekly-tick",
+    id: "process-monitoring-tick",
     retries: 1,
-    triggers: [{ event: "monitoring/weekly-tick" }],
+    triggers: [{ event: "monitoring/tick" }, { event: "monitoring/weekly-tick" }],
   },
   async ({ step }) => {
     const candidates = await step.run("list-candidates", async () =>
@@ -169,11 +174,19 @@ export const scheduleBrandScan = inngest.createFunction(
             body: `Overall score changed by ${delta.toFixed(1)} points after the scheduled scan.`,
             metadata: { delta, scanRunId },
           });
-          await sendAlertEmail({
-            to: event.data.email as string,
-            subject: title,
-            body: alert.body,
-          });
+          // The in-app alert always exists; the email respects both the
+          // plan's emailAlerts feature and the person's own preference.
+          const settings = await getBrandMonitoringSettings(brandId);
+          const wantsEmail =
+            PLAN_CONFIG[plan].features.emailAlerts &&
+            settings?.alerts?.scoreDrop !== false;
+          if (wantsEmail) {
+            await sendAlertEmail({
+              to: event.data.email as string,
+              subject: title,
+              body: alert.body,
+            });
+          }
         }
       }
       return { scanRunId };
@@ -197,8 +210,8 @@ export const cancelScanFunction = inngest.createFunction(
 
 export const inngestFunctions = [
   runScanFunction,
-  weeklyMonitoringFunction,
-  processWeeklyTick,
+  monitoringTickFunction,
+  processMonitoringTick,
   scheduleBrandScan,
   cancelScanFunction,
 ];

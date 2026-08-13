@@ -14,7 +14,7 @@ export function ProReportLock({
 }) {
   return (
     <div className="rb-empty px-6 py-12 text-center">
-      <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-white text-muted-foreground shadow-sm">
+      <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-card text-muted-foreground shadow-sm">
         <Lock className="size-4" />
       </span>
       <h2 className="mt-4 text-base font-semibold">{title}</h2>

@@ -1333,11 +1333,27 @@ def main() -> None:
             "Asking AI providers",
             providers=len(collect_assistants),
         )
+
+        def on_provider_progress(info: dict[str, object]) -> None:
+            completed = int(info.get("completed_groups", 0))
+            total = max(1, int(info.get("total_groups", 1)))
+            # Collection spans 48 -> 64 on the overall progress bar.
+            emit_run_progress(
+                "provider_questions",
+                48 + int(16 * completed / total),
+                "Collected an answer",
+                assistant=info.get("assistant"),
+                questions=list(info.get("questions") or [])[:3],
+                completed_groups=completed,
+                total_groups=total,
+            )
+
         new_results, payloads, errors = collect_multi_model_recommendations(
             prompts,
             assistants=collect_assistants,
             limit_per_assistant=args.limit_per_assistant,
             assistant_prompt_indexes=assistant_prompt_indexes,
+            progress_callback=on_provider_progress,
             model_overrides={
                 "openai": args.openai_model or args.model,
                 "openai_search": args.openai_search_model or args.model,

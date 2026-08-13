@@ -412,6 +412,23 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
   );
 }
 
+/**
+ * The newest subscription row whatever its status. Billing screens and the
+ * customer portal need to see a past_due or canceled subscription — hiding
+ * it (as getSubscription does for entitlement checks) would lock people out
+ * of the portal exactly when they need it to fix a failed payment.
+ */
+export async function getLatestSubscription(
+  userId: string,
+): Promise<Subscription | null> {
+  return one<Subscription>(
+    `select * from subscriptions
+     where user_id = $1
+     order by created_at desc limit 1`,
+    [userId],
+  );
+}
+
 export async function upsertSubscription(
   row: Omit<Subscription, "id" | "created_at" | "updated_at"> & { id?: string },
 ) {
@@ -493,6 +510,18 @@ export async function recordWebhookEvent(
     [row.provider, row.event_id, row.event_type, JSON.stringify(row.payload)],
   );
   return { inserted: inserted > 0 };
+}
+
+/**
+ * Forget a recorded webhook event so the provider's retry is processed
+ * instead of being dismissed as a duplicate. Used when processing fails
+ * after the event was recorded.
+ */
+export async function deleteWebhookEvent(provider: string, eventId: string) {
+  await exec(
+    `delete from webhook_events where provider = $1 and event_id = $2`,
+    [provider, eventId],
+  );
 }
 
 /**

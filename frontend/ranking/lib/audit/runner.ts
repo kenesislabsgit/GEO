@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { importAuditExport, type AuditExport } from "@/lib/audit/import-export";
+import { recordAuditEvent } from "@/lib/audit/progress-events";
 import { acquireSiteRead } from "@/lib/audit/site-read-cache";
 import {
   AUDIT_PROVIDER_CONCURRENCY,
@@ -245,10 +246,24 @@ async function runAudit(
             };
           }
           if (typeof parsed.step === "string") {
-            note(
-              parsed.step,
-              typeof parsed.progress === "number" ? parsed.progress : 0,
-            );
+            const progress =
+              typeof parsed.progress === "number" ? parsed.progress : 0;
+            note(parsed.step, progress);
+            // The live feed the progress page renders: which assistant just
+            // answered which questions, alongside the coarse step.
+            recordAuditEvent(scanRunId, {
+              step: parsed.step,
+              progress,
+              message:
+                typeof parsed.message === "string" ? parsed.message : null,
+              assistant:
+                typeof parsed.assistant === "string" ? parsed.assistant : null,
+              questions: Array.isArray(parsed.questions)
+                ? parsed.questions.filter(
+                    (item): item is string => typeof item === "string",
+                  )
+                : [],
+            });
           }
         } catch {
           // Plain log line; nothing to record.

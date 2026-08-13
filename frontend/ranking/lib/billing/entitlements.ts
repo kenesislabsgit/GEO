@@ -334,7 +334,7 @@ export function assertCanAddCompetitor(
 export function assertCanExport(ctx: EntitlementContext): void {
   if (!PLAN_CONFIG[ctx.plan].features.pdfCsvExport) {
     throw new EntitlementError(
-      "CSV and PDF exports require the Growth or Agency plan.",
+      "CSV and PDF exports require the Pro+ or Agency plan.",
     );
   }
 }

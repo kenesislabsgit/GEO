@@ -2,73 +2,20 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
-  Check,
-  FileSearch,
-  Radar,
+  Bell,
+  Copy,
   Sparkles,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
-import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-
-const planChoices = [
-  {
-    name: "Free",
-    price: "$0",
-    detail: "5 questions · 1 provider",
-    href: routes.login({ mode: "signup", returnTo: routes.newScan() }),
-  },
-  {
-    name: "Pro",
-    price: `$${PLAN_CONFIG.founder.monthlyPriceUsd}/mo`,
-    detail: "Multi-provider report",
-    href: routes.login({
-      mode: "signup",
-      returnTo: routes.billing({
-        plan: "founder",
-        returnTo: routes.newScan(),
-      }),
-    }),
-  },
-  {
-    name: "Pro+",
-    price: `$${PLAN_CONFIG.growth.monthlyPriceUsd}/mo`,
-    detail: "More websites and usage",
-    href: routes.login({
-      mode: "signup",
-      returnTo: routes.billing({
-        plan: "growth",
-        returnTo: routes.newScan(),
-      }),
-    }),
-  },
-] as const;
-
-const steps = [
-  {
-    n: "01",
-    title: "Understand the company",
-    body: "We read your public site, extract category and audience, then let you correct anything before scanning.",
-  },
-  {
-    n: "02",
-    title: "Ask unbiased buyer questions",
-    body: "Five real discovery prompts — generated without your company name so the measurement is never primed.",
-  },
-  {
-    n: "03",
-    title: "Score what AI actually says",
-    body: "Mentions, position, citations, and sentiment across providers — into one explainable visibility score.",
-  },
-];
 
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit currently uses Bedrock Llama; paid audits compare the same questions across multiple providers.",
+    a: "No. We query provider APIs and label the exact provider used. The free audit uses OpenAI with web search; paid audits compare the same questions across multiple providers.",
   },
   {
     q: "Can results change between runs?",
@@ -84,15 +31,18 @@ const faqs = [
   },
 ];
 
+/* ---------------------------------------------------------------- hero -- */
+
 function ProductStage() {
   return (
-    <div className="rb-float relative mx-auto w-full max-w-5xl">
+    <div className="relative mx-auto w-full max-w-4xl">
       <div
         aria-hidden
-        className="absolute -inset-x-8 -bottom-10 top-1/3 rounded-[40%] bg-[radial-gradient(ellipse_at_center,rgba(11,132,255,0.18),transparent_70%)] blur-2xl"
+        className="rb-glow absolute -inset-x-16 -top-10 bottom-0"
       />
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--rb-ink)] shadow-[0_40px_100px_rgba(12,15,20,0.35)]">
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <div className="relative overflow-hidden rounded-xl border border-black/10 bg-[color:var(--rb-ink)] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_32px_80px_-24px_rgba(0,0,0,0.5)] dark:border-white/10">
+        <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.15]" />
+        <div className="relative flex items-center gap-1.5 border-b border-white/10 px-4 py-3">
           <span className="size-2.5 rounded-full bg-white/15" />
           <span className="size-2.5 rounded-full bg-white/15" />
           <span className="size-2.5 rounded-full bg-white/15" />
@@ -100,7 +50,7 @@ function ProductStage() {
             rankedbyai.com/report/acme-analytics
           </span>
         </div>
-        <div className="rb-grid-dark rb-scanline relative p-6 md:p-10">
+        <div className="relative p-6 md:p-10">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="font-mono text-[11px] tracking-[0.18em] text-white/40 uppercase">
@@ -114,9 +64,8 @@ function ProductStage() {
               <p className="font-mono text-[11px] tracking-wide text-white/40 uppercase">
                 Score
               </p>
-              <p className="font-heading text-5xl font-semibold tracking-tight text-white md:text-6xl">
-                62
-                <span className="text-white/35">.4</span>
+              <p className="rb-tabular font-heading text-5xl font-semibold tracking-tight text-white md:text-6xl">
+                62<span className="text-white/35">.4</span>
               </p>
             </div>
           </div>
@@ -129,12 +78,12 @@ function ProductStage() {
             ].map(([label, value]) => (
               <div
                 key={label}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 md:px-4 md:py-4"
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:px-4 md:py-4"
               >
                 <p className="text-[10px] tracking-wide text-white/40 uppercase md:text-[11px]">
                   {label}
                 </p>
-                <p className="mt-1 font-heading text-xl font-semibold text-white md:text-2xl">
+                <p className="rb-tabular mt-1 font-heading text-xl font-semibold text-white md:text-2xl">
                   {value}
                 </p>
               </div>
@@ -149,15 +98,13 @@ function ProductStage() {
             ].map(([prompt, mentioned]) => (
               <div
                 key={String(prompt)}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5"
+                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
               >
-                <span className="truncate text-sm text-white/75">
-                  {prompt}
-                </span>
+                <span className="truncate text-sm text-white/75">{prompt}</span>
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                     mentioned
-                      ? "bg-[color:var(--rb-green)]/15 text-[#34d399]"
+                      ? "bg-emerald-400/15 text-emerald-300"
                       : "bg-white/10 text-white/45"
                   }`}
                 >
@@ -172,68 +119,258 @@ function ProductStage() {
   );
 }
 
+/* ---------------------------------------------------- bento mini-visuals -- */
+
+function MiniScore() {
+  const parts = [
+    { label: "Mentions", pct: 72 },
+    { label: "Position", pct: 55 },
+    { label: "Sentiment", pct: 84 },
+  ];
+  return (
+    <div className="mt-5 space-y-2.5">
+      <p className="rb-tabular font-heading text-4xl font-semibold tracking-tight">
+        62<span className="text-muted-foreground">.4</span>
+      </p>
+      {parts.map((part) => (
+        <div key={part.label} className="flex items-center gap-3">
+          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">
+            {part.label}
+          </span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className="block h-full rounded-full bg-[color:var(--rb-blue)]"
+              style={{ width: `${part.pct}%` }}
+            />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniShareOfVoice() {
+  const rows = [
+    { name: "Northstar", pct: 86, you: false },
+    { name: "You", pct: 41, you: true },
+    { name: "Metricly", pct: 33, you: false },
+  ];
+  return (
+    <div className="mt-5 space-y-2.5">
+      {rows.map((row) => (
+        <div key={row.name} className="flex items-center gap-3">
+          <span
+            className={`w-20 shrink-0 truncate text-[11px] ${row.you ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+          >
+            {row.name}
+          </span>
+          <span className="h-4 flex-1 overflow-hidden rounded-sm bg-muted">
+            <span
+              className={`block h-full rounded-sm ${row.you ? "bg-[color:var(--rb-blue)]" : "bg-[color:var(--rb-slate)]/40"}`}
+              style={{ width: `${row.pct}%` }}
+            />
+          </span>
+          <span className="rb-tabular w-8 text-right text-[11px] text-muted-foreground">
+            {row.pct}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniCitations() {
+  const rows = [
+    { domain: "g2.com", count: 7, you: false },
+    { domain: "reddit.com", count: 5, you: false },
+    { domain: "yourdocs.com", count: 2, you: true },
+  ];
+  return (
+    <div className="mt-5 divide-y divide-border border-y border-border">
+      {rows.map((row) => (
+        <div key={row.domain} className="flex items-center justify-between py-2">
+          <span className="font-mono text-xs">{row.domain}</span>
+          <span className="text-[11px] text-muted-foreground">
+            cited {row.count}×{row.you ? " · you" : ""}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniPrompt() {
+  return (
+    <div className="mt-5 overflow-hidden rounded-lg border border-border bg-[color:var(--rb-mist)]">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <span className="font-mono text-[10px] text-muted-foreground">
+          master-prompt.md
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium">
+          <Copy className="size-2.5" aria-hidden /> Copy
+        </span>
+      </div>
+      <div className="space-y-1.5 px-3 py-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+        <p>## Fix 1: Add a comparison page</p>
+        <p>Buyer questions currently lost:</p>
+        <p className="text-foreground">
+          &ldquo;Best analytics platforms…&rdquo; — lost to Northstar
+        </p>
+        <p>Paste into Cursor / Claude Code ↵</p>
+      </div>
+    </div>
+  );
+}
+
+function MiniAlert() {
+  return (
+    <div className="mt-5 space-y-2">
+      <svg viewBox="0 0 200 44" className="h-11 w-full" aria-hidden>
+        <polyline
+          points="0,34 28,30 56,32 84,24 112,26 140,16 168,18 200,8"
+          fill="none"
+          stroke="var(--rb-blue)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        <Bell className="size-3.5 text-[color:var(--rb-blue)]" aria-hidden />
+        <span className="text-xs">
+          Visibility up{" "}
+          <span className="font-semibold text-[color:var(--rb-green)]">+6.2</span>{" "}
+          after Tuesday&rsquo;s scan
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const BENTO = [
+  {
+    title: "Every answer, on the record",
+    body: "Real buyer questions asked through provider APIs — each answer stored with who was recommended and why.",
+    visual: (
+      <div className="mt-5 space-y-2">
+        {[
+          ["Best analytics platforms for startups?", "Mentioned #2", true],
+          ["Alternatives to the category leader?", "Absent", false],
+        ].map(([q, status, ok]) => (
+          <div
+            key={String(q)}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+          >
+            <span className="truncate text-xs">{q}</span>
+            <span
+              className={`shrink-0 text-[11px] font-medium ${ok ? "text-[color:var(--rb-green)]" : "text-muted-foreground"}`}
+            >
+              {status}
+            </span>
+          </div>
+        ))}
+      </div>
+    ),
+    wide: true,
+  },
+  {
+    title: "A score you can defend",
+    body: "Mentions, position and sentiment — decomposed, never a black box.",
+    visual: <MiniScore />,
+    wide: false,
+  },
+  {
+    title: "Share of voice",
+    body: "Who owns the answers in your category, measured — including you.",
+    visual: <MiniShareOfVoice />,
+    wide: false,
+  },
+  {
+    title: "Citation intelligence",
+    body: "The exact pages that taught AI who to recommend — and where you're missing.",
+    visual: <MiniCitations />,
+    wide: false,
+  },
+  {
+    title: "An action plan your AI tool can run",
+    body: "Every fix with its evidence, compiled into one prompt you paste into Cursor or Claude Code.",
+    visual: <MiniPrompt />,
+    wide: false,
+  },
+  {
+    title: "Monitoring that emails you",
+    body: "Scheduled re-scans track the trend; alerts fire when your visibility moves.",
+    visual: <MiniAlert />,
+    wide: true,
+  },
+] as const;
+
+/* ----------------------------------------------------------------- page -- */
+
 export default function HomePage() {
   return (
     <>
-      <div className="rb-atmosphere relative min-h-screen overflow-hidden">
-        <div aria-hidden className="rb-mesh pointer-events-none absolute inset-0" />
+      <div className="rb-atmosphere relative overflow-hidden">
         <div
           aria-hidden
-          className="rb-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black,transparent)]"
+          className="rb-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_70%_50%_at_50%_0%,black,transparent)]"
         />
-
         <SiteHeader />
 
-        <main className="relative flex-1">
-          {/* Hero — one composition: brand, headline, line, CTA, product plane */}
+        <main className="relative">
+          {/* Hero */}
           <section className="relative">
-            <div className="mx-auto max-w-6xl px-4 pt-10 pb-5 md:px-6 md:pt-14 md:pb-6">
+            <div className="mx-auto max-w-6xl px-4 pt-16 pb-8 md:px-6 md:pt-24 md:pb-10">
               <div className="mx-auto max-w-3xl text-center">
-                <p className="rb-fade-up inline-flex items-center gap-3 font-heading text-xl font-semibold tracking-tight md:text-2xl">
-                  <span
-                    aria-hidden
-                    className="flex size-8 items-center justify-center rounded-lg bg-[color:var(--rb-ink)] text-xs font-bold text-white md:size-9 md:text-sm"
-                  >
-                    R
-                  </span>
-                  {APP_NAME}
+                <p className="rb-fade-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-green)]" />
+                  Measured from real provider APIs — never simulated
                 </p>
 
-                <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-5 text-[2.15rem] leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl md:text-[3.75rem]">
-                  Does AI recommend
-                  <br className="hidden sm:block" /> your company?
+                <h1 className="rb-fade-up rb-fade-up-delay-1 rb-gradient-text font-heading mt-7 text-[2.6rem] leading-[1.02] font-semibold tracking-[-0.03em] text-balance sm:text-6xl md:text-[4.25rem]">
+                  Does AI recommend your company?
                 </h1>
 
-                <p className="rb-fade-up rb-fade-up-delay-2 mx-auto mt-4 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
-                  See whether AI recommends your website, which competitors
-                  appear instead, and what evidence could improve the result.
+                <p className="rb-fade-up rb-fade-up-delay-2 mx-auto mt-5 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
+                  Buyers ask ChatGPT before they ask Google. See what it answers,
+                  which competitors it names instead of you, and exactly what to
+                  change.
                 </p>
 
-                <div id="plans" className="rb-fade-up rb-fade-up-delay-3 mx-auto mt-7 grid max-w-2xl scroll-mt-24 gap-3 sm:grid-cols-3">
-                  {planChoices.map((plan) => (
-                    <Link
-                      key={plan.name}
-                      href={plan.href}
-                      className="rb-card-hover rounded-xl border border-white/70 bg-white/85 p-4 text-left shadow-sm backdrop-blur-xl"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">{plan.name}</span>
-                        <ArrowRight className="size-4 text-muted-foreground" />
-                      </div>
-                      <p className="mt-3 font-heading text-2xl font-semibold">{plan.price}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{plan.detail}</p>
+                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
+                  <Button asChild size="lg" className="h-10 px-5">
+                    <Link href={routes.publicScanAnchor}>
+                      Run your free audit
+                      <ArrowRight data-icon="inline-end" />
                     </Link>
-                  ))}
+                  </Button>
+                  <Button asChild size="lg" variant="outline" className="h-10 px-5">
+                    <Link href={routes.methodology}>How it&rsquo;s measured</Link>
+                  </Button>
                 </div>
                 <p className="rb-fade-up rb-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
-                  Choose a plan, then sign in or create an account to begin.
+                  Free account · no card · report in ~2 minutes
                 </p>
               </div>
             </div>
 
-            <div className="relative px-3 pb-16 md:px-6 md:pb-24">
-              <div className="[mask-image:linear-gradient(to_bottom,black_72%,transparent)]">
+            <div className="relative px-3 pb-10 md:px-6 md:pb-14">
+              <div className="[mask-image:linear-gradient(to_bottom,black_78%,transparent)]">
                 <ProductStage />
+              </div>
+            </div>
+
+            {/* Provider strip */}
+            <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
+              <p className="text-center text-xs text-muted-foreground">
+                Answers measured across
+              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
+                <span>OpenAI</span>
+                <span>Claude</span>
+                <span>Llama</span>
+                <span>Mistral</span>
+                <span>Nova</span>
               </div>
             </div>
           </section>
@@ -241,158 +378,119 @@ export default function HomePage() {
       </div>
 
       <main>
-        {/* How it works — one job */}
-        <section className="border-y border-border bg-white">
+        {/* Bento */}
+        <section className="border-y border-border bg-card">
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="max-w-2xl">
-              <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                How it works
-              </p>
+              <p className="rb-eyebrow">The report</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-                Measurement you can defend
+                Evidence, not vibes
               </h2>
               <p className="mt-3 text-muted-foreground">
-                No black boxes. Every score decomposes across prompts and
-                providers.
+                Everything below ships in every paid report — and the free audit
+                is a real slice of it.
               </p>
             </div>
 
-            <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
-              {steps.map((step) => (
-                <div key={step.n} className="relative">
-                  <p className="font-heading text-5xl font-semibold tracking-tight text-[color:var(--rb-blue)]/15">
-                    {step.n}
-                  </p>
-                  <h3 className="mt-2 text-lg font-medium tracking-tight">
-                    {step.title}
+            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {BENTO.map((item) => (
+                <div
+                  key={item.title}
+                  className={`rb-panel rb-card-hover flex flex-col p-5 ${item.wide ? "lg:col-span-2" : ""}`}
+                >
+                  <h3 className="text-sm font-semibold tracking-tight">
+                    {item.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {step.body}
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                    {item.body}
                   </p>
+                  <div className="mt-auto">{item.visual}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Proof strip */}
-        <section className="bg-[color:var(--rb-mist)]">
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-24">
-            <div className="grid items-center gap-12 lg:grid-cols-2">
+        {/* How it works */}
+        <section className="bg-background">
+          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+            <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
               <div>
-                <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                  What you get
-                </p>
+                <p className="rb-eyebrow">How it works</p>
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-                  A report worth sharing with your team
+                  Measurement you can defend
                 </h2>
-                <p className="mt-4 text-muted-foreground">
-                  Prompt-level evidence, grounded sources, competitor share
-                  of voice — sampled from real provider APIs.
+                <p className="mt-3 text-muted-foreground">
+                  No black boxes. Every score decomposes across prompts and
+                  providers, and every claim links to its evidence.
                 </p>
-                <ul className="mt-8 space-y-3">
-                  {[
-                    "Unbiased buyer-question matrix",
-                    "Mentioned / not mentioned status",
-                    "Grounded citations and verified web mentions",
-                    "One clear action to start with",
-                  ].map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-2.5 text-sm text-foreground"
-                    >
-                      <Check className="mt-0.5 size-4 shrink-0 text-[color:var(--rb-green)]" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Button asChild className="mt-8 rounded-full" size="lg">
-                  <Link href={routes.methodology}>
-                    Read the methodology
-                    <ArrowUpRight data-icon="inline-end" />
-                  </Link>
-                </Button>
               </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
+              <ol className="relative space-y-8 border-l border-border pl-8">
                 {[
                   {
-                    icon: Radar,
-                    title: "Multi-provider",
-                    body: "The same buyer questions compared across supported AI providers.",
+                    title: "We read your website",
+                    body: "Category, audience and claims extracted from your public pages — you correct anything before the scan.",
                   },
                   {
-                    icon: FileSearch,
-                    title: "Citation intel",
-                    body: "See which pages shape AI answers in your category.",
+                    title: "AI gets asked real buyer questions",
+                    body: "Generated without your company name, so the measurement is never primed in your favour.",
                   },
                   {
-                    icon: Sparkles,
-                    title: "Action centre",
-                    body: "Evidence-backed pages and fixes to pursue next.",
+                    title: "Every answer becomes evidence",
+                    body: "Mentions, positions, citations and competitor patterns — scored into one number and a prioritized fix list.",
                   },
-                  {
-                    icon: ArrowRight,
-                    title: "Ongoing monitoring",
-                    body: "Weekly scans and alerts when visibility moves.",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.title}
-                    className="rounded-2xl border border-border bg-white p-5"
-                  >
-                    <item.icon className="size-5 text-[color:var(--rb-blue)]" />
-                    <p className="mt-4 font-medium tracking-tight">
-                      {item.title}
+                ].map((step, index) => (
+                  <li key={step.title} className="relative">
+                    <span className="absolute top-0.5 -left-[41px] flex size-5 items-center justify-center rounded-full border border-border bg-card text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                      {index + 1}
+                    </span>
+                    <h3 className="text-base font-medium tracking-tight">
+                      {step.title}
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                      {step.body}
                     </p>
-                    <p className="mt-1.5 text-sm text-muted-foreground">
-                      {item.body}
-                    </p>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </div>
           </div>
         </section>
 
         {/* Pricing */}
-        <section className="border-y border-border bg-white">
+        <section id="plans" className="scroll-mt-20 border-y border-border bg-card">
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Pricing
-              </p>
+              <p className="rb-eyebrow">Pricing</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                The free audit is the trial. Upgrade for monitoring, history, and
-                the full action centre.
+                The free audit is the trial. Upgrade for more providers,
+                monitoring, and the full evidence.
               </p>
             </div>
 
-            <div className="mt-14 grid gap-4 md:grid-cols-4">
+            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {Object.values(PLAN_CONFIG).map((plan) => {
                 const popular = plan.id === "founder";
                 return (
                   <div
                     key={plan.id}
-                    className={`rb-card-hover relative flex flex-col rounded-2xl border bg-white p-6 ${
+                    className={`rb-card-hover relative flex flex-col rounded-xl border bg-background p-6 ${
                       popular
-                        ? "border-[color:var(--rb-ink)] shadow-[0_16px_40px_rgba(12,15,20,0.08)]"
+                        ? "border-[color:var(--rb-blue)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--rb-blue)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--rb-blue)_45%,transparent)]"
                         : "border-border"
                     }`}
                   >
                     {popular ? (
-                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--rb-ink)] px-2.5 py-0.5 text-[11px] font-medium text-white">
+                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--rb-blue)] px-2.5 py-0.5 text-[11px] font-medium text-white">
                         Most popular
                       </span>
                     ) : null}
                     <p className="text-sm font-medium">{plan.name}</p>
-                    <p className="mt-3 font-heading text-3xl font-semibold tracking-tight">
-                      {plan.monthlyPriceUsd === 0
-                        ? "$0"
-                        : `$${plan.monthlyPriceUsd}`}
+                    <p className="rb-tabular mt-3 font-heading text-3xl font-semibold tracking-tight">
+                      {plan.monthlyPriceUsd === 0 ? "$0" : `$${plan.monthlyPriceUsd}`}
                       {plan.monthlyPriceUsd > 0 ? (
                         <span className="text-sm font-normal text-muted-foreground">
                           /mo
@@ -406,17 +504,23 @@ export default function HomePage() {
                       asChild
                       variant={popular ? "default" : "outline"}
                       size="sm"
-                      className="mt-5 rounded-full"
+                      className="mt-5"
                     >
-                      <Link
-                        href={
-                          plan.id === "free"
-                            ? routes.publicScanAnchor
-                            : routes.billing({ plan: plan.id })
-                        }
-                      >
-                        {plan.id === "free" ? "Run free audit" : "Get started"}
-                      </Link>
+                      {plan.id === "agency" ? (
+                        <a href="mailto:kenesislabs@gmail.com?subject=RankedByAI%20Agency%20plan">
+                          Contact us
+                        </a>
+                      ) : (
+                        <Link
+                          href={
+                            plan.id === "free"
+                              ? routes.login({ mode: "signup", returnTo: routes.newScan() })
+                              : routes.billing({ plan: plan.id })
+                          }
+                        >
+                          {plan.id === "free" ? "Run free audit" : "Get started"}
+                        </Link>
+                      )}
                     </Button>
                   </div>
                 );
@@ -436,13 +540,11 @@ export default function HomePage() {
         </section>
 
         {/* FAQ */}
-        <section className="bg-[color:var(--rb-mist)]">
+        <section className="bg-background">
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="grid gap-12 lg:grid-cols-[0.9fr_1.3fr]">
               <div>
-                <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                  FAQ
-                </p>
+                <p className="rb-eyebrow">FAQ</p>
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                   Honest answers
                 </h2>
@@ -450,7 +552,7 @@ export default function HomePage() {
                   What AI visibility measurement can — and cannot — tell you.
                 </p>
               </div>
-              <div className="divide-y divide-border/80">
+              <div className="divide-y divide-border">
                 {faqs.map((faq) => (
                   <div key={faq.q} className="py-6 first:pt-0 last:pb-0">
                     <h3 className="font-medium tracking-tight">{faq.q}</h3>
@@ -468,28 +570,29 @@ export default function HomePage() {
         <section className="relative overflow-hidden bg-[color:var(--rb-ink)]">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,rgba(11,132,255,0.35),transparent_60%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--rb-blue)_35%,transparent),transparent_60%)]"
           />
-          <div
-            aria-hidden
-            className="rb-grid-dark pointer-events-none absolute inset-0 opacity-50"
-          />
+          <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
           <div className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
-            <h2 className="font-heading mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl">
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+              <Sparkles className="size-3" aria-hidden />
+              Two minutes to your first report
+            </p>
+            <h2 className="font-heading mx-auto mt-6 max-w-2xl text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl">
               Find out before your competitors do.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-white/55">
-              Run a free AI visibility scan. No card needed — a shareable
+              Run a free AI visibility audit. No card needed — a shareable
               report in minutes.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               <Button
                 asChild
                 size="lg"
-                className="rounded-full bg-white text-[color:var(--rb-ink)] hover:bg-white/90"
+                className="h-10 bg-white px-5 text-black shadow-none hover:bg-white/90"
               >
                 <Link href={routes.publicScanAnchor}>
-                  Start free scan
+                  Start free audit
                   <ArrowRight data-icon="inline-end" />
                 </Link>
               </Button>
@@ -497,9 +600,12 @@ export default function HomePage() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="rounded-full border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                className="h-10 border-white/20 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link href={routes.methodology}>Methodology</Link>
+                <Link href={routes.methodology}>
+                  Methodology
+                  <ArrowUpRight data-icon="inline-end" />
+                </Link>
               </Button>
             </div>
           </div>

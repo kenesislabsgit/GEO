@@ -21,8 +21,10 @@ export function BrandNav({ brandId, isPaid }: { brandId: string; isPaid: boolean
   const pathname = usePathname();
   const base = `/dashboard/brands/${brandId}`;
 
+  // Underline tabs on a single baseline — quieter than the old pill row,
+  // and the active page reads at a glance.
   return (
-    <nav className="rb-panel-soft flex gap-1 overflow-x-auto p-1.5">
+    <nav className="flex gap-0.5 overflow-x-auto border-b border-border">
       {tabs.map((tab) => {
         const href = `${base}${tab.path}`;
         const active = pathname === href;
@@ -31,10 +33,10 @@ export function BrandNav({ brandId, isPaid }: { brandId: string; isPaid: boolean
             key={tab.path}
             href={href}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-2 text-sm transition-colors",
+              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors",
               active
-                ? "bg-[color:var(--rb-ink)] font-medium text-white shadow-sm"
-                : "text-muted-foreground hover:bg-white hover:text-foreground",
+                ? "border-foreground font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
             )}
           >
             {tab.label}

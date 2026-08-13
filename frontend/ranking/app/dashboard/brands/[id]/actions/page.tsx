@@ -11,136 +11,30 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { routes } from "@/lib/routes";
+import { evidenceText, meaningfulGaps, parseEvidence } from "@/lib/actions/evidence";
+import { hasFeature } from "@/lib/billing/entitlements";
+import { buildMasterPrompt } from "@/lib/actions/master-prompt";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionStatusButtons } from "@/components/dashboard/action-status-buttons";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
-
-type SupportingEvidence = {
-  evidence_id?: string;
-  evidence_type?: string;
-  company_name?: string;
-  label?: string;
-  excerpt?: string | null;
-  title?: string;
-  page_title?: string;
-  url?: string | null;
-  provenance?: string;
-};
-
-type LossWinner = {
-  company_name?: string;
-  rank?: number | null;
-  reason?: string;
-};
-
-type AffectedPrompt = {
-  loss_id?: string;
-  prompt?: string;
-  category?: string;
-  recommended_instead?: string[];
-  /** Who took the question and, in the assistant's words, why. */
-  winners?: LossWinner[];
-};
-
-type CompetitorGap = {
-  pattern?: string;
-  competitors_with_pattern?: number;
-  competitors_checked?: number;
-  user_status?: string;
-  example_competitors?: string[];
-};
-
-type ParsedEvidence = {
-  summary: string | null;
-  sources: SupportingEvidence[];
-  validationMode: string | null;
-  affectedPrompts: AffectedPrompt[];
-  competitorGaps: CompetitorGap[];
-};
-
-function evidenceText(value: unknown, depth = 0): string | null {
-  if (typeof value === "string") return value.trim() || null;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (!value || depth > 2) return null;
-
-  if (Array.isArray(value)) {
-    const items = value
-      .slice(0, 3)
-      .map((item) => evidenceText(item, depth + 1))
-      .filter((item): item is string => Boolean(item));
-    return items.length ? items.join("; ") : null;
-  }
-
-  if (typeof value === "object") {
-    const items = Object.entries(value)
-      .slice(0, 4)
-      .map(([key, item]) => {
-        const detail = evidenceText(item, depth + 1);
-        if (!detail) return null;
-        const label = key.replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
-        return `${label}: ${detail}`;
-      })
-      .filter((item): item is string => Boolean(item));
-    return items.length ? items.join(" | ") : null;
-  }
-
-  return null;
-}
+import { CopyMasterPrompt } from "@/components/dashboard/copy-master-prompt";
 
 /**
- * A "pattern" needs more than one competitor behind it. A free audit reads one
- * website, so this box could only ever say "1 of 1", which reads like every
- * competitor does something when exactly one was looked at.
+ * Impact tracking, honestly scoped: the overall score when the action was
+ * marked completed versus the overall score now. It shows correlation, not
+ * causation — the copy says "since completing", never "because of".
  */
-const MIN_COMPETITORS_FOR_A_PATTERN = 3;
-
-function meaningfulGaps(gaps: CompetitorGap[]): CompetitorGap[] {
-  return gaps.filter(
-    (gap) => (gap.competitors_checked ?? 0) >= MIN_COMPETITORS_FOR_A_PATTERN,
-  );
-}
-
-function parseEvidence(value: unknown): ParsedEvidence {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {
-      summary: evidenceText(value),
-      sources: [],
-      validationMode: null,
-      affectedPrompts: [],
-      competitorGaps: [],
-    };
-  }
-
-  const record = value as Record<string, unknown>;
-  const sources = Array.isArray(record.supporting_evidence)
-    ? record.supporting_evidence.filter(
-        (item): item is SupportingEvidence =>
-          Boolean(item) && typeof item === "object" && !Array.isArray(item),
-      )
-    : [];
-  const affectedPrompts = Array.isArray(record.affected_prompts)
-    ? record.affected_prompts.filter(
-        (item): item is AffectedPrompt =>
-          Boolean(item) &&
-          typeof item === "object" &&
-          !Array.isArray(item) &&
-          typeof (item as AffectedPrompt).prompt === "string",
-      )
-    : [];
-  return {
-    summary: evidenceText(record.summary),
-    sources,
-    validationMode:
-      typeof record.validation_mode === "string" ? record.validation_mode : null,
-    affectedPrompts,
-    competitorGaps: Array.isArray(record.competitor_gaps)
-      ? record.competitor_gaps.filter(
-          (item): item is CompetitorGap =>
-            Boolean(item) && typeof item === "object" && !Array.isArray(item),
-        )
-      : [],
-  };
+function scoreDeltaSince(
+  scores: Array<{ overall_score: unknown; created_at: string }>,
+  completedAt: string,
+): number | null {
+  if (scores.length < 2) return null;
+  const latest = scores[0];
+  const baseline = scores.find((snapshot) => snapshot.created_at <= completedAt);
+  if (!latest || !baseline || latest === baseline) return null;
+  const delta = Number(latest.overall_score) - Number(baseline.overall_score);
+  return Number.isFinite(delta) ? delta : null;
 }
 
 export default async function WebsiteImprovementsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -158,6 +52,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
     ? await getRecommendationsForScan(latestScan.id)
     : [];
   const isPaid = isPaidSubscription(entitlements);
+  const showBriefs = hasFeature(entitlements.plan, "contentBriefs");
   const competitorScores = Array.isArray(scores[0]?.competitor_scores)
     ? (scores[0].competitor_scores as Array<{
         name?: string;
@@ -168,6 +63,14 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
   const topCompetitor = competitorScores[0];
   const sorted = actions.slice().sort((a, b) => a.priority - b.priority);
   const visibleActions = isPaid ? sorted : sorted.slice(0, 3);
+  // Free accounts get the prompt for the fixes they can see, nothing more.
+  const masterPrompt = visibleActions.length
+    ? buildMasterPrompt({
+        brand,
+        recommendations: visibleActions,
+        latestScore: scores[0] ?? null,
+      })
+    : null;
 
   return (
     <div className="space-y-6">
@@ -178,6 +81,21 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
         description="Prioritized changes tied to website evidence, competitor patterns, and the AI answers in this audit."
         isPaid={isPaid}
       />
+      {masterPrompt ? (
+        <section className="rb-panel flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">
+              Hand this plan to your AI coding tool
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              One prompt with every fix and its evidence — paste it into
+              Cursor, Claude Code or Windsurf inside your website&apos;s
+              codebase and it implements the plan.
+            </p>
+          </div>
+          <CopyMasterPrompt prompt={masterPrompt} />
+        </section>
+      ) : null}
       {topCompetitor?.name ? (
         <section className="rb-panel px-5 py-5 sm:px-6">
           <p className="text-[11px] font-semibold uppercase text-muted-foreground">
@@ -291,6 +209,16 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </p>
                         <p className="mt-1.5 text-sm font-medium leading-relaxed">{action.explanation}</p>
                       </div>
+                      {showBriefs && action.suggested_content_brief ? (
+                        <div className="mt-3 border-l-2 border-border pl-3">
+                          <p className="text-[11px] font-medium uppercase text-muted-foreground">
+                            Content brief
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            {evidenceText(action.suggested_content_brief)}
+                          </p>
+                        </div>
+                      ) : null}
                       {/* "1 of 1 competitors have this" is a sample of one
                           dressed as a pattern, and on a free audit it can
                           never be anything else. */}
@@ -350,6 +278,29 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </div>
                       ) : null}
                       {action.estimated_impact ? <p className="mt-3 text-xs"><span className="font-medium">Expected impact:</span> <span className="text-muted-foreground">{action.estimated_impact}</span></p> : null}
+                      {hasFeature(entitlements.plan, "impactTracking") &&
+                      action.status === "completed" &&
+                      action.completed_at
+                        ? (() => {
+                            const delta = scoreDeltaSince(scores, action.completed_at);
+                            if (delta === null) return null;
+                            return (
+                              <p className="mt-1.5 text-xs">
+                                <span className="font-medium">Since completing this:</span>{" "}
+                                <span
+                                  className={
+                                    delta >= 0
+                                      ? "text-[color:var(--rb-green)]"
+                                      : "text-destructive"
+                                  }
+                                >
+                                  {delta >= 0 ? "+" : ""}
+                                  {delta.toFixed(1)} points overall
+                                </span>
+                              </p>
+                            );
+                          })()
+                        : null}
                     </div>
                     <ActionStatusButtons actionId={action.id} status={action.status} />
                   </div>

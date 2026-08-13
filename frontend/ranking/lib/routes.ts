@@ -60,6 +60,7 @@ export const routes = {
     prompts: "/api/prompts",
     onboarding: "/api/onboarding",
     billingStatus: "/api/billing/status",
+    billingConfirm: "/api/billing/confirm",
     alerts: "/api/alerts",
   },
   settings: "/dashboard/settings",

@@ -26,7 +26,7 @@ const columns = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-white">
+    <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
         <div className="flex flex-col justify-between gap-12 md:flex-row">
           <div className="max-w-sm">

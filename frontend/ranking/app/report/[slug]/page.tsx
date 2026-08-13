@@ -12,6 +12,9 @@ import { SiteFooter } from "@/components/site/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareControls } from "@/components/report/share-controls";
+import { PrintReportButton } from "@/components/report/print-report-button";
+import { getAccountEntitlements } from "@/lib/billing/account";
+import { hasFeature } from "@/lib/billing/entitlements";
 import { ScoreRing } from "@/components/report/score-ring";
 import {
   getBrandBySlug,
@@ -34,9 +37,16 @@ function ordinal(position: number): string {
   return `${position}${suffix}`;
 }
 
-async function loadReport(slug: string): Promise<PublicReportDTO | null> {
+async function loadReport(
+  slug: string,
+  options?: { allowPrivate?: boolean },
+): Promise<PublicReportDTO | null> {
   const brand = await getBrandBySlug(slug);
-  if (!brand || brand.visibility !== "public") return null;
+  if (!brand) return null;
+  // A private report stays reachable for its owner — the dashboard links
+  // straight here, and locking the owner out of their own report would make
+  // the visibility toggle feel like deletion.
+  if (brand.visibility !== "public" && !options?.allowPrivate) return null;
 
   // Resolve by brand record, not by domain: several people can have their own
   // audit of the same website, and this link belongs to exactly one of them.
@@ -89,11 +99,12 @@ export default async function ReportPage({
 }) {
   const { slug } = await params;
   const brand = await getBrandBySlug(slug);
-  if (!brand || brand.visibility === "private") notFound();
+  if (!brand) notFound();
   const user = await getSessionUser();
   const isOwner = user?.id === brand.owner_id;
+  if (brand.visibility === "private" && !isOwner) notFound();
 
-  const report = await loadReport(slug);
+  const report = await loadReport(slug, { allowPrivate: isOwner });
 
   if (!report) {
     return (
@@ -126,10 +137,16 @@ export default async function ReportPage({
   }
 
   const mentionedCount = report.promptMatrix.filter((r) => r.mentioned).length;
+  const canPrintPdf =
+    isOwner && user
+      ? hasFeature((await getAccountEntitlements(user.id)).plan, "pdfCsvExport")
+      : false;
 
   return (
     <>
-      <SiteHeader />
+      <div className="print:hidden">
+        <SiteHeader />
+      </div>
       <main className="flex-1">
         {/* Score header */}
         <section className="relative overflow-hidden border-b border-border bg-[color:var(--rb-ink)]">
@@ -202,12 +219,13 @@ export default async function ReportPage({
               </div>
             </div>
 
-            <div className="mt-10">
+            <div className="mt-10 flex flex-wrap items-center gap-3 print:hidden">
               <ShareControls
                 slug={report.brand.slug}
                 brandName={report.brand.name}
                 score={report.score.overall}
               />
+              {canPrintPdf ? <PrintReportButton /> : null}
             </div>
           </div>
         </section>
@@ -540,7 +558,9 @@ export default async function ReportPage({
           </div>
         </section>
       </main>
-      <SiteFooter />
+      <div className="print:hidden">
+        <SiteFooter />
+      </div>
     </>
   );
 }

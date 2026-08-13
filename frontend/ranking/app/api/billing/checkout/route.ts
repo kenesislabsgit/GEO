@@ -6,6 +6,7 @@ import {
   type PlanId,
 } from "@/lib/billing/entitlements";
 import { upsertSubscription } from "@/lib/db/repository";
+import { dodoApiBase } from "@/lib/billing/dodo";
 import { routes, safeReturnTo } from "@/lib/routes";
 
 const schema = z.object({
@@ -24,7 +25,17 @@ export async function POST(request: Request) {
   const body = schema.parse(await request.json());
   const productId = getProductIdForPlan(body.plan as PlanId, body.interval);
 
-  if (!process.env.DODO_PAYMENTS_API_KEY || !productId) {
+  // With a real API key but no product id for this plan, refuse. The old
+  // behaviour fell through to the simulation and handed out the plan for
+  // free in production.
+  if (process.env.DODO_PAYMENTS_API_KEY && !productId) {
+    return NextResponse.json(
+      { error: "This plan is not available for checkout yet." },
+      { status: 503 },
+    );
+  }
+
+  if (!process.env.DODO_PAYMENTS_API_KEY) {
     // Local/test simulation with usage-limited Founder trial semantics.
     const periodEnd = new Date();
     periodEnd.setDate(periodEnd.getDate() + (body.plan === "founder" ? 7 : 30));
@@ -51,23 +62,18 @@ export async function POST(request: Request) {
     });
   }
 
-  // Checkout always comes back to the confirmation page, which waits for
-  // the webhook rather than believing the redirect. The original destination
-  // rides along and is re-validated there.
+  // Checkout always comes back to the confirmation page, which verifies with
+  // Dodo rather than believing the redirect. The original destination rides
+  // along and is re-validated there. Fall back to the request's own origin
+  // so a missing env var cannot produce an "undefined/..." return URL.
   const requestedReturn = safeReturnTo(body.returnTo);
-  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}${routes.billingSuccess(
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+  const returnUrl = `${appUrl}${routes.billingSuccess(
     requestedReturn ? { returnTo: requestedReturn } : undefined,
   )}`;
 
-  // Test keys only work against Dodo's test server, live keys against the
-  // live one. The environment variable decides; live is the default so a
-  // production box with no setting cannot accidentally sell test products.
-  const dodoBase =
-    process.env.DODO_PAYMENTS_ENVIRONMENT === "test_mode"
-      ? "https://test.dodopayments.com"
-      : "https://live.dodopayments.com";
-
-  const response = await fetch(`${dodoBase}/checkouts`, {
+  const response = await fetch(`${dodoApiBase()}/checkouts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}`,

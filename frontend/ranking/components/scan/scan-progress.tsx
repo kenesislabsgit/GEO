@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { assistantNames } from "@/lib/audit/progress-copy";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,11 @@ type ProgressState = {
   slug: string | null;
   demoMode: boolean;
   errorSummary: string | null;
+  events?: Array<{
+    seq: number;
+    assistant: string | null;
+    questions: string[];
+  }>;
 };
 
 const STAGES = [
@@ -195,6 +201,34 @@ export function ScanProgress({
               );
             })}
           </ol>
+        ) : null}
+
+        {!failed && (state?.events?.length ?? 0) > 0 ? (
+          <div className="mt-5 space-y-1.5 border-t border-border pt-4">
+            {(state?.events ?? [])
+              .filter((event) => event.assistant && event.questions.length)
+              .slice(-4)
+              .reverse()
+              .map((event, index) => (
+                <p
+                  key={event.seq}
+                  className={cn(
+                    "text-xs leading-relaxed",
+                    index === 0
+                      ? "rb-fade-up text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <span className="font-medium">
+                    {assistantNames([event.assistant ?? ""])[0] ?? "Assistant"}
+                  </span>{" "}
+                  answered &ldquo;{event.questions[0]}&rdquo;
+                  {event.questions.length > 1
+                    ? ` and ${event.questions.length - 1} more`
+                    : ""}
+                </p>
+              ))}
+          </div>
         ) : null}
 
         {state?.demoMode && !failed ? (

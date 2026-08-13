@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
+import { hasFeature } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import {
   getBrandById,
@@ -125,6 +126,39 @@ export default async function SourcesPage({
     mentionGroups.unshift({ company: brand.name, rows: [], own: true });
   }
 
+  // Citation gaps: websites that write about competitors but not about this
+  // company. Each one is a concrete place to get listed.
+  const hostOf = (mention: VerifiedMention): string | null => {
+    if (mention.domain) return mention.domain.replace(/^www\./, "");
+    try {
+      return new URL(mention.url).hostname.replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  };
+  const ownDomains = new Set(
+    mentionGroups
+      .filter((group) => group.own)
+      .flatMap((group) => group.rows.map(hostOf))
+      .filter(Boolean) as string[],
+  );
+  const gapMap = new Map<string, Set<string>>();
+  for (const group of mentionGroups) {
+    if (group.own) continue;
+    for (const row of group.rows) {
+      const domain = hostOf(row);
+      if (!domain || ownDomains.has(domain)) continue;
+      const companies = gapMap.get(domain) ?? new Set<string>();
+      companies.add(group.company);
+      gapMap.set(domain, companies);
+    }
+  }
+  const citationGapRows = Array.from(gapMap.entries())
+    .map(([domain, companies]) => ({ domain, companies: Array.from(companies) }))
+    .sort((a, b) => b.companies.length - a.companies.length)
+    .slice(0, 12);
+  const showCitationGaps = hasFeature(entitlements.plan, "citationGaps");
+
   return (
     <div className="space-y-6">
       <BrandPageHeader
@@ -213,6 +247,37 @@ export default async function SourcesPage({
               </div>
             )}
           </section>
+
+          {showCitationGaps && citationGapRows.length ? (
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-base font-semibold">Citation gaps</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Websites that write about your competitors but not about you.
+                  Getting listed on these is the most direct way to appear in
+                  the material AI reads.
+                </p>
+              </div>
+              <div className="rb-list">
+                <div className="divide-y divide-border">
+                  {citationGapRows.map((gap) => (
+                    <div key={gap.domain} className="bg-card px-5 py-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="font-mono text-sm">{gap.domain}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Covers {gap.companies.slice(0, 3).join(", ")}
+                          {gap.companies.length > 3
+                            ? ` +${gap.companies.length - 3} more`
+                            : ""}{" "}
+                          — not you
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <div>

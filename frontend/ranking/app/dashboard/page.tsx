@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { listBrandsForOwner, scoresForBrand } from "@/lib/db/repository";
+import {
+  listBrandsForOwner,
+  listScansForBrands,
+  scoresForBrand,
+} from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +18,53 @@ import {
   getUsageWarningLevel,
   usageWarningMessage,
 } from "@/lib/billing/usage-warnings";
+
+/**
+ * Tiny server-rendered trend line — the last dozen scores as one stroke.
+ * No chart library for a 72x20 line.
+ */
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const width = 72;
+  const height = 20;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const points = values
+    .map((value, index) => {
+      const x = (index / (values.length - 1)) * width;
+      const y = height - 2 - ((value - min) / span) * (height - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      aria-hidden
+      className="shrink-0"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--rb-blue)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const SCAN_STATUS_COLOR: Record<string, string> = {
+  completed: "text-[color:var(--rb-green)]",
+  partial: "text-[color:var(--rb-amber)]",
+  running: "text-[color:var(--rb-blue)]",
+  queued: "text-muted-foreground",
+  failed: "text-destructive",
+  cancelled: "text-muted-foreground",
+};
 
 export default async function DashboardPage() {
   const user = await getSessionUser();
@@ -27,9 +78,23 @@ export default async function DashboardPage() {
   const brandCards = await Promise.all(
     brands.map(async (brand) => {
       const scores = await scoresForBrand(brand.id);
-      return { brand, latest: scores[0], previous: scores[1] };
+      return {
+        brand,
+        latest: scores[0],
+        previous: scores[1],
+        // Oldest-to-newest tail for the sparkline.
+        trend: scores
+          .slice(0, 12)
+          .reverse()
+          .map((snapshot) => Number(snapshot.overall_score))
+          .filter((value) => Number.isFinite(value)),
+      };
     }),
   );
+  const recentScans = (
+    await listScansForBrands(brands.map((brand) => brand.id))
+  ).slice(0, 5);
+  const brandNameById = new Map(brands.map((brand) => [brand.id, brand.name]));
 
   const usagePct = Math.min(
     100,
@@ -109,7 +174,7 @@ export default async function DashboardPage() {
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {stat.label}
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight capitalize">
+            <p className="rb-tabular mt-2 text-2xl font-semibold tracking-tight capitalize">
               {stat.value}
             </p>
             <p className="mt-1 text-xs text-muted-foreground capitalize">
@@ -121,7 +186,7 @@ export default async function DashboardPage() {
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Provider checks
           </p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight">
+          <p className="rb-tabular mt-2 text-2xl font-semibold tracking-tight">
             {entitlements.providerChecksUsed}
             <span className="text-sm font-normal text-muted-foreground">
               {" "}
@@ -165,7 +230,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="mt-4 rb-list">
             <div className="divide-y divide-border">
-              {brandCards.map(({ brand, latest, previous }) => {
+              {brandCards.map(({ brand, latest, previous, trend }) => {
                 const current = latest
                   ? roundForDisplay(Number(latest.overall_score))
                   : null;
@@ -189,6 +254,7 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
+                      <Sparkline values={trend} />
                       {delta !== null && delta !== 0 ? (
                         <Badge
                           variant="secondary"
@@ -202,7 +268,7 @@ export default async function DashboardPage() {
                           {delta}
                         </Badge>
                       ) : null}
-                      <span className="text-2xl font-semibold tracking-tight">
+                      <span className="rb-tabular text-2xl font-semibold tracking-tight">
                         {current ?? "—"}
                       </span>
                     </div>
@@ -213,6 +279,50 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
+
+      {recentScans.length > 0 ? (
+        <section>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Recent audits
+            </h2>
+            <Link
+              href={routes.scans}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View all
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+          <div className="mt-4 rb-list">
+            <div className="divide-y divide-border">
+              {recentScans.map((scan) => (
+                <Link
+                  key={scan.id}
+                  href={routes.scanProgress(scan.id)}
+                  className="flex items-center justify-between gap-4 bg-card px-5 py-3.5 transition-colors hover:bg-muted/50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {brandNameById.get(scan.brand_id) ?? "Website"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+                      {scan.scan_type === "free" ? "Free audit" : scan.scan_type}
+                      {" · "}
+                      {new Date(scan.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs font-medium capitalize ${SCAN_STATUS_COLOR[scan.status] ?? "text-muted-foreground"}`}
+                  >
+                    {scan.status.replaceAll("_", " ")}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -27,8 +27,8 @@ export function Logo({
           "flex items-center justify-center rounded-lg font-bold",
           large ? "size-9 text-sm" : "size-6 text-[11px]",
           invert
-            ? "bg-white text-[color:var(--rb-ink)]"
-            : "bg-[color:var(--rb-ink)] text-white",
+            ? "bg-white text-black"
+            : "bg-foreground text-background",
         )}
       >
         R

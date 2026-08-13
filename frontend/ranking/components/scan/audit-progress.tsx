@@ -1,13 +1,15 @@
-import { Check, Circle, Loader2 } from "lucide-react";
+import { Check, Circle, Loader2, MessageSquare } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   activeStageIndex,
+  assistantNames,
   auditStages,
   describeAssistants,
   stageLabel,
   type AuditPlan,
 } from "@/lib/audit/progress-copy";
+import type { AuditFeedEvent } from "@/components/scan/use-detached-audit";
 
 export function AuditProgress({
   progress,
@@ -15,6 +17,7 @@ export function AuditProgress({
   plan,
   providers,
   questionCount,
+  events = [],
 }: {
   progress: number;
   /** Runner step name from the stream. Null until the first event lands. */
@@ -22,6 +25,8 @@ export function AuditProgress({
   plan: AuditPlan;
   providers: readonly string[];
   questionCount: number;
+  /** Live per-answer events; the feed that fills the long provider wait. */
+  events?: AuditFeedEvent[];
 }) {
   const stages = auditStages(plan);
   // Driven by the step the runner reports, not by where the percentage happens
@@ -70,6 +75,49 @@ export function AuditProgress({
           );
         })}
       </div>
+      <LiveAnswerFeed events={events} />
+    </div>
+  );
+}
+
+/**
+ * The last few provider answers as they land. Newest first, capped short —
+ * this is a heartbeat, not a log viewer.
+ */
+function LiveAnswerFeed({ events }: { events: AuditFeedEvent[] }) {
+  const answers = events
+    .filter((event) => event.assistant && event.questions.length)
+    .slice(-5)
+    .reverse();
+  if (!answers.length) return null;
+
+  return (
+    <div className="mt-4 space-y-1.5 border-t border-border pt-3">
+      {answers.map((event, index) => (
+        <div
+          key={event.seq}
+          className={cn(
+            "flex items-start gap-2 text-xs",
+            index === 0 ? "rb-fade-up text-foreground" : "text-muted-foreground",
+          )}
+        >
+          <MessageSquare className="mt-0.5 size-3 shrink-0" aria-hidden />
+          <p className="min-w-0 leading-relaxed">
+            <span className="font-medium">
+              {assistantNames([event.assistant ?? ""])[0] ?? "Assistant"}
+            </span>{" "}
+            answered{" "}
+            {event.questions.slice(0, 1).map((question) => (
+              <span key={question} className="text-muted-foreground">
+                &ldquo;{question}&rdquo;
+              </span>
+            ))}
+            {event.questions.length > 1
+              ? ` and ${event.questions.length - 1} more`
+              : ""}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }

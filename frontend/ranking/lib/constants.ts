@@ -44,6 +44,9 @@ export const SUPPORTED_LANGUAGES = [
 export const FREE_SCAN_CACHE_DAYS = Number(
   process.env.FREE_SCAN_CACHE_DAYS ?? "30",
 );
+// Template questions generated for a brand before an audit narrows them down.
+// This is a generation pool size, not the free audit's question count — that
+// is FREE_AUDIT_QUESTION_COUNT below.
 export const FREE_PROMPT_COUNT = 10;
 
 /**

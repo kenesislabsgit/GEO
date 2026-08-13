@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
-import { getSubscription } from "@/lib/db/repository";
+import { getLatestSubscription } from "@/lib/db/repository";
+import { dodoApiBase } from "@/lib/billing/dodo";
 
 export async function POST() {
   const user = await getSessionUser();
@@ -8,7 +9,9 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const subscription = await getSubscription(user.id);
+  // Latest subscription whatever its status: a person whose payment failed
+  // needs the portal precisely to fix it.
+  const subscription = await getLatestSubscription(user.id);
   if (!subscription?.provider_customer_id) {
     return NextResponse.json(
       { error: "No billing customer found." },
@@ -23,23 +26,17 @@ export async function POST() {
     });
   }
 
-  // Same environment switch as checkout: test keys, test server.
-  const dodoBase =
-    process.env.DODO_PAYMENTS_ENVIRONMENT === "test_mode"
-      ? "https://test.dodopayments.com"
-      : "https://live.dodopayments.com";
-
   const response = await fetch(
-    `${dodoBase}/customers/portal`,
+    `${dodoApiBase()}/customers/${encodeURIComponent(
+      subscription.provider_customer_id,
+    )}/customer-portal/session`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        customer_id: subscription.provider_customer_id,
-      }),
+      body: JSON.stringify({}),
     },
   );
 

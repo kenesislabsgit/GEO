@@ -19,11 +19,18 @@ const POLL_MS = 3000;
 // slow retry without pretending failure to someone whose card was charged.
 const MAX_POLLS = 40;
 
-export function ConfirmSubscription({ returnTo }: { returnTo: string | null }) {
+export function ConfirmSubscription({
+  returnTo,
+  subscriptionId,
+}: {
+  returnTo: string | null;
+  subscriptionId: string | null;
+}) {
   const router = useRouter();
   const [state, setState] = useState<"pending" | "confirmed" | "slow">("pending");
   const [confirmed, setConfirmed] = useState<BillingStatus | null>(null);
   const polls = useRef(0);
+  const askedServer = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const destination = useCallback(
@@ -37,8 +44,20 @@ export function ConfirmSubscription({ returnTo }: { returnTo: string | null }) {
   const poll = useCallback(async () => {
     let status: BillingStatus | null = null;
     try {
-      const res = await fetch(routes.api.billingStatus);
-      if (res.ok) status = (await res.json()) as BillingStatus;
+      if (!askedServer.current) {
+        // First ask the server to reconcile with Dodo directly — webhooks
+        // can be slow, and on localhost they never arrive at all.
+        askedServer.current = true;
+        const res = await fetch(routes.api.billingConfirm, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscriptionId }),
+        });
+        if (res.ok) status = (await res.json()) as BillingStatus;
+      } else {
+        const res = await fetch(routes.api.billingStatus);
+        if (res.ok) status = (await res.json()) as BillingStatus;
+      }
     } catch {
       // A dropped poll is not a failed payment; just ask again.
     }
@@ -54,7 +73,7 @@ export function ConfirmSubscription({ returnTo }: { returnTo: string | null }) {
       return;
     }
     timer.current = setTimeout(() => void poll(), POLL_MS);
-  }, [router]);
+  }, [router, subscriptionId]);
 
   useEffect(() => {
     void poll();
@@ -114,6 +133,7 @@ export function ConfirmSubscription({ returnTo }: { returnTo: string | null }) {
               <Button
                 onClick={() => {
                   polls.current = 0;
+                  askedServer.current = false; // re-reconcile with Dodo
                   setState("pending");
                   void poll();
                 }}

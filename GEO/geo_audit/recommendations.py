@@ -336,6 +336,7 @@ def collect_multi_model_recommendations(
     provider_concurrency: int = 4,
     search_context_size: str | None = None,
     openai_search_batch_size: int = 1,
+    progress_callback: Any = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
     prompt_records = normalize_prompt_records(prompts)
     model_overrides = model_overrides or {}
@@ -411,6 +412,7 @@ def collect_multi_model_recommendations(
             )
 
     max_workers = max(1, min(provider_concurrency, len(task_groups) or 1))
+    completed_groups = 0
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(
@@ -425,6 +427,22 @@ def collect_multi_model_recommendations(
         for future in as_completed(futures):
             group = futures[future]
             assistant = group[0][0]
+            # Live progress for the caller: which assistant just finished which
+            # questions, and how far along collection is. A failing callback
+            # must never take the audit down with it.
+            completed_groups += 1
+            if progress_callback is not None:
+                try:
+                    progress_callback(
+                        {
+                            "assistant": assistant,
+                            "questions": [item[2].get("prompt", "") for item in group],
+                            "completed_groups": completed_groups,
+                            "total_groups": len(task_groups),
+                        }
+                    )
+                except Exception:  # noqa: BLE001 - progress is best-effort.
+                    pass
             try:
                 group_results = future.result()
             except Exception as exc:  # noqa: BLE001 - keep audit running.

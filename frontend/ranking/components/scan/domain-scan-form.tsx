@@ -34,7 +34,7 @@ export function DomainScanForm() {
       id="scan"
       className="w-full rounded-2xl border border-white/70 bg-white/80 p-1.5 shadow-[0_1px_2px_rgba(12,15,20,0.04),0_24px_64px_rgba(12,15,20,0.1)] backdrop-blur-xl"
     >
-      <div className="rounded-[14px] bg-white p-4 sm:p-5">
+      <div className="rounded-[14px] bg-card p-4 sm:p-5">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -50,7 +50,7 @@ export function DomainScanForm() {
               <Input
                 id="domain"
                 placeholder="yourcompany.com"
-                className="h-12 rounded-xl border-border/80 bg-[color:var(--rb-mist)] pl-10 text-base shadow-none focus-visible:bg-white"
+                className="h-12 rounded-xl border-border/80 bg-[color:var(--rb-mist)] pl-10 text-base shadow-none focus-visible:bg-card"
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
                 disabled={loading}

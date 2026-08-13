@@ -10,6 +10,7 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
+import { hasFeature } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { roundForDisplay } from "@/lib/ai/scoring/score";
 import { providerDisplayName } from "@/lib/constants";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandNav } from "@/components/dashboard/brand-nav";
 import { RescanButton } from "@/components/dashboard/rescan-button";
+import { ReportVisibilityToggle } from "@/components/dashboard/report-visibility-toggle";
 import { routes } from "@/lib/routes";
 import { CompetitorLLMChart } from "@/components/dashboard/competitor-llm-chart";
 import { AuditCompleteBanner } from "@/components/dashboard/audit-complete-banner";
@@ -147,10 +149,16 @@ export default async function WebsiteReportSummary({
             {latestScan ? ` · audited ${new Date(latestScan.created_at).toLocaleDateString()}` : ""}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <ReportVisibilityToggle
+            brandId={brand.id}
+            visibility={brand.visibility === "private" ? "private" : "public"}
+            canMakePrivate={hasFeature(entitlements.plan, "publicPrivateReports")}
+          />
           <Button asChild variant="outline" size="sm">
             <Link href={routes.publicReport(brand.slug)} target="_blank">
-              Public report<ArrowUpRight data-icon="inline-end" />
+              {brand.visibility === "private" ? "Report" : "Public report"}
+              <ArrowUpRight data-icon="inline-end" />
             </Link>
           </Button>
           <RescanButton brandId={brand.id} />
@@ -191,7 +199,7 @@ export default async function WebsiteReportSummary({
         ].map((item) => (
           <div key={item.label} className="rb-panel min-w-0 p-4 sm:p-5">
             <p className="text-[11px] font-medium uppercase text-muted-foreground">{item.label}</p>
-            <p className="mt-2 truncate text-xl font-semibold sm:text-2xl">{item.value}</p>
+            <p className="rb-tabular mt-2 truncate text-xl font-semibold sm:text-2xl">{item.value}</p>
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
           </div>
         ))}

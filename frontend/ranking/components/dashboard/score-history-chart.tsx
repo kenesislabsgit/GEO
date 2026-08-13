@@ -27,17 +27,17 @@ export function ScoreHistoryChart({
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#dce3ec" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="date"
-            stroke="#5b6575"
+            stroke="var(--muted-foreground)"
             fontSize={11}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
             domain={[0, 100]}
-            stroke="#5b6575"
+            stroke="var(--muted-foreground)"
             fontSize={11}
             tickLine={false}
             axisLine={false}
@@ -45,17 +45,19 @@ export function ScoreHistoryChart({
           <Tooltip
             contentStyle={{
               borderRadius: 12,
-              border: "1px solid #dce3ec",
-              boxShadow: "0 8px 24px rgba(12,15,20,0.08)",
+              border: "1px solid var(--border)",
+              background: "var(--popover)",
+              color: "var(--popover-foreground)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
               fontSize: 12,
             }}
           />
           <Line
             type="monotone"
             dataKey="score"
-            stroke="#0b84ff"
+            stroke="var(--rb-blue)"
             strokeWidth={2.5}
-            dot={{ r: 3, fill: "#0b84ff", strokeWidth: 0 }}
+            dot={{ r: 3, fill: "var(--rb-blue)", strokeWidth: 0 }}
             activeDot={{ r: 5 }}
           />
         </LineChart>

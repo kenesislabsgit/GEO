@@ -108,7 +108,7 @@ function CustomTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const total = payload.reduce((s, p) => s + (p.value ?? 0), 0);
   return (
-    <div className="rounded-xl border border-border bg-white px-4 py-3 shadow-lg text-sm min-w-[180px]">
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-lg text-sm min-w-[180px]">
       <p className="font-semibold text-foreground mb-2">{label}</p>
       {payload
         .filter((p) => p.value > 0)
@@ -195,7 +195,7 @@ export function CompetitorLLMChart({ competitors, allProviders }: Props) {
             <XAxis
               type="number"
               allowDecimals={false}
-              tick={{ fontSize: 11, fill: "#5b6575" }}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
               axisLine={false}
               tickLine={false}
               tickCount={5}
@@ -231,7 +231,7 @@ export function CompetitorLLMChart({ competitors, allProviders }: Props) {
       </div>
 
       {/* Competitor rows with rank badge */}
-      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-white">
+      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {competitors.map((c, i) => (
           <div key={`${c.name}-${i}`} className="flex items-center justify-between px-5 py-2.5">
             <div className="flex items-center gap-2.5 min-w-0">

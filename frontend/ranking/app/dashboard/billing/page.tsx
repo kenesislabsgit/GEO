@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { getSubscription } from "@/lib/db/repository";
+import { getLatestSubscription } from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { Badge } from "@/components/ui/badge";
 import { BillingActions } from "@/components/billing/billing-actions";
@@ -14,8 +14,11 @@ export default async function BillingPage({
   if (!user) return null;
   const params = await searchParams;
   const entitlements = await getAccountEntitlements(user.id);
-  const subscription = await getSubscription(user.id);
-  const plan = PLAN_CONFIG[entitlements.plan];
+  // Latest subscription whatever its status: a past_due plan must show as
+  // past_due with a working Manage button, not silently read as "free".
+  const subscription = await getLatestSubscription(user.id);
+  const plan = PLAN_CONFIG[subscription?.plan ?? "free"];
+  const planStatus = subscription?.status ?? entitlements.status;
   const usagePct = Math.min(
     100,
     Math.round(
@@ -55,7 +58,7 @@ export default async function BillingPage({
               {plan.name}
             </p>
             <Badge variant="secondary" className="rounded-full capitalize">
-              {entitlements.status}
+              {planStatus}
             </Badge>
           </div>
           {subscription?.current_period_end ? (

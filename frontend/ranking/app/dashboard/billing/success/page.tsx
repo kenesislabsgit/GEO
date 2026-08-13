@@ -21,7 +21,11 @@ function safePath(value: string | undefined): string | null {
 export default async function BillingSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ returnTo?: string; status?: string }>;
+  searchParams: Promise<{
+    returnTo?: string;
+    status?: string;
+    subscription_id?: string;
+  }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect(routes.login({ returnTo: routes.billingSuccess() }));
@@ -34,7 +38,12 @@ export default async function BillingSuccessPage({
     redirect(routes.billing({ status: "cancelled" }));
   }
 
+  // The subscription id from the redirect is a hint for server-side
+  // verification against Dodo's API, never a grant by itself.
   return (
-    <ConfirmSubscription returnTo={safePath(params.returnTo)} />
+    <ConfirmSubscription
+      returnTo={safePath(params.returnTo)}
+      subscriptionId={params.subscription_id ?? null}
+    />
   );
 }

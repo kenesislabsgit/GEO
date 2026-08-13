@@ -139,6 +139,26 @@ export function BillingActions({
               </div>
             );
           })}
+          <div className="relative flex flex-col rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-medium">{PLAN_CONFIG.agency.name}</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight">
+              ${PLAN_CONFIG.agency.monthlyPriceUsd}
+              <span className="text-sm font-normal text-muted-foreground">/mo</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              or ${PLAN_CONFIG.agency.yearlyPriceUsd}/year
+            </p>
+            <p className="mt-3 flex-1 text-sm text-muted-foreground">
+              {PLAN_CONFIG.agency.description} Set up with our team.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button asChild size="sm" variant="outline">
+                <a href="mailto:kenesislabs@gmail.com?subject=RankedByAI%20Agency%20plan">
+                  Contact us
+                </a>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 

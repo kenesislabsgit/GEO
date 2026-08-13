@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuditEvents } from "@/lib/audit/progress-events";
 import { getBrandById, getScanRun } from "@/lib/db/repository";
 import {
   assertScanProgressAccess,
@@ -6,7 +7,7 @@ import {
 } from "@/lib/scans/access";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
@@ -26,7 +27,12 @@ export async function GET(
   }
 
   const brand = await getBrandById(scan.brand_id);
+  // Live per-answer events, held in memory by the process running the audit.
+  // `after` is the last seq the client has, so polls return only what's new.
+  const afterSeq = Number(new URL(request.url).searchParams.get("after") ?? 0);
+  const events = getAuditEvents(id, Number.isFinite(afterSeq) ? afterSeq : 0);
   return NextResponse.json({
+    events,
     id: scan.id,
     status: scan.status,
     // The runner's own step name and 0-100, written as the audit goes. The

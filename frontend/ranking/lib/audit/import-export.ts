@@ -258,7 +258,10 @@ export async function importAuditExport(
         priority: asNumber(row.priority, index + 1),
         estimated_impact: asNullableString(row.estimated_impact),
         affected_prompts: Array.from(new Set(affectedIds)),
-        suggested_content_brief: null,
+        // Pass a brief through when the audit provides one; the Python
+        // exporter does not today, but nulling unconditionally meant even
+        // future briefs would be dropped at the door.
+        suggested_content_brief: (row.suggested_content_brief ?? null) as Json,
         status: "open",
       };
     }),

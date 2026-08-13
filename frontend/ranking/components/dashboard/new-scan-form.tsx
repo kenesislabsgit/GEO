@@ -84,6 +84,7 @@ export function NewScanForm({
     error,
     progress: scanProgress,
     step: scanStep,
+    events: scanEvents,
     start,
   } = useDetachedAudit({
     storageKey: "rbai_audit_new_scan",
@@ -252,14 +253,15 @@ export function NewScanForm({
               </div>
               {!plan.isPaid ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Free audits use Bedrock Llama for five buyer questions.{" "}
+                  Free audits use OpenAI with web search for five buyer
+                  questions.{" "}
                   <Link
                     href={routes.billing({ plan: "founder" })}
                     className="text-foreground underline underline-offset-4"
                   >
                     Upgrade
                   </Link>{" "}
-                  for Gemini and Perplexity.
+                  to compare Claude, Llama and Mistral on the same questions.
                 </p>
               ) : null}
             </div>
@@ -391,6 +393,7 @@ export function NewScanForm({
               plan="pro"
               providers={providers}
               questionCount={questionsPerProvider}
+              events={scanEvents}
             />
           ) : null}
           {overAllowance ? (

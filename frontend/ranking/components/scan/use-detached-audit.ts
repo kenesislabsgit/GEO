@@ -9,15 +9,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * a reload or a wander to another tab, which used to kill it.
  */
 
+export type AuditFeedEvent = {
+  seq: number;
+  at: string;
+  step: string;
+  progress: number;
+  message: string | null;
+  assistant: string | null;
+  questions: string[];
+};
+
 type ProgressResponse = {
   status: string;
   step: string | null;
   progress: number;
   brandId: string | null;
   errorSummary: string | null;
+  events?: AuditFeedEvent[];
 };
 
 const POLL_MS = 2500;
+const MAX_FEED_EVENTS = 40;
 
 export function useDetachedAudit(options: {
   storageKey: string;
@@ -27,6 +39,8 @@ export function useDetachedAudit(options: {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState<string | null>(null);
+  const [events, setEvents] = useState<AuditFeedEvent[]>([]);
+  const lastSeq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDoneRef = useRef(options.onDone);
   onDoneRef.current = options.onDone;
@@ -41,7 +55,9 @@ export function useDetachedAudit(options: {
     async (scanRunId: string) => {
       let response: ProgressResponse;
       try {
-        const res = await fetch(`/api/scans/${scanRunId}/progress`);
+        const res = await fetch(
+          `/api/scans/${scanRunId}/progress?after=${lastSeq.current}`,
+        );
         if (!res.ok) throw new Error("Could not read audit progress.");
         response = (await res.json()) as ProgressResponse;
       } catch {
@@ -52,6 +68,16 @@ export function useDetachedAudit(options: {
 
       if (typeof response.progress === "number") setProgress(response.progress);
       if (response.step) setStep(response.step);
+      if (response.events?.length) {
+        const fresh = response.events;
+        lastSeq.current = Math.max(
+          lastSeq.current,
+          ...fresh.map((event) => event.seq),
+        );
+        setEvents((current) =>
+          [...current, ...fresh].slice(-MAX_FEED_EVENTS),
+        );
+      }
 
       if (response.status === "completed" || response.status === "partial") {
         localStorage.removeItem(storageKey);
@@ -123,5 +149,5 @@ export function useDetachedAudit(options: {
     return stopPolling;
   }, [storageKey, track, stopPolling]);
 
-  return { loading, error, progress, step, start };
+  return { loading, error, progress, step, events, start };
 }
