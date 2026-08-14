@@ -385,6 +385,20 @@
     background-size: 12px 12px;
   }
 
+  /* The tall azure panel the "What you get" mockups float on. Light azure
+     with a white bloom in light mode; sinks toward the ink surface in dark
+     so the white cards keep reading as the bright layer. */
+  .rb-feature-tile {
+    background:
+      radial-gradient(ellipse 110% 70% at 75% 12%, rgba(255, 255, 255, 0.9), transparent 62%),
+      linear-gradient(150deg, #aacff8 0%, #cde3fb 48%, #e9f3fe 100%);
+  }
+  .dark .rb-feature-tile {
+    background:
+      radial-gradient(ellipse 110% 70% at 75% 12%, rgba(82, 168, 255, 0.14), transparent 62%),
+      linear-gradient(150deg, #0d2440 0%, #101a28 55%, #111111 100%);
+  }
+
   /* The small-caps mono label that starts a section. Extracted because it
      was hand-typed in a dozen places. */
   .rb-eyebrow {
@@ -393,6 +407,111 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted-foreground);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Scroll-driven motion. The <Reveal> component adds .is-visible when a
+     block enters the viewport; descendants opt in with the classes below
+     and stagger through --rb-delay. Guards at the end of this file keep
+     everything visible without scripting and still with reduced motion. */
+  .rb-reveal {
+    opacity: 0;
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--rb-reveal-delay, 0ms);
+  }
+  .rb-reveal-up {
+    transform: translateY(20px);
+  }
+  .rb-reveal-left {
+    transform: translateX(-24px);
+  }
+  .rb-reveal-right {
+    transform: translateX(24px);
+  }
+  .rb-reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .rb-rise {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--rb-delay, 0ms);
+  }
+  .is-visible .rb-rise {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Bars that grow into place. */
+  .rb-grow-x {
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--rb-delay, 0ms);
+  }
+  .is-visible .rb-grow-x {
+    transform: scaleX(1);
+  }
+  .rb-grow-y {
+    transform: scaleY(0);
+    transform-origin: center bottom;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--rb-delay, 0ms);
+  }
+  .is-visible .rb-grow-y {
+    transform: scaleY(1);
+  }
+
+  /* SVG line that draws itself; pair with pathLength={1} on the path. */
+  .rb-draw {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 1.6s ease-out;
+    transition-delay: var(--rb-delay, 0ms);
+  }
+  .is-visible .rb-draw {
+    stroke-dashoffset: 0;
+  }
+  .rb-fade-late {
+    opacity: 0;
+    transition: opacity 0.9s ease;
+    transition-delay: var(--rb-delay, 500ms);
+  }
+  .is-visible .rb-fade-late {
+    opacity: 1;
+  }
+
+  /* Highlighter sweep across an inline mention. */
+  .rb-highlight-sweep {
+    background-image: linear-gradient(
+      color-mix(in srgb, #3ecf7a 16%, transparent),
+      color-mix(in srgb, #3ecf7a 16%, transparent)
+    );
+    background-repeat: no-repeat;
+    background-size: 0% 100%;
+    transition: background-size 0.8s ease 0.5s;
+  }
+  .is-visible .rb-highlight-sweep {
+    background-size: 100% 100%;
+  }
+
+  /* Ambient motion: floating chips, glowing dots, a breathing badge. */
+  .rb-drift {
+    animation: rb-drift 7s ease-in-out infinite;
+    animation-delay: var(--rb-delay, 0ms);
+  }
+  .rb-pulse-dot {
+    animation: rb-pulse-dot 3s ease-in-out infinite;
+    animation-delay: var(--rb-delay, 0ms);
+  }
+  .rb-pulse-soft {
+    animation: rb-pulse-soft 2.6s ease-in-out infinite;
   }
 }
 
@@ -416,8 +535,80 @@
   }
 }
 
+@keyframes rb-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes rb-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes rb-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Without scripting, <Reveal> never fires: everything stays visible. */
+@media (scripting: none) {
+  .rb-reveal,
+  .rb-rise,
+  .rb-grow-x,
+  .rb-grow-y,
+  .rb-fade-late {
+    opacity: 1;
+    transform: none;
+  }
+  .rb-draw {
+    stroke-dashoffset: 0;
+  }
+  .rb-highlight-sweep {
+    background-size: 100% 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rb-fade-up {
+    animation: none !important;
+  }
+  .rb-reveal,
+  .rb-rise,
+  .rb-grow-x,
+  .rb-grow-y,
+  .rb-fade-late {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .rb-draw {
+    stroke-dashoffset: 0 !important;
+    transition: none !important;
+  }
+  .rb-highlight-sweep {
+    background-size: 100% 100% !important;
+    transition: none !important;
+  }
+  .rb-drift,
+  .rb-pulse-dot,
+  .rb-pulse-soft {
     animation: none !important;
   }
 }
