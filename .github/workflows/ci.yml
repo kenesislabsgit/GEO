@@ -36,13 +36,18 @@ jobs:
       - name: Create databases and apply migrations
         env:
           PGPASSWORD: postgres
+        # The test database is built from the migrations, not cloned with
+        # pg_dump: the runner's client and the service container's server
+        # versions drift (16 vs 17 broke the clone silently), and running
+        # the migrations twice is a better check anyway.
         run: |
+          set -euo pipefail
           createdb -h localhost -U postgres geo_dev
           npx @better-auth/cli migrate --config lib/auth/auth.ts -y
           npm run db:migrate
           createdb -h localhost -U postgres geo_test
-          pg_dump -h localhost -U postgres --schema-only geo_dev \
-            | psql -h localhost -U postgres -d geo_test
+          DATABASE_URL="$TEST_DATABASE_URL" npx @better-auth/cli migrate --config lib/auth/auth.ts -y
+          DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate
       - run: npm run db:migrate:check
       - run: npm run lint
       - run: npm run typecheck
