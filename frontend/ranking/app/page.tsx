@@ -4,9 +4,11 @@ import { ArrowRight, ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
+import { MonitoringChart } from "@/components/site/monitoring-chart";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import {
   APP_NAME,
@@ -162,6 +164,133 @@ function SectionFrame({ tone = "light" }: { tone?: "light" | "dark" }) {
         <Cross className={`top-0 right-0 ${mark}`} />
         <Cross className={`bottom-0 left-0 ${mark}`} />
         <Cross className={`bottom-0 right-0 ${mark}`} />
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------- hero floating props -- */
+
+/**
+ * The hero's corner props: tilted product artifacts drifting at the edges
+ * of a centered headline, ChronoTask-style. Each corner shows a real thing
+ * the product produces - an answer that skips you, your score, the fix
+ * list, and the providers asked. Decorative only.
+ */
+function HeroFloatingProps() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
+      {/* Top-left: the answer that hurts. */}
+      <div
+        className="rb-fade-up rb-fade-up-delay-2 absolute top-10 left-4 w-60 -rotate-6"
+      >
+        <div className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]">
+          <p className="flex items-center gap-2 text-xs font-medium">
+            <ProviderLogo provider="openai" className="size-3.5" />
+            ChatGPT
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            &ldquo;What&rsquo;s the best analytics tool for a startup?&rdquo;
+          </p>
+          <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Your brand
+            </span>
+            <span className="rounded-full bg-[#ff6166]/10 px-2 py-0.5 text-[10px] font-medium text-[#d6453f]">
+              Not mentioned
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Under it: the fixed version. */}
+      <div
+        className="rb-fade-up rb-fade-up-delay-3 absolute top-56 left-32 rotate-6"
+        style={delayStyle(400)}
+      >
+        <div
+          className="rb-drift grid size-14 place-items-center rounded-xl border border-border bg-card shadow-[0_16px_32px_-16px_rgba(0,0,0,0.3)]"
+          style={delayStyle(900)}
+        >
+          <span className="grid size-7 place-items-center rounded-full bg-[#3ecf7a]">
+            <Check className="size-4 text-white" strokeWidth={3} />
+          </span>
+        </div>
+      </div>
+
+      {/* Top-right: the score it becomes. */}
+      <div className="rb-fade-up rb-fade-up-delay-2 absolute top-12 right-4 w-52 rotate-[5deg]">
+        <div
+          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
+          style={delayStyle(600)}
+        >
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            Visibility score
+          </p>
+          <p className="rb-tabular font-heading mt-1.5 text-3xl font-semibold tracking-tight">
+            62<span className="text-base text-muted-foreground">/100</span>
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-[color:var(--rb-green)]">
+            Mentioned in 12/20 answers
+          </p>
+        </div>
+      </div>
+
+      {/* Bottom-left: the fix list. */}
+      <div className="rb-fade-up rb-fade-up-delay-3 absolute bottom-10 left-6 w-64 rotate-3">
+        <div
+          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
+          style={delayStyle(300)}
+        >
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            Action centre
+          </p>
+          <div className="mt-3 space-y-2">
+            {[
+              ["Publish a comparison page", "High"],
+              ["Get cited in the G2 roundup", "High"],
+            ].map(([title, priority]) => (
+              <div
+                key={title}
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-2.5 py-2"
+              >
+                <span className="size-3 shrink-0 rounded-[3px] border border-foreground/25" />
+                <span className="truncate text-[11px] font-medium">{title}</span>
+                <span className="ml-auto shrink-0 rounded-full bg-[#ff6166]/10 px-1.5 py-0.5 text-[9px] font-medium text-[#d6453f]">
+                  {priority}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom-right: who gets asked. */}
+      <div className="rb-fade-up rb-fade-up-delay-3 absolute right-6 bottom-12 w-56 -rotate-3">
+        <div
+          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
+          style={delayStyle(800)}
+        >
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            Asked across
+          </p>
+          <div className="mt-3 flex items-center">
+            {(["openai", "claude", "gemini", "perplexity"] as const).map(
+              (id, index) => (
+                <span
+                  key={id}
+                  className="-ml-1.5 grid size-11 place-items-center rounded-lg border border-border bg-background shadow-sm first:ml-0"
+                  style={{ transform: `rotate(${index % 2 ? 5 : -5}deg)` }}
+                >
+                  <ProviderLogo provider={id} className="size-5" />
+                </span>
+              ),
+            )}
+          </div>
+          <p className="mt-2.5 text-[11px] text-muted-foreground">
+            10 AI providers, one report
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -384,25 +513,48 @@ function EvidencePanel() {
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
-// Only providers the audit engine genuinely asks.
-const PROVIDER_PILLS = [
-  { name: "ChatGPT", provider: "openai", className: "top-[4%] left-[10%] opacity-50" },
-  { name: "Claude", className: "top-[13%] right-[12%]" },
-  { name: "Gemini", className: "top-[28%] left-[22%]" },
-  { name: "Perplexity", className: "top-[44%] left-[6%] opacity-50" },
-  { name: "Grok", className: "top-[40%] right-[10%]" },
-  { name: "DeepSeek", className: "top-[58%] left-[28%]" },
-  { name: "Llama", className: "top-[56%] right-[24%] opacity-50" },
-  { name: "Mistral", className: "top-[72%] left-[10%]" },
-  { name: "Kimi", className: "top-[74%] right-[8%]" },
-  { name: "Nova", className: "top-[88%] right-[26%] opacity-50" },
+// Only providers the audit engine genuinely asks, dotted around the radar.
+const RADAR_BLIPS = [
+  { id: "openai", className: "top-[8%] left-[46%]" },
+  { id: "claude", className: "top-[20%] right-[17%]" },
+  { id: "gemini", className: "top-[24%] left-[19%]" },
+  { id: "perplexity", className: "top-[47%] left-[7%]" },
+  { id: "grok", className: "top-[43%] right-[8%]" },
+  { id: "deepseek", className: "top-[68%] left-[20%]" },
+  { id: "llama", className: "top-[66%] right-[18%]" },
+  { id: "mistral", className: "top-[80%] left-[44%]" },
+  { id: "kimi", className: "top-[36%] left-[33%]" },
+  { id: "nova", className: "top-[58%] right-[36%]" },
 ] as const;
 
-const SOURCE_DOTS = [
-  { className: "top-[22%] left-[26%] bg-[#52a8ff] shadow-[0_0_22px_6px_rgba(82,168,255,0.45)]" },
-  { className: "top-[44%] left-[60%] bg-[#ff6ea9] shadow-[0_0_22px_6px_rgba(255,110,169,0.4)]" },
-  { className: "top-[66%] left-[38%] bg-[#8b8bff] shadow-[0_0_22px_6px_rgba(139,139,255,0.45)]" },
-  { className: "top-[30%] left-[80%] bg-[#3ecf7a] shadow-[0_0_22px_6px_rgba(62,207,122,0.4)]" },
+// The pages models cite in this category, mapped around your brand. The
+// line coordinates in CITATION_LINES point at each chip's rough center.
+const CITATION_SOURCES = [
+  {
+    domain: "g2.com",
+    count: "×14",
+    dot: "bg-[#52a8ff] shadow-[0_0_14px_3px_rgba(82,168,255,0.45)]",
+    className: "top-[12%] left-[8%]",
+  },
+  {
+    domain: "reddit.com",
+    count: "×9",
+    dot: "bg-[#ff6ea9] shadow-[0_0_14px_3px_rgba(255,110,169,0.4)]",
+    className: "top-[28%] right-[6%]",
+  },
+  {
+    domain: "northstar.com",
+    count: "×11",
+    dot: "bg-[#3ecf7a] shadow-[0_0_14px_3px_rgba(62,207,122,0.4)]",
+    className: "top-[62%] left-[10%]",
+  },
+] as const;
+
+const CITATION_LINES = [
+  [24, 18],
+  [76, 34],
+  [28, 68],
+  [70, 80],
 ] as const;
 
 /* ----------------------------------------------------------------- page -- */
@@ -462,7 +614,7 @@ export default function HomePage() {
         <section className="relative bg-background">
           <div aria-hidden className="rb-hatch h-8 border-b border-border" />
           <div className="mx-auto max-w-6xl">
-            <div className="relative border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-24">
+            <div className="relative overflow-hidden border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
               <Cross className="top-0 left-0" />
               <Cross className="top-0 right-0" />
               <Cross className="bottom-0 left-0" />
@@ -470,40 +622,42 @@ export default function HomePage() {
 
               <div
                 aria-hidden
-                className="rb-halftone absolute inset-y-6 right-0 hidden w-[55%] text-foreground/25 [mask-image:radial-gradient(ellipse_75%_85%_at_100%_35%,black,transparent_72%)] md:block"
+                className="rb-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_75%_85%_at_50%_40%,black,transparent_75%)]"
               />
 
-              <div className="relative max-w-2xl">
+              <HeroFloatingProps />
+
+              <div className="relative z-10 mx-auto max-w-4xl text-center">
                 <p className="rb-fade-up inline-flex items-center gap-2 border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
                   <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-green)]" />
                   Measured from real provider APIs - never simulated
                 </p>
 
-                <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-6 text-[2.75rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance sm:text-6xl md:text-[4.25rem]">
-                  See what AI tells your buyers before your competitors do.
+                <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-6 text-[2.5rem] leading-[1.06] font-semibold tracking-[-0.035em] text-balance sm:text-5xl md:text-[3.5rem]">
+                  See what AI tells your buyers
+                  <span className="block text-muted-foreground">
+                    before your competitors do.
+                  </span>
                 </h1>
 
-                <p className="rb-fade-up rb-fade-up-delay-2 mt-5 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
+                <p className="rb-fade-up rb-fade-up-delay-2 mx-auto mt-6 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
                   Buyers ask ChatGPT before they ask Google. See what it answers,
                   which competitors it names instead of you, and exactly what to
                   change.
                 </p>
 
-                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center gap-3">
-                  <Button asChild size="lg" className="group h-11 rounded-none px-6">
+                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
+                  <RainbowButton asChild>
                     <Link href={routes.freeAuditSignup}>
                       Run your free audit
-                      <ArrowRight
-                        data-icon="inline-end"
-                        className="transition-transform duration-200 group-hover:translate-x-0.5"
-                      />
+                      <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
                     </Link>
-                  </Button>
+                  </RainbowButton>
                   <Button
                     asChild
                     size="lg"
                     variant="outline"
-                    className="h-11 rounded-none border-foreground/25 bg-transparent px-6"
+                    className="h-11 rounded-xl border-foreground/25 bg-card px-6 hover:bg-muted"
                   >
                     <Link href={routes.methodology}>How it&rsquo;s measured</Link>
                   </Button>
@@ -518,15 +672,7 @@ export default function HomePage() {
         </section>
 
         {/* The shift - why AI answers decide who gets found */}
-        <section className="relative overflow-hidden border-b border-border">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-80 dark:opacity-30"
-            style={{
-              background:
-                "radial-gradient(ellipse 40% 50% at 18% 10%, rgba(127,178,255,0.35), transparent 70%), radial-gradient(ellipse 35% 45% at 85% 25%, rgba(255,173,198,0.3), transparent 70%), radial-gradient(ellipse 40% 50% at 50% 95%, rgba(255,217,138,0.3), transparent 70%)",
-            }}
-          />
+        <section className="relative overflow-hidden border-b border-border bg-background">
           <SectionFrame />
 
           <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-24">
@@ -536,12 +682,10 @@ export default function HomePage() {
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                   AI doesn&rsquo;t give ten links. It names two or three products.
                 </h2>
-                <p className="mt-4 max-w-lg text-muted-foreground">
-                  When a buyer asks ChatGPT or Perplexity what to use, the answer
-                  is a short list of names and a citation or two. There is no page
-                  two. If your brand isn&rsquo;t in that list, the buyer moves on
-                  without ever knowing you exist - and you can&rsquo;t see it
-                  happening.
+                <p className="mt-4 max-w-md text-muted-foreground">
+                  Buyers ask ChatGPT what to use and get a short list of names.
+                  There is no page two - if you&rsquo;re not on the list,
+                  you&rsquo;re invisible.
                 </p>
                 <div className="mt-8 grid grid-cols-3 divide-x divide-border border-y border-border">
                   {[
@@ -561,10 +705,6 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                <p className="mt-6 text-sm text-muted-foreground">
-                  {APP_NAME} asks those buyer questions for you, across every
-                  major model, and shows you exactly where you stand.
-                </p>
               </Reveal>
               <Reveal direction="right" delay={120}>
                 <AnswerCard />
@@ -575,35 +715,32 @@ export default function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Answers measured across
+              Answers measured across 10 AI models
             </p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {DEFAULT_SCAN_PROVIDERS.map((id, index) => (
                 <span
                   key={id}
-                  className="rb-rise inline-flex items-center gap-2"
+                  className="rb-rise opacity-55"
                   style={delayStyle(index * 60)}
+                  title={providerDisplayName(id)}
                 >
-                  <ProviderLogo provider={id} />
-                  {providerDisplayName(id)}
+                  <ProviderLogo provider={id} className="size-5" />
                 </span>
               ))}
             </div>
           </Reveal>
         </section>
-        {/* Bento - dark evidence grid */}
-        <section className="relative overflow-hidden bg-[color:var(--rb-ink)] text-white">
-          <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.08]" />
-          <SectionFrame tone="dark" />
+        {/* Bento - the evidence grid */}
+        <section className="relative overflow-hidden bg-background">
+          <SectionFrame />
           <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <Reveal className="max-w-2xl">
-              <p className="font-mono text-[11px] tracking-[0.14em] text-white/40 uppercase">
-                The report
-              </p>
+              <p className="rb-eyebrow">The report</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 Evidence, not vibes
               </h2>
-              <p className="mt-3 text-white/50">
+              <p className="mt-3 text-muted-foreground">
                 Everything below ships in every paid report - and the free audit
                 is a real slice of it.
               </p>
@@ -612,28 +749,28 @@ export default function HomePage() {
             <div className="mt-12 grid gap-4 lg:grid-cols-3">
               {/* Visibility score - stat + bars */}
               <Reveal className="lg:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
-                <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-8">
+                <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                   Visibility score
                 </p>
                 <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
                   A score that moves when you do
                 </h3>
-                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-white/50">
-                  Mentions, position and evidence quality compiled into one number - 
+                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                  Mentions, position and evidence quality compiled into one number -
                   comparable scan after scan, never a black box.
                 </p>
                 <div className="mt-8 flex items-end justify-between gap-4">
                   <p className="rb-tabular font-heading text-5xl font-semibold tracking-tight">
-                    62<span className="text-white/35">.4</span>
+                    62<span className="text-foreground/35">.4</span>
                   </p>
-                  <p className="text-sm font-medium text-[#3ecf7a]">+6.2 this month</p>
+                  <p className="text-sm font-medium text-[color:var(--rb-green)]">+6.2 this month</p>
                 </div>
                 <div className="mt-4 flex h-20 items-stretch gap-1 md:gap-1.5">
                   {Array.from({ length: 40 }, (_, i) => (
                     <span
                       key={i}
-                      className={`rb-grow-y flex-1 rounded-full ${i < 25 ? "bg-[#52a8ff]" : "bg-[#52a8ff]/15"}`}
+                      className={`rb-grow-y flex-1 rounded-full ${i < 25 ? "bg-[color:var(--rb-accent)]" : "bg-[color:var(--rb-accent)]/15"}`}
                       style={delayStyle(200 + i * 18)}
                     />
                   ))}
@@ -643,29 +780,63 @@ export default function HomePage() {
 
               {/* Citations - glowing source map */}
               <Reveal delay={100} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                <div className="relative min-h-56 flex-1">
-                  <div
-                    aria-hidden
-                    className="rb-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_95%_95%_at_55%_40%,black,transparent_78%)]"
-                  />
-                  {SOURCE_DOTS.map((dot, i) => (
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
+                <div className="relative min-h-56 flex-1" aria-hidden>
+                  <div className="rb-grid absolute inset-0 [mask-image:radial-gradient(ellipse_95%_95%_at_55%_40%,black,transparent_78%)]" />
+                  {/* Dashed spokes from your brand out to each cited page. */}
+                  <svg
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    className="absolute inset-0 h-full w-full text-foreground/20"
+                  >
+                    {CITATION_LINES.map(([x, y]) => (
+                      <line
+                        key={`${x}-${y}`}
+                        x1="50"
+                        y1="44"
+                        x2={x}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeDasharray="2 3"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                  </svg>
+                  <span className="absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <span className="rb-pulse-dot block size-2.5 rounded-full bg-[color:var(--rb-accent)] shadow-[0_0_18px_5px_color-mix(in_srgb,var(--rb-accent)_40%,transparent)]" />
+                  </span>
+                  <span className="absolute top-[52%] left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
+                    Your brand
+                  </span>
+                  {CITATION_SOURCES.map((source, i) => (
                     <span
-                      key={i}
-                      aria-hidden
-                      className={`rb-pulse-dot absolute size-1.5 rounded-full ${dot.className}`}
-                      style={delayStyle(i * 700)}
-                    />
+                      key={source.domain}
+                      className={`rb-rise absolute inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] text-muted-foreground shadow-sm ${source.className}`}
+                      style={delayStyle(200 + i * 250)}
+                    >
+                      <span className={`size-1.5 rounded-full ${source.dot}`} />
+                      {source.domain}
+                      <span className="text-foreground/70">{source.count}</span>
+                    </span>
                   ))}
+                  {/* The gap the copy talks about: a source you're absent from. */}
+                  <span
+                    className="rb-rise absolute top-[74%] right-[8%] inline-flex items-center gap-1.5 rounded-full border border-dashed border-foreground/30 px-2.5 py-1 font-mono text-[10px] text-muted-foreground"
+                    style={delayStyle(950)}
+                  >
+                    <span className="size-1.5 rounded-full bg-[#ff6166] shadow-[0_0_14px_3px_rgba(255,97,102,0.4)]" />
+                    yourbrand.com
+                    <span className="text-[#d6453f]">missing</span>
+                  </span>
                 </div>
                 <div className="p-6 md:p-8">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Citations
                   </p>
                   <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
                     Trace every citation
                   </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                     The exact pages that taught each model who to recommend -
                     mapped across the open web, including where you&rsquo;re missing.
                   </p>
@@ -675,34 +846,38 @@ export default function HomePage() {
 
               {/* Providers - floating pills */}
               <Reveal delay={150} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
                 <div className="relative min-h-72 flex-1">
-                  {PROVIDER_PILLS.map((pill, index) => (
+                  {/* The radar dial: rings, crosshair, and a sweeping beam. */}
+                  <div aria-hidden className="absolute inset-0 grid place-items-center">
+                    <div className="relative aspect-square w-[86%]">
+                      <div className="absolute inset-0 rounded-full border border-border" />
+                      <div className="absolute inset-[17%] rounded-full border border-border" />
+                      <div className="absolute inset-[34%] rounded-full border border-border" />
+                      <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
+                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
+                      <div className="rb-radar-sweep absolute inset-0" />
+                      <span className="rb-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--rb-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--rb-accent)_45%,transparent)]" />
+                    </div>
+                  </div>
+                  {RADAR_BLIPS.map((blip, index) => (
                     <span
-                      key={pill.name}
-                      className={`rb-drift absolute inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-sm text-white/70 ${pill.className}`}
+                      key={blip.id}
+                      className={`rb-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-sm ${blip.className}`}
                       style={delayStyle(index * 550)}
                     >
-                      <ProviderLogo
-                        provider={
-                          "provider" in pill
-                            ? pill.provider
-                            : pill.name.toLowerCase()
-                        }
-                        className="size-3.5"
-                      />
-                      {pill.name}
+                      <ProviderLogo provider={blip.id} className="size-4" />
                     </span>
                   ))}
                 </div>
                 <div className="p-6 md:p-8">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Providers
                   </p>
                   <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
                     One method, every model
                   </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                     The same buyer questions asked across ChatGPT, Claude, Gemini
                     and more - answers compared side by side.
                   </p>
@@ -712,86 +887,64 @@ export default function HomePage() {
 
               {/* Big stat card */}
               <Reveal delay={100}>
-              <div className="relative h-full overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,#173a5e,#0a1626_65%)] p-6 text-center md:p-8">
-                <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.1]" />
-                <p className="rb-tabular font-heading relative bg-gradient-to-b from-white via-white/75 to-white/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--rb-accent-soft),var(--card)_65%)] p-6 text-center md:p-8">
+                <p className="rb-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
                   200
                 </p>
-                <p className="relative mt-1 text-white/70">
+                <p className="relative mt-1 text-foreground/70">
                   provider answers per Pro+ audit - 20 questions × 10 AIs
                 </p>
                 <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
                   {["13 AI providers", "Cited sources", "Share of voice"].map((chip) => (
                     <span
                       key={chip}
-                      className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white/60"
+                      className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground"
                     >
                       {chip}
                     </span>
                   ))}
-                  <span aria-hidden className="h-7 w-16 rounded-full bg-white/[0.05]" />
-                  <span aria-hidden className="h-7 w-12 rounded-full bg-white/[0.05]" />
+                  <span aria-hidden className="h-7 w-16 rounded-full bg-foreground/[0.05]" />
+                  <span aria-hidden className="h-7 w-12 rounded-full bg-foreground/[0.05]" />
                 </div>
               </div>
               </Reveal>
 
               {/* Monitoring - trend chart */}
               <Reveal delay={150} className="lg:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card">
                 <div className="relative px-2 pt-14">
                   <span
-                    className="rb-fade-late absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-[#161616] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white/80"
+                    className="rb-fade-late absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
                     style={delayStyle(900)}
                   >
-                    <span aria-hidden className="size-1.5 rounded-full bg-[#52a8ff]" />
+                    <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-accent)]" />
                     Avg 62.4
                   </span>
                   <span
-                    className="rb-fade-late absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-[#161616] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white/80"
+                    className="rb-fade-late absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
                     style={delayStyle(1100)}
                   >
                     <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
                     Low 41.2
                   </span>
-                  <svg
-                    viewBox="0 0 600 140"
-                    className="h-36 w-full"
-                    preserveAspectRatio="none"
+                  <span
                     aria-hidden
-                  >
-                    <defs>
-                      <linearGradient id="rb-trend-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#52a8ff" stopOpacity="0.28" />
-                        <stop offset="100%" stopColor="#52a8ff" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <line className="rb-fade-late" x1="186" y1="0" x2="186" y2="140" stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
-                    <line className="rb-fade-late" x1="414" y1="0" x2="414" y2="140" stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
-                    <path
-                      className="rb-fade-late"
-                      d="M0,84 L20,80 40,86 60,78 80,82 100,74 120,78 140,70 160,74 186,62 210,66 230,54 250,60 270,48 290,56 310,50 330,62 350,58 370,72 390,80 414,96 435,90 455,98 475,88 495,92 515,82 535,86 555,76 575,80 600,68 L600,140 0,140 Z"
-                      fill="url(#rb-trend-fill)"
-                    />
-                    <path
-                      className="rb-draw"
-                      pathLength={1}
-                      d="M0,84 L20,80 40,86 60,78 80,82 100,74 120,78 140,70 160,74 186,62 210,66 230,54 250,60 270,48 290,56 310,50 330,62 350,58 370,72 390,80 414,96 435,90 455,98 475,88 495,92 515,82 535,86 555,76 575,80 600,68"
-                      fill="none"
-                      stroke="#52a8ff"
-                      strokeWidth="2"
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                    className="rb-fade-late absolute top-14 bottom-0 left-[31%] w-px border-l border-dashed border-foreground/20"
+                  />
+                  <span
+                    aria-hidden
+                    className="rb-fade-late absolute top-14 bottom-0 left-[69%] w-px border-l border-dashed border-foreground/20"
+                  />
+                  <MonitoringChart />
                 </div>
                 <div className="p-6 pt-4 md:p-8 md:pt-4">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Monitoring
                   </p>
                   <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
                     Catch the moves that matter
                   </h3>
-                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-white/50">
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
                     Scheduled re-scans chart your visibility across providers and
                     email you when it shifts.
                   </p>

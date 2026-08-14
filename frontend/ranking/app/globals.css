@@ -49,6 +49,13 @@
 }
 
 :root {
+  /* Rainbow button gradient stops - identical in both themes. */
+  --rainbow-1: hsl(0 100% 63%);
+  --rainbow-2: hsl(270 100% 63%);
+  --rainbow-3: hsl(210 100% 63%);
+  --rainbow-4: hsl(195 100% 63%);
+  --rainbow-5: hsl(90 100% 63%);
+
   /* Brand tokens — near-black ink, one blue, restrained everything else.
      The look is borders-first: 1px neutral lines carry the structure,
      shadows barely exist, and color appears only when it means something. */
@@ -501,6 +508,83 @@
     background-size: 100% 100%;
   }
 
+  /* The hero flow diagram: a slow-turning dashed ring around the hub. The
+     dots that travel its paths are SMIL circles tagged .rb-motion-dot so
+     reduced-motion can hide them. */
+  .rb-spin-slow {
+    animation: rb-spin 32s linear infinite;
+  }
+
+  /* MagicUI rainbow button (components/ui/rainbow-button.tsx): a pill over
+     an animated rainbow border gradient, with a blurred underglow. The
+     layered background lives here because Tailwind arbitrary values choke
+     on multi-gradient stacks. */
+  .rb-rainbow-btn {
+    border: 0.08rem solid transparent;
+    background-image:
+      linear-gradient(#121213, #121213),
+      linear-gradient(#121213 50%, rgba(18, 18, 19, 0.6) 80%, rgba(18, 18, 19, 0)),
+      linear-gradient(
+        90deg,
+        var(--rainbow-1),
+        var(--rainbow-5),
+        var(--rainbow-3),
+        var(--rainbow-4),
+        var(--rainbow-2)
+      );
+    background-size: 200%;
+    background-clip: padding-box, border-box, border-box;
+    background-origin: border-box;
+    animation: rainbow 2s infinite linear;
+  }
+  .dark .rb-rainbow-btn {
+    background-image:
+      linear-gradient(#ffffff, #ffffff),
+      linear-gradient(#ffffff 50%, rgba(255, 255, 255, 0.6) 80%, rgba(255, 255, 255, 0)),
+      linear-gradient(
+        90deg,
+        var(--rainbow-1),
+        var(--rainbow-5),
+        var(--rainbow-3),
+        var(--rainbow-4),
+        var(--rainbow-2)
+      );
+  }
+  .rb-rainbow-btn::before {
+    content: "";
+    position: absolute;
+    bottom: -20%;
+    left: 50%;
+    z-index: -1;
+    height: 20%;
+    width: 60%;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      90deg,
+      var(--rainbow-1),
+      var(--rainbow-5),
+      var(--rainbow-3),
+      var(--rainbow-4),
+      var(--rainbow-2)
+    );
+    background-size: 200%;
+    filter: blur(0.75rem);
+    animation: rainbow 2s infinite linear;
+  }
+
+  /* The provider radar: a sweeping beam that circles the dial, showing the
+     scan touching every model. Sits in a rounded-full parent. */
+  .rb-radar-sweep {
+    border-radius: 9999px;
+    background: conic-gradient(
+      from 0deg,
+      color-mix(in srgb, var(--rb-accent) 35%, transparent),
+      color-mix(in srgb, var(--rb-accent) 8%, transparent) 55deg,
+      transparent 85deg
+    );
+    animation: rb-spin 7s linear infinite;
+  }
+
   /* Ambient motion: floating chips, glowing dots, a breathing badge. */
   .rb-drift {
     animation: rb-drift 7s ease-in-out infinite;
@@ -532,6 +616,21 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rainbow {
+  0% {
+    background-position: 0%;
+  }
+  100% {
+    background-position: 200%;
   }
 }
 
@@ -608,8 +707,15 @@
   }
   .rb-drift,
   .rb-pulse-dot,
-  .rb-pulse-soft {
+  .rb-pulse-soft,
+  .rb-spin-slow,
+  .rb-radar-sweep,
+  .rb-rainbow-btn,
+  .rb-rainbow-btn::before {
     animation: none !important;
+  }
+  .rb-motion-dot {
+    display: none !important;
   }
 }
 
