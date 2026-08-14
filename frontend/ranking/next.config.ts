@@ -17,7 +17,10 @@ const securityHeaders = [
         ? "script-src 'self' 'unsafe-inline'"
         : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      // The sources page loads site icons from Google's favicon service,
+      // which redirects www.google.com/s2 -> t*.gstatic.com, and CSP checks
+      // the redirect target too. Images only - no scripts or connections.
+      "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com",
       "font-src 'self' data:",
       "connect-src 'self'",
       "frame-ancestors 'none'",

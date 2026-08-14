@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { hasFeature } from "@/lib/billing/entitlements";
@@ -10,7 +10,6 @@ import {
   getQueryResults,
   listAllPrompts,
 } from "@/lib/db/repository";
-import { assistantNames } from "@/lib/audit/progress-copy";
 import { Badge } from "@/components/ui/badge";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { ProviderStack } from "@/components/providers/provider-logo";
@@ -42,6 +41,15 @@ type CitationRow = Citation & {
   providers: ProviderId[];
   question: string | null | undefined;
 };
+
+function hostOfUrl(url: string, domain?: string | null): string | null {
+  if (domain) return domain.replace(/^www\./, "");
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 
 export default async function SourcesPage({
   params,
@@ -89,6 +97,30 @@ export default async function SourcesPage({
     }
   }
   const citations = Array.from(citationMap.values());
+  // One disclosure per website rather than one heavy row per link: the list
+  // reads as "which places" first, and the individual pages stay a click away.
+  const citationsByDomain = new Map<
+    string,
+    { rows: CitationRow[]; providers: Set<ProviderId> }
+  >();
+  for (const citation of citations) {
+    const domain = hostOfUrl(citation.url, citation.domain) ?? "other";
+    const group = citationsByDomain.get(domain) ?? {
+      rows: [],
+      providers: new Set<ProviderId>(),
+    };
+    group.rows.push(citation);
+    for (const provider of citation.providers) group.providers.add(provider);
+    citationsByDomain.set(domain, group);
+  }
+  const citationGroups = Array.from(citationsByDomain.entries())
+    .map(([domain, group]) => ({
+      domain,
+      rows: group.rows,
+      providers: Array.from(group.providers),
+    }))
+    .sort((a, b) => b.rows.length - a.rows.length);
+
   const mentionMap = new Map<string, VerifiedMention>();
   for (const result of results) {
     for (const mention of (result.sources as VerifiedMention[]) ?? []) {
@@ -116,7 +148,15 @@ export default async function SourcesPage({
   const isOwnCompany = (name: string) =>
     name.toLowerCase() === brand.name.toLowerCase();
   const mentionGroups = Array.from(mentionsByCompany.entries())
-    .map(([company, rows]) => ({ company, rows, own: isOwnCompany(company) }))
+    .map(([company, rows]) => ({
+      company,
+      rows: rows.slice().sort((a, b) => {
+        const da = hostOfUrl(a.url, a.domain) ?? "";
+        const db = hostOfUrl(b.url, b.domain) ?? "";
+        return da.localeCompare(db);
+      }),
+      own: isOwnCompany(company),
+    }))
     .sort((a, b) => {
       if (a.own !== b.own) return a.own ? -1 : 1;
       return b.rows.length - a.rows.length;
@@ -129,14 +169,8 @@ export default async function SourcesPage({
 
   // Citation gaps: websites that write about competitors but not about this
   // company. Each one is a concrete place to get listed.
-  const hostOf = (mention: VerifiedMention): string | null => {
-    if (mention.domain) return mention.domain.replace(/^www\./, "");
-    try {
-      return new URL(mention.url).hostname.replace(/^www\./, "");
-    } catch {
-      return null;
-    }
-  };
+  const hostOf = (mention: VerifiedMention): string | null =>
+    hostOfUrl(mention.url, mention.domain);
   const ownDomains = new Set(
     mentionGroups
       .filter((group) => group.own)
@@ -159,6 +193,14 @@ export default async function SourcesPage({
     .sort((a, b) => b.companies.length - a.companies.length)
     .slice(0, 12);
   const showCitationGaps = hasFeature(entitlements.plan, "citationGaps");
+
+  // The page's headline numbers, so the lists below are detail, not the pitch.
+  const ownMentionCount = mentionGroups.find((group) => group.own)?.rows.length ?? 0;
+  const competitorMentionCount = verifiedMentions.length - ownMentionCount;
+  const allDomains = new Set<string>([
+    ...citationGroups.map((group) => group.domain),
+    ...(verifiedMentions.map((m) => hostOf(m)).filter(Boolean) as string[]),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -184,72 +226,78 @@ export default async function SourcesPage({
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Three paragraphs of argument sat here. The point survives in two
-              sentences, and the counts below make it better than prose can. */}
-          <section className="rb-panel-soft p-5">
-            <h2 className="text-sm font-semibold">
-              AI learned about your market by reading the internet
-            </h2>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              The more places a company is written about, the more weight it
-              carries when an assistant is asked for a recommendation. Here is
-              every page we found for you and for each competitor.
-            </p>
+          {/* The whole page in four numbers - the lists below are receipts. */}
+          <section className="rb-panel grid grid-cols-2 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+            {(
+              [
+                [citations.length, "Pages AI read"],
+                [allDomains.size, "Websites involved"],
+                [ownMentionCount, "Write about you"],
+                [competitorMentionCount, "About competitors"],
+              ] as const
+            ).map(([value, label]) => (
+              <div key={label} className="px-5 py-4">
+                <p className="rb-tabular font-heading text-2xl font-semibold tracking-tight">
+                  {value}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+              </div>
+            ))}
           </section>
+
           <section className="space-y-3">
             <div>
               <h2 className="text-base font-semibold">Pages the AI actually read</h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Opened by an assistant while it answered. Not what exists on the
-                web - what a model read before deciding who to name.
+                Opened by an assistant while it answered, grouped by website.
+                Open a website to see the exact pages and the questions they
+                decided.
               </p>
             </div>
-            {citations.length === 0 ? (
+            {citationGroups.length === 0 ? (
               <div className="rb-empty p-5 text-sm text-muted-foreground">
                 The selected models returned no native citations.
               </div>
             ) : (
-              <div className="rb-list">
-                <div className="divide-y divide-border">
-                  {citations.map((citation, index) => (
-                    <div
-                      key={`${citation.url}-${index}`}
-                      className="bg-card px-5 py-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
+              <div className="rb-list divide-y divide-border">
+                {citationGroups.map((group) => (
+                  <details key={group.domain} className="group bg-card">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3.5 select-none hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                      <DomainTile domain={group.domain} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {group.domain}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {group.rows.length}{" "}
+                          {group.rows.length === 1 ? "page" : "pages"} · read by{" "}
+                          {group.providers.length}{" "}
+                          {group.providers.length === 1 ? "assistant" : "assistants"}
+                        </span>
+                      </span>
+                      <span className="ml-auto flex shrink-0 items-center gap-3">
+                        <ProviderStack providers={group.providers} max={5} />
+                        <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                      </span>
+                    </summary>
+                    <div className="divide-y divide-border border-t border-border">
+                      {group.rows.map((citation, index) => (
+                        <div
+                          key={`${citation.url}-${index}`}
+                          className="bg-background/40 py-2.5 pr-5 pl-[3.75rem]"
+                        >
                           <SourceLink
                             url={citation.url}
                             label={sourceLabel(citation)}
                           />
-                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                             {citation.question ?? "Question unavailable"}
                           </p>
-                          {/* The providers that read this page, marks first
-                              so a row scans at a glance. */}
-                          <p
-                            className="mt-1.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
-                            title={assistantNames(citation.providers).join(", ")}
-                          >
-                            <ProviderStack
-                              providers={citation.providers}
-                              max={6}
-                            />
-                            {assistantNames(citation.providers).join(" · ")}
-                          </p>
                         </div>
-                        <Badge
-                          variant="secondary"
-                          className="rounded-full text-[11px] text-[color:var(--rb-green)]"
-                        >
-                          {citation.providers.length > 1
-                            ? `Read by ${citation.providers.length}`
-                            : "Grounded"}
-                        </Badge>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </details>
+                ))}
               </div>
             )}
           </section>
@@ -264,23 +312,27 @@ export default async function SourcesPage({
                   the material AI reads.
                 </p>
               </div>
-              <div className="rb-list">
-                <div className="divide-y divide-border">
-                  {citationGapRows.map((gap) => (
-                    <div key={gap.domain} className="bg-card px-5 py-3.5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-mono text-sm">{gap.domain}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Covers {gap.companies.slice(0, 3).join(", ")}
-                          {gap.companies.length > 3
-                            ? ` +${gap.companies.length - 3} more`
-                            : ""}{" "}
- - not you
-                        </p>
-                      </div>
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {citationGapRows.map((gap) => (
+                  <div
+                    key={gap.domain}
+                    className="rounded-lg border border-border bg-card px-3.5 py-3"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <DomainTile domain={gap.domain} />
+                      <p className="min-w-0 truncate font-mono text-sm">
+                        {gap.domain}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Covers {gap.companies.slice(0, 2).join(", ")}
+                      {gap.companies.length > 2
+                        ? ` +${gap.companies.length - 2} more`
+                        : ""}{" "}
+                      - not you
+                    </p>
+                  </div>
+                ))}
               </div>
             </section>
           ) : null}
@@ -292,8 +344,8 @@ export default async function SourcesPage({
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Each one checked to be about this company rather than another of
-                the same name. What is published today, not a claim about which
-                pages a model read.
+                the same name. Your company stays open; open a competitor to
+                compare.
               </p>
             </div>
             {verifiedMentions.length === 0 ? (
@@ -301,68 +353,65 @@ export default async function SourcesPage({
                 No independently verified mentions were collected.
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="rb-list divide-y divide-border">
                 {mentionGroups.map((group) => (
-                  <div key={group.company} className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold">{group.company}</h3>
+                  <details
+                    key={group.company}
+                    className="group bg-card"
+                    open={group.own}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center gap-2.5 px-5 py-3.5 select-none hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                      <span className="truncate text-sm font-semibold">
+                        {group.company}
+                      </span>
                       {group.own ? (
-                        <Badge
-                          variant="secondary"
-                          className="rounded-full text-[11px]"
-                        >
+                        <Badge variant="secondary" className="rounded-full text-[11px]">
                           You
                         </Badge>
                       ) : null}
-                      <Badge variant="outline" className="rounded-full text-[11px]">
-                        {group.rows.length}{" "}
-                        {group.rows.length === 1 ? "page" : "pages"}
-                      </Badge>
-                    </div>
-                    {group.rows.length === 0 ? (
-                      <div className="rb-empty p-5 text-sm text-muted-foreground">
-                        No page on the open web was found writing about you. An
-                        assistant asked to recommend a company in this category
-                        has nothing to read.
-                      </div>
-                    ) : (
-                      <div className="rb-list">
+                      <span className="ml-auto flex shrink-0 items-center gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          {group.rows.length}{" "}
+                          {group.rows.length === 1 ? "page" : "pages"}
+                        </span>
+                        <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                      </span>
+                    </summary>
+                    <div className="border-t border-border">
+                      {group.rows.length === 0 ? (
+                        <p className="bg-background/40 px-5 py-4 text-sm text-muted-foreground">
+                          No page on the open web was found writing about you. An
+                          assistant asked to recommend a company in this category
+                          has nothing to read.
+                        </p>
+                      ) : (
                         <div className="divide-y divide-border">
                           {group.rows.map((mention) => (
-                            <div key={mention.url} className="bg-card px-5 py-4">
-                              <div className="flex flex-wrap items-start justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                  <SourceLink
-                                    url={mention.url}
-                                    label={sourceLabel(mention)}
-                                  />
-                                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                                    {canonicalUrl(mention.url)}
-                                  </p>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  <Badge
-                                    variant="secondary"
-                                    className="rounded-full text-[11px] text-[color:var(--rb-green)]"
-                                  >
-                                    Verified
-                                  </Badge>
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-full text-[11px]"
-                                  >
-                                    {(
-                                      mention.source_type ?? "web source"
-                                    ).replaceAll("_", " ")}
-                                  </Badge>
-                                </div>
-                              </div>
+                            <div
+                              key={mention.url}
+                              className="flex items-center gap-3 bg-background/40 px-5 py-2.5"
+                            >
+                              <span className="hidden w-40 shrink-0 truncate font-mono text-[11px] text-muted-foreground sm:block">
+                                {hostOfUrl(mention.url, mention.domain)}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <SourceLink
+                                  url={mention.url}
+                                  label={sourceLabel(mention)}
+                                />
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="ml-auto shrink-0 rounded-full text-[10px] text-muted-foreground"
+                              >
+                                {(mention.source_type ?? "web").replaceAll("_", " ")}
+                              </Badge>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </details>
                 ))}
               </div>
             )}
@@ -370,6 +419,28 @@ export default async function SourcesPage({
         </div>
       )}
     </div>
+  );
+}
+
+/** The site's favicon in a bordered tile. Google's favicon service serves a
+ * neutral globe for domains it has no icon for, so no fallback is needed. */
+function DomainTile({ domain }: { domain: string }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- tiny external
+          favicon; next/image would need remote-pattern config for no gain */}
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`}
+        alt=""
+        width={16}
+        height={16}
+        loading="lazy"
+        className="size-4"
+      />
+    </span>
   );
 }
 

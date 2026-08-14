@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { providerDisplayName, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 
 type MonitoringResponse = {
   settings: {
@@ -285,7 +286,8 @@ export function BrandMonitoringForm({
                 checked={form.providers.includes(provider)}
                 onChange={() => toggleProvider(provider)}
               />
-              {providerDisplayName(provider)}
+              <ProviderLogo provider={provider} className="size-4 shrink-0" />
+              <span className="truncate">{providerDisplayName(provider)}</span>
             </label>
           ))}
         </div>

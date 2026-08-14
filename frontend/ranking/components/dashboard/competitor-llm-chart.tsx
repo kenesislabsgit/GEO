@@ -21,7 +21,7 @@ export const LLM_CONFIG: Record<
   bedrock_mistral: { color: "red", label: "Mistral", shortLabel: "Mistral" },
   bedrock_nova: { color: "blue", label: "Nova", shortLabel: "Nova" },
   openai: { color: "green", label: "ChatGPT", shortLabel: "ChatGPT" },
-  openai_search: { color: "green", label: "ChatGPT Search", shortLabel: "ChatGPT" },
+  openai_search: { color: "green", label: "ChatGPT", shortLabel: "ChatGPT" },
   claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
   gemini: { color: "blue", label: "Gemini", shortLabel: "Gemini" },
   perplexity: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },

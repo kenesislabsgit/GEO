@@ -34,7 +34,7 @@ const weights = [
 
 const providers = [
   {
-    name: "ChatGPT Search",
+    name: "ChatGPT",
     detail:
       "Responses API with the web_search tool. Answers reflect API sampling, not consumer ChatGPT.",
   },

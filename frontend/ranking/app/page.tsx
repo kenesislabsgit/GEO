@@ -1,9 +1,10 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowRight, ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
+import { HeroDemo } from "@/components/site/hero-demo";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
@@ -164,133 +165,6 @@ function SectionFrame({ tone = "light" }: { tone?: "light" | "dark" }) {
         <Cross className={`top-0 right-0 ${mark}`} />
         <Cross className={`bottom-0 left-0 ${mark}`} />
         <Cross className={`bottom-0 right-0 ${mark}`} />
-      </div>
-    </div>
-  );
-}
-
-/* --------------------------------------------------- hero floating props -- */
-
-/**
- * The hero's corner props: tilted product artifacts drifting at the edges
- * of a centered headline, ChronoTask-style. Each corner shows a real thing
- * the product produces - an answer that skips you, your score, the fix
- * list, and the providers asked. Decorative only.
- */
-function HeroFloatingProps() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-      {/* Top-left: the answer that hurts. */}
-      <div
-        className="rb-fade-up rb-fade-up-delay-2 absolute top-10 left-4 w-60 -rotate-6"
-      >
-        <div className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]">
-          <p className="flex items-center gap-2 text-xs font-medium">
-            <ProviderLogo provider="openai" className="size-3.5" />
-            ChatGPT
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            &ldquo;What&rsquo;s the best analytics tool for a startup?&rdquo;
-          </p>
-          <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              Your brand
-            </span>
-            <span className="rounded-full bg-[#ff6166]/10 px-2 py-0.5 text-[10px] font-medium text-[#d6453f]">
-              Not mentioned
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Under it: the fixed version. */}
-      <div
-        className="rb-fade-up rb-fade-up-delay-3 absolute top-56 left-32 rotate-6"
-        style={delayStyle(400)}
-      >
-        <div
-          className="rb-drift grid size-14 place-items-center rounded-xl border border-border bg-card shadow-[0_16px_32px_-16px_rgba(0,0,0,0.3)]"
-          style={delayStyle(900)}
-        >
-          <span className="grid size-7 place-items-center rounded-full bg-[#3ecf7a]">
-            <Check className="size-4 text-white" strokeWidth={3} />
-          </span>
-        </div>
-      </div>
-
-      {/* Top-right: the score it becomes. */}
-      <div className="rb-fade-up rb-fade-up-delay-2 absolute top-12 right-4 w-52 rotate-[5deg]">
-        <div
-          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
-          style={delayStyle(600)}
-        >
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            Visibility score
-          </p>
-          <p className="rb-tabular font-heading mt-1.5 text-3xl font-semibold tracking-tight">
-            62<span className="text-base text-muted-foreground">/100</span>
-          </p>
-          <p className="mt-1 text-[11px] font-medium text-[color:var(--rb-green)]">
-            Mentioned in 12/20 answers
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom-left: the fix list. */}
-      <div className="rb-fade-up rb-fade-up-delay-3 absolute bottom-10 left-6 w-64 rotate-3">
-        <div
-          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
-          style={delayStyle(300)}
-        >
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            Action centre
-          </p>
-          <div className="mt-3 space-y-2">
-            {[
-              ["Publish a comparison page", "High"],
-              ["Get cited in the G2 roundup", "High"],
-            ].map(([title, priority]) => (
-              <div
-                key={title}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-2.5 py-2"
-              >
-                <span className="size-3 shrink-0 rounded-[3px] border border-foreground/25" />
-                <span className="truncate text-[11px] font-medium">{title}</span>
-                <span className="ml-auto shrink-0 rounded-full bg-[#ff6166]/10 px-1.5 py-0.5 text-[9px] font-medium text-[#d6453f]">
-                  {priority}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom-right: who gets asked. */}
-      <div className="rb-fade-up rb-fade-up-delay-3 absolute right-6 bottom-12 w-56 -rotate-3">
-        <div
-          className="rb-drift rounded-2xl border border-border bg-card p-4 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.3)]"
-          style={delayStyle(800)}
-        >
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            Asked across
-          </p>
-          <div className="mt-3 flex items-center">
-            {(["openai", "claude", "gemini", "perplexity"] as const).map(
-              (id, index) => (
-                <span
-                  key={id}
-                  className="-ml-1.5 grid size-11 place-items-center rounded-lg border border-border bg-background shadow-sm first:ml-0"
-                  style={{ transform: `rotate(${index % 2 ? 5 : -5}deg)` }}
-                >
-                  <ProviderLogo provider={id} className="size-5" />
-                </span>
-              ),
-            )}
-          </div>
-          <p className="mt-2.5 text-[11px] text-muted-foreground">
-            10 AI providers, one report
-          </p>
-        </div>
       </div>
     </div>
   );
@@ -622,49 +496,52 @@ export default function HomePage() {
 
               <div
                 aria-hidden
-                className="rb-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_75%_85%_at_50%_40%,black,transparent_75%)]"
+                className="rb-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_70%_90%_at_30%_45%,black,transparent_75%)]"
               />
 
-              <HeroFloatingProps />
+              <div className="relative z-10 grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
+                <div>
+                  <h1 className="rb-fade-up font-heading text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
+                    Your buyers are asking AI.
+                    <span className="block text-muted-foreground">
+                      See who comes up.
+                    </span>
+                  </h1>
 
-              <div className="relative z-10 mx-auto max-w-4xl text-center">
-                <p className="rb-fade-up inline-flex items-center gap-2 border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-                  <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-green)]" />
-                  Measured from real provider APIs - never simulated
-                </p>
+                  <p className="rb-fade-up rb-fade-up-delay-1 mt-5 max-w-md text-base text-pretty text-muted-foreground md:text-lg">
+                    One buyer question, asked across ChatGPT, Claude, Gemini
+                    and seven more - measured into a score you can act on.
+                  </p>
 
-                <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-6 text-[2.5rem] leading-[1.06] font-semibold tracking-[-0.035em] text-balance sm:text-5xl md:text-[3.5rem]">
-                  See what AI tells your buyers
-                  <span className="block text-muted-foreground">
-                    before your competitors do.
-                  </span>
-                </h1>
-
-                <p className="rb-fade-up rb-fade-up-delay-2 mx-auto mt-6 max-w-xl text-base text-pretty text-muted-foreground md:text-lg">
-                  Buyers ask ChatGPT before they ask Google. See what it answers,
-                  which competitors it names instead of you, and exactly what to
-                  change.
-                </p>
-
-                <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
-                  <RainbowButton asChild>
-                    <Link href={routes.freeAuditSignup}>
-                      Run your free audit
-                      <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </Link>
-                  </RainbowButton>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className="h-11 rounded-xl border-foreground/25 bg-card px-6 hover:bg-muted"
+                  <form
+                    action={routes.freeAuditSignup}
+                    method="GET"
+                    className="rb-fade-up rb-fade-up-delay-2 mt-7 flex max-w-md flex-col gap-2.5 sm:flex-row"
                   >
-                    <Link href={routes.methodology}>How it&rsquo;s measured</Link>
-                  </Button>
+                    <input
+                      type="text"
+                      name="domain"
+                      inputMode="url"
+                      placeholder="yourcompany.com"
+                      aria-label="Your website"
+                      className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-card px-4 text-sm shadow-sm outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:ring-1 focus:ring-ring"
+                    />
+                    <RainbowButton type="submit" className="shrink-0">
+                      See where your brand comes up
+                      <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </RainbowButton>
+                  </form>
+                  <p className="rb-fade-up rb-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
+                    Free account · no card · report in ~2 minutes ·{" "}
+                    <Link href={routes.methodology} className="underline underline-offset-2 hover:text-foreground">
+                      How it&rsquo;s measured
+                    </Link>
+                  </p>
                 </div>
-                <p className="rb-fade-up rb-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
-                  Free account · no card · report in ~2 minutes
-                </p>
+
+                <div className="rb-fade-up rb-fade-up-delay-2">
+                  <HeroDemo />
+                </div>
               </div>
             </div>
           </div>

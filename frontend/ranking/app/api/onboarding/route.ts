@@ -16,6 +16,9 @@ import {
 import type { OnboardingState } from "@/types/onboarding";
 import type { ProviderId } from "@/types/database";
 
+// Every ProviderId (types/database.ts) - keep in sync, or a provider a plan
+// legitimately offers gets rejected here as "Invalid onboarding update".
+// Which providers a given plan may save is checked separately below.
 const providerSchema = z.enum([
   "openai",
   "openai_search",
@@ -26,7 +29,13 @@ const providerSchema = z.enum([
   "bedrock_nova",
   "bedrock_llama",
   "bedrock_mistral",
-]);
+  "grok",
+  "deepseek",
+  "kimi",
+  "groq",
+  "minimax",
+  "sarvam",
+] as const satisfies readonly ProviderId[]);
 
 const patchSchema = z.object({
   currentStep: z.number().int().min(1).max(8).optional(),
@@ -233,7 +242,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ state: saved });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid onboarding update." }, { status: 400 });
+      const field = error.issues[0]?.path.join(".") || "request";
+      return NextResponse.json(
+        { error: `Invalid onboarding update (${field}).` },
+        { status: 400 },
+      );
     }
     const message =
       error instanceof Error ? error.message : "Failed to save onboarding";

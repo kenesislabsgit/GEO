@@ -11,7 +11,9 @@ export const METHODOLOGY_VERSION = "v1.2.0";
  * infrastructure detail; the stored `model` field keeps the exact route. */
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: "ChatGPT",
-  openai_search: "ChatGPT Search",
+  // Web search is how ChatGPT answers buyer questions, not a separate
+  // product buyers know - so it reads plain "ChatGPT" everywhere.
+  openai_search: "ChatGPT",
   claude: "Claude",
   gemini: "Gemini",
   perplexity: "Perplexity",

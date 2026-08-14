@@ -22,6 +22,7 @@ import {
   type OnboardingState,
 } from "@/types/onboarding";
 import type { ProviderId } from "@/types/database";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 import {
   providerDisplayName,
   SUPPORTED_COUNTRIES,
@@ -419,11 +420,12 @@ export function OnboardingWizard({
                     : "border-border bg-card hover:bg-muted/30",
                 )}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">
+                <div className="flex items-center gap-2.5">
+                  <ProviderLogo provider={provider} className="size-4 shrink-0" />
+                  <span className="truncate text-sm font-medium">
                     {providerDisplayName(provider)}
                   </span>
-                  {selected ? <Check className="size-4" /> : null}
+                  {selected ? <Check className="ml-auto size-4 shrink-0" /> : null}
                 </div>
               </button>
             );
