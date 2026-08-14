@@ -1,4 +1,4 @@
-import { FREE_AUDIT_PROVIDER } from "@/lib/constants";
+import { DEFAULT_SCAN_PROVIDERS, FREE_AUDIT_PROVIDER } from "@/lib/constants";
 import type { ProviderId } from "@/types/database";
 
 export type PlanId = "free" | "founder" | "growth" | "agency";
@@ -6,12 +6,14 @@ export type PlanId = "free" | "founder" | "growth" | "agency";
 export type PlanFeatures = {
   brands: number;
   activePrompts: number;
+  /** Every provider the plan may pick from. Can exceed providersPerScan. */
   providers: ProviderId[];
+  /** How many providers one audit can run at once. */
+  providersPerScan: number;
   competitorsPerBrand: number;
   countries: number;
   languages: number;
   providerChecksPerMonth: number;
-  teamSeats: number;
   weeklyMonitoring: boolean;
   dailyMonitoring: boolean;
   /** Pro+ and up: a slice of audit questions asked as a buyer in the
@@ -23,18 +25,16 @@ export type PlanFeatures = {
   citationGaps: boolean;
   shareOfVoice: boolean;
   actionCentre: boolean;
-  brandAccuracy: boolean;
   emailAlerts: boolean;
   publicPrivateReports: boolean;
   contentBriefs: boolean;
   impactTracking: boolean;
   pdfCsvExport: boolean;
-  whiteLabel: boolean;
-  clientDashboards: boolean;
-  customBranding: boolean;
-  bulkImport: boolean;
-  webhooks: boolean;
-  priorityScanning: boolean;
+  // Team seats, white-label reports, client dashboards, custom branding,
+  // bulk import, webhooks and priority scanning were flags with no
+  // implementation behind them. They were removed from the plans and the
+  // marketing pages rather than sold; add a flag back the day its feature
+  // actually exists.
 };
 
 export type PlanConfig = {
@@ -63,11 +63,11 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       brands: 1,
       activePrompts: 5,
       providers: [FREE_AUDIT_PROVIDER],
+      providersPerScan: 1,
       competitorsPerBrand: 1,
       countries: 1,
       languages: 1,
       providerChecksPerMonth: 5,
-      teamSeats: 1,
       weeklyMonitoring: false,
       dailyMonitoring: false,
       geoMarketSearch: false,
@@ -77,18 +77,11 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       citationGaps: false,
       shareOfVoice: false,
       actionCentre: false,
-      brandAccuracy: false,
       emailAlerts: false,
       publicPrivateReports: false,
       contentBriefs: false,
       impactTracking: false,
       pdfCsvExport: false,
-      whiteLabel: false,
-      clientDashboards: false,
-      customBranding: false,
-      bulkImport: false,
-      webhooks: false,
-      priorityScanning: false,
     },
   },
   founder: {
@@ -104,11 +97,11 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       brands: 1,
       activePrompts: 20,
       providers: ["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral"],
+      providersPerScan: 4,
       competitorsPerBrand: 5,
       countries: 1,
       languages: 1,
       providerChecksPerMonth: 400,
-      teamSeats: 1,
       weeklyMonitoring: true,
       dailyMonitoring: false,
       geoMarketSearch: false,
@@ -118,24 +111,17 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       citationGaps: true,
       shareOfVoice: true,
       actionCentre: true,
-      brandAccuracy: true,
       emailAlerts: true,
       publicPrivateReports: true,
       contentBriefs: false,
       impactTracking: false,
       pdfCsvExport: false,
-      whiteLabel: false,
-      clientDashboards: false,
-      customBranding: false,
-      bulkImport: false,
-      webhooks: false,
-      priorityScanning: false,
     },
   },
   growth: {
     id: "growth",
     name: "Pro+",
-    description: "Multi-website tracking, exports, and team seats.",
+    description: "Multi-website tracking, daily monitoring, and exports.",
     monthlyPriceUsd: 79,
     yearlyPriceUsd: 790,
     trialDays: 0,
@@ -144,12 +130,30 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     features: {
       brands: 5,
       activePrompts: 100,
-      providers: ["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral", "bedrock_nova"],
+      // Every provider here is genuinely wired into the audit engine - 
+      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the seven
+      // OpenAI-compatible ones. Providers without configured API keys show
+      // up as partial in scan results rather than silently vanishing.
+      providers: [
+        "openai_search",
+        "bedrock_claude",
+        "gemini",
+        "perplexity",
+        "grok",
+        "deepseek",
+        "bedrock_llama",
+        "bedrock_mistral",
+        "kimi",
+        "bedrock_nova",
+        "groq",
+        "minimax",
+        "sarvam",
+      ],
+      providersPerScan: 10,
       competitorsPerBrand: 10,
       countries: 5,
       languages: 5,
       providerChecksPerMonth: 2500,
-      teamSeats: 3,
       weeklyMonitoring: true,
       dailyMonitoring: true,
       geoMarketSearch: true,
@@ -159,24 +163,17 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       citationGaps: true,
       shareOfVoice: true,
       actionCentre: true,
-      brandAccuracy: true,
       emailAlerts: true,
       publicPrivateReports: true,
       contentBriefs: true,
       impactTracking: true,
       pdfCsvExport: true,
-      whiteLabel: false,
-      clientDashboards: false,
-      customBranding: false,
-      bulkImport: false,
-      webhooks: false,
-      priorityScanning: false,
     },
   },
   agency: {
     id: "agency",
     name: "Agency",
-    description: "White-label reports, bulk import, and webhooks.",
+    description: "Pro+ at agency scale: 20 websites and a 10k check allowance.",
     monthlyPriceUsd: 199,
     yearlyPriceUsd: 1990,
     trialDays: 0,
@@ -185,12 +182,30 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     features: {
       brands: 20,
       activePrompts: 500,
-      providers: ["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral", "bedrock_nova"],
+      // Every provider here is genuinely wired into the audit engine - 
+      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the seven
+      // OpenAI-compatible ones. Providers without configured API keys show
+      // up as partial in scan results rather than silently vanishing.
+      providers: [
+        "openai_search",
+        "bedrock_claude",
+        "gemini",
+        "perplexity",
+        "grok",
+        "deepseek",
+        "bedrock_llama",
+        "bedrock_mistral",
+        "kimi",
+        "bedrock_nova",
+        "groq",
+        "minimax",
+        "sarvam",
+      ],
+      providersPerScan: 10,
       competitorsPerBrand: 20,
       countries: 20,
       languages: 20,
       providerChecksPerMonth: 10000,
-      teamSeats: 10,
       weeklyMonitoring: true,
       dailyMonitoring: true,
       geoMarketSearch: true,
@@ -200,18 +215,11 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       citationGaps: true,
       shareOfVoice: true,
       actionCentre: true,
-      brandAccuracy: true,
       emailAlerts: true,
       publicPrivateReports: true,
       contentBriefs: true,
       impactTracking: true,
       pdfCsvExport: true,
-      whiteLabel: true,
-      clientDashboards: true,
-      customBranding: true,
-      bulkImport: true,
-      webhooks: true,
-      priorityScanning: true,
     },
   },
 };
@@ -252,6 +260,24 @@ export type EntitlementContext = {
 
 export function getFeaturesForPlan(plan: PlanId): PlanFeatures {
   return PLAN_CONFIG[plan].features;
+}
+
+/**
+ * The providers a scan runs when the user hasn't picked any: the default
+ * ten (in display order), topped up from the plan's catalog if needed, and
+ * always capped at what one audit may run. Every code path that starts a
+ * scan without an explicit selection must use this, not features.providers - 
+ * the catalog can be larger than a single audit.
+ */
+export function defaultScanProviders(plan: PlanId): ProviderId[] {
+  const { providers, providersPerScan } = PLAN_CONFIG[plan].features;
+  const preferred = DEFAULT_SCAN_PROVIDERS.filter((p) =>
+    providers.includes(p),
+  );
+  const rest = providers.filter(
+    (p) => !(DEFAULT_SCAN_PROVIDERS as readonly string[]).includes(p),
+  );
+  return [...preferred, ...rest].slice(0, providersPerScan);
 }
 
 export function hasFeature(

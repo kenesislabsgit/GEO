@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { getSessionUser, isAdminEmail } from "@/lib/auth/session";
 import Link from "next/link";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { countUnreadAlerts, getUserOnboarding } from "@/lib/db/repository";
+import {
+  countUnreadAlerts,
+  getUserOnboarding,
+  listBrandsForOwner,
+} from "@/lib/db/repository";
 import { routes } from "@/lib/routes";
 import { DashboardShell } from "@/components/dashboard/shell";
 
@@ -17,10 +21,11 @@ export default async function DashboardLayout({
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  const [account, unreadAlerts, onboarding] = await Promise.all([
+  const [account, unreadAlerts, onboarding, brands] = await Promise.all([
     getAccountEntitlements(user.id),
     countUnreadAlerts(user.id),
     getUserOnboarding(user.id),
+    listBrandsForOwner(user.id),
   ]);
   const paid =
     account.plan !== "free" &&
@@ -33,6 +38,7 @@ export default async function DashboardLayout({
       planName={paid ? account.planName : "Free"}
       paid={paid}
       unreadAlerts={unreadAlerts}
+      brands={brands.map((brand) => ({ id: brand.id, name: brand.name }))}
     >
       {setupPending ? (
         <Link
@@ -42,7 +48,7 @@ export default async function DashboardLayout({
           <span>
             <span className="font-medium">Finish setting up your plan</span>
             <span className="ml-2 text-muted-foreground">
-              Competitors, questions and monitoring — a few minutes.
+              Competitors, questions and monitoring - a few minutes.
             </span>
           </span>
           <span className="font-medium text-[color:var(--rb-accent)]">

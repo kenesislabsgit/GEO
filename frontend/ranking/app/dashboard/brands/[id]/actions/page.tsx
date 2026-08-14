@@ -23,7 +23,7 @@ import { CopyMasterPrompt } from "@/components/dashboard/copy-master-prompt";
 /**
  * Impact tracking, honestly scoped: the overall score when the action was
  * marked completed versus the overall score now. It shows correlation, not
- * causation — the copy says "since completing", never "because of".
+ * causation - the copy says "since completing", never "because of".
  */
 function scoreDeltaSince(
   scores: Array<{ overall_score: unknown; created_at: string }>,
@@ -88,7 +88,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
               Hand this plan to your AI coding tool
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              One prompt with every fix and its evidence — paste it into
+              One prompt with every fix and its evidence - paste it into
               Cursor, Claude Code or Windsurf inside your website&apos;s
               codebase and it implements the plan.
             </p>
@@ -252,7 +252,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                           <p className="text-[11px] font-medium uppercase text-muted-foreground">Proof on their website</p>
                           {/* The page title and the link, nothing more. The
                               extract underneath was a raw slice of somebody
-                              else's website — it opened with "Skip to main
+                              else's website - it opened with "Skip to main
                               content", carried stray markdown, and said
                               nothing the title had not already said. Anyone
                               who wants the words can open the page. */}

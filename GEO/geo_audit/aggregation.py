@@ -163,7 +163,11 @@ def aggregate_recommendations(
 
     return {
         "summary": {
-            "methodology_version": "v1.1.0",
+            # v1.2.0: sentiment removed from stored results (it was never
+            # measured), score breakdown stored verbatim with each snapshot,
+            # cost-ceiling partials introduced. Bump this whenever scoring
+            # rules change — history is compared within a version only.
+            "methodology_version": "v1.2.0",
             "responses_analyzed": len(raw_results),
             "unique_companies": len(competitor_stats),
             "top_competitor_count": min(top_n, len(competitor_stats)),

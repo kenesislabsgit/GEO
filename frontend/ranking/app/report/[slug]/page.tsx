@@ -43,7 +43,7 @@ async function loadReport(
 ): Promise<PublicReportDTO | null> {
   const brand = await getBrandBySlug(slug);
   if (!brand) return null;
-  // A private report stays reachable for its owner — the dashboard links
+  // A private report stays reachable for its owner - the dashboard links
   // straight here, and locking the owner out of their own report would make
   // the visibility toggle feel like deletion.
   if (brand.visibility !== "public" && !options?.allowPrivate) return null;
@@ -115,15 +115,14 @@ export default async function ReportPage({
             Report unavailable
           </h1>
           <p className="mt-3 text-muted-foreground">
-            No completed public audit was found for this website yet, or the
-            cached report has expired.
+            No completed public audit was found for this website yet.
           </p>
           <Button asChild className="mt-8">
             <Link
               href={
                 (await getSessionUser())
                   ? routes.newScan()
-                  : routes.publicScanAnchor
+                  : routes.freeAuditSignup
               }
             >
               Run a free audit
@@ -154,7 +153,9 @@ export default async function ReportPage({
           <div className="relative mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-[color:var(--rb-accent)] text-white hover:bg-[color:var(--rb-accent)]">
-                Public report
+                {brand.visibility === "private"
+                  ? "Private report"
+                  : "Public report"}
               </Badge>
               {report.scan.demoMode ? (
                 <Badge
@@ -201,7 +202,7 @@ export default async function ReportPage({
                       Avg position
                     </p>
                     <p className="mt-1 text-3xl font-semibold text-white md:text-4xl">
-                      {report.score.averagePosition ?? "—"}
+                      {report.score.averagePosition ?? " - "}
                     </p>
                   </div>
                   <div>

@@ -1,8 +1,8 @@
 /**
  * What the customer is told while an audit runs.
  *
- * The runner names its own steps for its own logs — "web_presence",
- * "extract_user_evidence" — and those names describe how the product is built
+ * The runner names its own steps for its own logs - "web_presence",
+ * "extract_user_evidence" - and those names describe how the product is built
  * rather than what the customer is getting. They used to reach the screen
  * verbatim. This file is the one place the wording is decided, so a tagline can
  * be changed without touching the runner or the components.

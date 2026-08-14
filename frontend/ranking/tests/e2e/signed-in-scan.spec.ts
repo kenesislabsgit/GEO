@@ -7,10 +7,17 @@ async function signUp(
 ) {
   // Real signup through Better Auth; the session cookie lands on the request
   // context. /api/auth/complete then decides where a fresh account goes.
-  const res = await page.request.post("/api/auth/sign-up/email", {
-    data: { email, password: "password1234", name: "Test User" },
-  });
-  expect(res.ok()).toBeTruthy();
+  // Better Auth rate-limits bursts of signups from one IP, so back off and
+  // retry rather than flaking when several tests sign up in a row.
+  let ok = false;
+  for (let attempt = 0; attempt < 5 && !ok; attempt++) {
+    const res = await page.request.post("/api/auth/sign-up/email", {
+      data: { email, password: "password1234", name: "Test User" },
+    });
+    ok = res.ok();
+    if (!ok) await page.waitForTimeout(3_000 * (attempt + 1));
+  }
+  expect(ok).toBeTruthy();
   const complete = await page.request.post("/api/auth/complete", {
     data: { returnTo },
   });
@@ -34,9 +41,8 @@ test("signed-in free user Run a scan stays inside the dashboard", async ({
   ).toBeVisible();
 
   // Must NOT be the public homepage hero.
-  await expect(page).not.toHaveURL(/\/#scan/);
   await expect(
-    page.getByRole("heading", { name: /Does AI recommend your company/i }),
+    page.getByRole("heading", { name: /See what AI tells your buyers/i }),
   ).toHaveCount(0);
 
   // Zero-website accounts are routed directly into the dashboard audit flow.
@@ -44,30 +50,37 @@ test("signed-in free user Run a scan stays inside the dashboard", async ({
   await expect(page).toHaveURL(/\/dashboard\/scans\/new/);
 });
 
-test("brand-specific Run scan preselects brand query param", async ({
+test("audit start enqueues a durable scan the dashboard can see", async ({
   page,
 }) => {
-  const email = `scan-brand-${Date.now()}@example.com`;
+  const email = `scan-queue-${Date.now()}@example.com`;
   await signUp(page, email);
 
-  // Create a brand via dashboard start API so we have something to preselect.
-  const startRes = await page.request.post("/api/scans/dashboard/start", {
-    data: { domain: `brand-${Date.now()}.example.com` },
+  // The one audit entry point. Without a worker running, the scan sits
+  // durably queued — visible, cancellable, never lost.
+  const start = await page.request.post("/api/audit-run/start", {
+    data: { domain: `queue-e2e-${Date.now()}.example.com`, mode: "free" },
   });
-  // May succeed (new scan) or fail on network/demo — either way we only assert routing.
-  if (startRes.ok()) {
-    const body = (await startRes.json()) as { brandId: string; scanRunId: string };
-    await page.goto(`/dashboard/brands/${body.brandId}`);
-    await page.getByRole("link", { name: /Run scan/i }).click();
-    await expect(page).toHaveURL(
-      new RegExp(`/dashboard/scans/new\\?brand=${body.brandId}`),
-    );
-  } else {
-    // Fallback: direct navigation with a fake brand id still stays in dashboard.
-    await page.goto("/dashboard/scans/new?brand=00000000-0000-0000-0000-000000000001");
-    await expect(page).toHaveURL(/\/dashboard\/scans\/new/);
-    await expect(page).not.toHaveURL(/\/#scan/);
-  }
+  expect(start.ok()).toBeTruthy();
+  const body = (await start.json()) as { scanRunId: string; brandId: string };
+  expect(body.scanRunId).toBeTruthy();
+
+  const progress = await page.request.get(
+    `/api/scans/${body.scanRunId}/progress`,
+  );
+  expect(progress.ok()).toBeTruthy();
+  const state = (await progress.json()) as { status: string };
+  expect(["queued", "running"]).toContain(state.status);
+
+  // Cancel it so the test leaves no queued work behind.
+  const cancel = await page.request.post(
+    `/api/scans/${body.scanRunId}/cancel`,
+  );
+  expect(cancel.ok()).toBeTruthy();
+
+  // The audit history page shows the cancelled run.
+  await page.goto("/dashboard/scans");
+  await expect(page.getByText("cancelled").first()).toBeVisible();
 });
 
 test("after sign-in, returnTo restores the requested dashboard page", async ({
@@ -77,24 +90,4 @@ test("after sign-in, returnTo restores the requested dashboard page", async ({
   await signUp(page, email, "/dashboard/billing");
   await page.waitForURL(/\/dashboard\/billing/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: /Billing/i })).toBeVisible();
-});
-
-test("paid-plan checkout simulation returns to intended scan page", async ({
-  page,
-}) => {
-  const email = `paid-${Date.now()}@example.com`;
-  await signUp(page, email);
-
-  await page.goto(
-    `/dashboard/billing?plan=founder&returnTo=${encodeURIComponent("/dashboard/scans/new")}`,
-  );
-  await page.getByRole("button", { name: /Subscribe monthly/i }).first().click();
-  await page.waitForURL(/\/dashboard\/scans\/new/, { timeout: 15_000 });
-
-  // If they already have a brand from a prior step, premium chips appear;
-  // otherwise the add-brand form remains — either way, never the homepage.
-  await expect(page).not.toHaveURL(/\/#scan/);
-  await expect(
-    page.getByRole("heading", { name: /Does AI recommend your company/i }),
-  ).toHaveCount(0);
 });

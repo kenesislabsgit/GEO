@@ -35,7 +35,7 @@ export function computeBands(
       })
     }
     // Only fall back to a unit span when there's no range at all (empty /
-    // all-zero) — a purely negative series keeps max = 0 so the baseline
+    // all-zero) - a purely negative series keeps max = 0 so the baseline
     // stays pinned to the top of the plot.
     const flat = max === 0 && min === 0
     return { bands, max: flat ? 1 : max, min }
@@ -69,7 +69,7 @@ export function buildXScale(length: number, plotWidth: number) {
     .range([0, plotWidth])
 }
 
-/** Banded x for bar categories — each index owns a slot of `bandwidth` width. */
+/** Banded x for bar categories - each index owns a slot of `bandwidth` width. */
 export function buildBandScale(length: number, plotWidth: number) {
   return scaleBand<number>()
     .domain(Array.from({ length }, (_, i) => i))

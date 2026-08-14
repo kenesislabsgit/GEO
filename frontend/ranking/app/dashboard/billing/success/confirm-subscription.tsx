@@ -41,11 +41,14 @@ export function ConfirmSubscription({
     [returnTo],
   );
 
+  // The poll re-arms itself via this ref so the callback never has to name
+  // itself before it exists.
+  const pollRef = useRef<() => Promise<void>>(async () => {});
   const poll = useCallback(async () => {
     let status: BillingStatus | null = null;
     try {
       if (!askedServer.current) {
-        // First ask the server to reconcile with Dodo directly — webhooks
+        // First ask the server to reconcile with Dodo directly - webhooks
         // can be slow, and on localhost they never arrive at all.
         askedServer.current = true;
         const res = await fetch(routes.api.billingConfirm, {
@@ -72,10 +75,11 @@ export function ConfirmSubscription({
       setState("slow");
       return;
     }
-    timer.current = setTimeout(() => void poll(), POLL_MS);
+    timer.current = setTimeout(() => void pollRef.current(), POLL_MS);
   }, [router, subscriptionId]);
 
   useEffect(() => {
+    pollRef.current = poll;
     void poll();
     return () => {
       if (timer.current) clearTimeout(timer.current);
@@ -93,7 +97,7 @@ export function ConfirmSubscription({
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Your payment provider is telling us the payment went through.
-              This usually takes a few seconds — you can leave this page and
+              This usually takes a few seconds - you can leave this page and
               your plan will still activate.
             </p>
           </>
@@ -125,7 +129,7 @@ export function ConfirmSubscription({
               Taking longer than usual
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your payment is not lost — confirmation is just slow to arrive.
+              Your payment is not lost - confirmation is just slow to arrive.
               Check again in a moment, or come back later; your plan activates
               automatically once confirmation lands.
             </p>

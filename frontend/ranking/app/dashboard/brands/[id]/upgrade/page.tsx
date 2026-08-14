@@ -3,7 +3,7 @@ import { UpgradeAuditProgress } from "@/components/dashboard/upgrade-audit-progr
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
-import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { defaultScanProviders } from "@/lib/billing/entitlements";
 import { getBrandById } from "@/lib/db/repository";
 import { routes } from "@/lib/routes";
 
@@ -33,7 +33,7 @@ export default async function UpgradeAuditPage({
     <UpgradeAuditProgress
       brandId={brand.id}
       domain={brand.canonical_domain}
-      providers={[...PLAN_CONFIG[entitlements.plan].features.providers]}
+      providers={defaultScanProviders(entitlements.plan)}
     />
   );
 }

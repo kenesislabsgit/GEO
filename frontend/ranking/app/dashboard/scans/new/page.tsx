@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { PLAN_CONFIG, defaultScanProviders } from "@/lib/billing/entitlements";
 import {
   getLatestScanForBrand,
   getPrompts,
@@ -90,7 +90,9 @@ export default async function NewScanPage({
         <AddBrandScanForm
           isPaid={isPaid}
           brandLimitReached={false}
-          providers={isPaid ? [...plan.features.providers] : [FREE_AUDIT_PROVIDER]}
+          providers={
+            isPaid ? defaultScanProviders(entitlements.plan) : [FREE_AUDIT_PROVIDER]
+          }
           initialDomain={params.domain}
         />
       ) : (
@@ -103,21 +105,25 @@ export default async function NewScanPage({
               name: entitlements.planName,
               isPaid,
               allowedProviders: plan.features.providers,
+              providersPerScan: plan.features.providersPerScan,
               countries: plan.features.countries,
               languages: plan.features.languages,
               checksLimit: plan.features.providerChecksPerMonth,
               checksUsed: entitlements.providerChecksUsed,
             }}
           />
-          {isPaid && !brandLimitReached ? (
-            <div className="border-t border-border pt-8">
+          {isPaid ? (
+            // Always render for paid accounts: under the limit it is the add
+            // form, at the limit it explains the cap and offers the upgrade - 
+            // never a silently missing button.
+            <div id="add-website" className="scroll-mt-24 border-t border-border pt-8">
               <h2 className="mb-4 text-sm font-semibold tracking-tight">
-                Or add another website
+                Add another website
               </h2>
               <AddBrandScanForm
                 isPaid={isPaid}
-                brandLimitReached={false}
-                providers={[...plan.features.providers]}
+                brandLimitReached={brandLimitReached}
+                providers={defaultScanProviders(entitlements.plan)}
               />
             </div>
           ) : null}

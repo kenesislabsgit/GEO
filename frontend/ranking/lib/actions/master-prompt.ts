@@ -6,7 +6,7 @@ import { meaningfulGaps, parseEvidence } from "@/lib/actions/evidence";
  * pastes it into Cursor, Claude Code, Windsurf or similar, pointed at their
  * website's codebase, and the tool implements the audit's fixes with the
  * evidence in front of it. Everything in here is already visible on the
- * Website Improvements page — this is a rewording, not a data leak.
+ * Website Improvements page - this is a rewording, not a data leak.
  */
 export function buildMasterPrompt(input: {
   brand: Brand;
@@ -44,10 +44,10 @@ export function buildMasterPrompt(input: {
   lines.push("");
 
   lines.push("## How to work");
-  lines.push("1. Work through the fixes in order — they are sorted by priority.");
+  lines.push("1. Work through the fixes in order - they are sorted by priority.");
   lines.push(
     "2. For each fix, find the right place in the site (page, section, component) and make the change. " +
-      "Write real, specific content — never lorem ipsum or placeholders.",
+      "Write real, specific content - never lorem ipsum or placeholders.",
   );
   lines.push(
     "3. Match the site's existing tone, design system and stack. Do not restructure unrelated code.",
@@ -59,7 +59,7 @@ export function buildMasterPrompt(input: {
   lines.push(
     "5. When a fix cites competitor pages, study how they present the information, then write a stronger, " +
       "truthful version for this company. Never copy their text and never invent facts, numbers, customers " +
-      "or integrations — if a fact is missing, leave a clearly marked TODO for the team instead.",
+      "or integrations - if a fact is missing, leave a clearly marked TODO for the team instead.",
   );
   lines.push("6. After each fix, summarise what changed and in which files.");
   lines.push("");
@@ -83,11 +83,11 @@ export function buildMasterPrompt(input: {
         let line = `- "${item.prompt}"`;
         const winner = item.winners?.[0];
         if (winner?.company_name) {
-          line += ` — the AI recommended ${winner.company_name}`;
+          line += ` - the AI recommended ${winner.company_name}`;
           if (winner.rank) line += ` (#${winner.rank})`;
           if (winner.reason) line += ` because: ${winner.reason}`;
         } else if (item.recommended_instead?.length) {
-          line += ` — the AI recommended ${item.recommended_instead.slice(0, 3).join(", ")} instead`;
+          line += ` - the AI recommended ${item.recommended_instead.slice(0, 3).join(", ")} instead`;
         }
         lines.push(line);
       }
@@ -114,7 +114,7 @@ export function buildMasterPrompt(input: {
       for (const source of linkedSources.slice(0, 3)) {
         const label = [source.company_name, source.page_title || source.label || source.title]
           .filter(Boolean)
-          .join(" — ");
+          .join(" - ");
         lines.push(`- ${label ? `${label}: ` : ""}${source.url}`);
       }
     }

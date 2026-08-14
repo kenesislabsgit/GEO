@@ -13,7 +13,7 @@ import {
 
 type Bars = { top: number[]; base: number[] } // per data index, in backing rows
 
-// Fraction of the timeline spent staggering bar starts — the rest is each bar's
+// Fraction of the timeline spent staggering bar starts - the rest is each bar's
 // own grow window, so the rise sweeps across the chart as a wave.
 const STAGGER = 0.55
 
@@ -35,7 +35,7 @@ export function BarCanvas() {
 
   // Memoized: per-series bar tops/bases (backing rows) over the data indices.
   // The canvas re-renders on every hover/cursor tick, so pin this map to the
-  // exact ctx fields it reads plus the backing geometry — a bar hover must not
+  // exact ctx fields it reads plus the backing geometry - a bar hover must not
   // rebuild every band's geometry.
   const targets = useMemo(() => {
     const out: Record<string, Bars> = {}
@@ -53,7 +53,7 @@ export function BarCanvas() {
   }, [ready, configKeys, bands, y, height, rows])
 
   // The RAF loop reads these through refs so it always sees the latest values;
-  // refs are written in an effect (never during render) — mutating a ref
+  // refs are written in an effect (never during render) - mutating a ref
   // mid-render tears under Strict Mode / concurrent rendering.
   const state = useRef(ctx)
   const targetsRef = useRef(targets)
@@ -105,7 +105,7 @@ export function BarCanvas() {
           const base = t.base[i] ?? rows - 1
           const grown = base + ((t.top[i] ?? base) - base) * bp
           // Bars grow from the zero baseline toward the value. Positive values
-          // sit above the baseline (smaller pixel), negative ones below it —
+          // sit above the baseline (smaller pixel), negative ones below it - 
           // paintColumn wants the higher edge first, so order the pair.
           const top = Math.min(grown, base)
           const bottom = Math.max(grown, base)

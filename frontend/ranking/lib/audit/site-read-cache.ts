@@ -5,7 +5,6 @@ import {
   copyFile,
   mkdir,
   readFile,
-  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -17,7 +16,7 @@ import { renameWithRetry, writeFileAtomic } from "@/lib/utils/atomic-file";
  * Shared website reads.
  *
  * Several people may audit the same website. The only thing worth sharing
- * between their audits is the raw read of that website — the pages we fetched.
+ * between their audits is the raw read of that website - the pages we fetched.
  * Everything after that (company profile, buyer questions, provider answers,
  * score, report) is generated per audit and never shared.
  *
@@ -209,7 +208,7 @@ export async function acquireSiteRead(
     }
 
     // Another audit for the same website is reading it right now. Wait for it.
-    options.onWait?.("Another audit is reading this website — waiting for it");
+    options.onWait?.("Another audit is reading this website - waiting for it");
     const deadline = Date.now() + maxWaitMs();
     while (Date.now() < deadline) {
       await sleep(1500);
@@ -228,7 +227,7 @@ export async function acquireSiteRead(
         return {
           snapshotPath: null,
           waited: true,
-          note: "The earlier website read did not finish — reading the website for this audit",
+          note: "The earlier website read did not finish - reading the website for this audit",
           ageHours: null,
           publish: (runDir) => publishRead(dir, domain, runDir),
           release: () => releaseLease(dir, holder),

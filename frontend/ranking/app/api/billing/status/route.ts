@@ -5,7 +5,7 @@ import { getLatestSubscription, getUserOnboarding } from "@/lib/db/repository";
 /**
  * What the signed-in user's subscription actually is, straight from the
  * database the webhook and confirm endpoint write into. The payment success
- * page polls this — query parameters from the checkout redirect are never
+ * page polls this - query parameters from the checkout redirect are never
  * trusted. Latest row whatever its status, so a past_due plan shows as
  * past_due instead of silently reading as "free".
  */

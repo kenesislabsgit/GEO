@@ -35,6 +35,133 @@ class LLMNotConfigured(RuntimeError):
     pass
 
 
+# ── OpenAI-compatible providers ──────────────────────────────────────────────
+# Perplexity, Grok (xAI), DeepSeek, Kimi (Moonshot), Groq, MiniMax and Sarvam
+# all speak the OpenAI chat-completions dialect, so one caller serves them
+# all. Each entry: accepted key env vars (first present wins), the API base
+# (overridable via <ID>_API_BASE), and the default model (overridable via
+# <ID>_MODEL). A missing key raises LLMNotConfigured, which the pipeline
+# records per-question and reports the provider as partial — same contract
+# as every other provider here.
+
+OPENAI_COMPAT_PROVIDERS: dict[str, dict[str, Any]] = {
+    "perplexity": {
+        "key_envs": ("PERPLEXITY_API_KEY",),
+        "base": "https://api.perplexity.ai",
+        "model": "sonar",
+    },
+    "grok": {
+        "key_envs": ("XAI_API_KEY", "GROK_API_KEY"),
+        "base": "https://api.x.ai/v1",
+        "model": "grok-3-mini",
+    },
+    "deepseek": {
+        "key_envs": ("DEEPSEEK_API_KEY",),
+        "base": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+    },
+    "kimi": {
+        "key_envs": ("MOONSHOT_API_KEY", "KIMI_API_KEY"),
+        "base": "https://api.moonshot.ai/v1",
+        "model": "kimi-k2-0711-preview",
+    },
+    "groq": {
+        "key_envs": ("GROQ_API_KEY",),
+        "base": "https://api.groq.com/openai/v1",
+        "model": "llama-3.3-70b-versatile",
+    },
+    "minimax": {
+        "key_envs": ("MINIMAX_API_KEY",),
+        "base": "https://api.minimax.io/v1",
+        "model": "MiniMax-M1",
+    },
+    "sarvam": {
+        "key_envs": ("SARVAM_API_KEY",),
+        "base": "https://api.sarvam.ai/v1",
+        "model": "sarvam-m",
+        # Sarvam also accepts its subscription-key header; sending both makes
+        # either auth scheme work without configuration.
+        "extra_key_header": "api-subscription-key",
+    },
+}
+
+
+def openai_compatible_assistants() -> set[str]:
+    return set(OPENAI_COMPAT_PROVIDERS)
+
+
+def call_openai_compatible(
+    provider: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str | None = None,
+    temperature: float = 0.2,
+) -> tuple[str, dict[str, Any]]:
+    load_dotenv(override=True)
+    config = OPENAI_COMPAT_PROVIDERS[provider]
+    env_prefix = provider.upper()
+
+    api_key = next(
+        (os.environ[name] for name in config["key_envs"] if os.environ.get(name)),
+        None,
+    )
+    if not api_key:
+        raise LLMNotConfigured(
+            f"Set {config['key_envs'][0]} to query {provider}."
+        )
+
+    api_base = (
+        os.environ.get(f"{env_prefix}_API_BASE") or config["base"]
+    ).rstrip("/")
+    resolved_model = (
+        model or os.environ.get(f"{env_prefix}_MODEL") or config["model"]
+    )
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    extra_header = config.get("extra_key_header")
+    if extra_header:
+        headers[extra_header] = api_key
+
+    payload = {
+        "model": resolved_model,
+        "temperature": temperature,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    request = Request(
+        f"{api_base}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=120) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"{provider} request failed: {exc.code} {detail[:500]}"
+        ) from exc
+    except URLError as exc:
+        raise RuntimeError(f"{provider} request failed: {exc}") from exc
+
+    content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+    if not content:
+        raise RuntimeError(f"{provider} returned an empty answer.")
+    metadata = {
+        "model": body.get("model") or resolved_model,
+        "usage": body.get("usage") or {},
+    }
+    return content, metadata
+
+
 def build_chat_payload(
     system_prompt: str,
     user_prompt: str,

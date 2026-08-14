@@ -7,8 +7,7 @@ import {
   PLAN_CONFIG,
 } from "@/lib/billing/entitlements";
 import { PRO_AUDIT_QUESTION_COUNT } from "@/lib/constants";
-import { withIdempotency } from "@/lib/rate-limit";
-import { startDetachedAudit } from "@/lib/audit/runner";
+import { enqueueScan } from "@/lib/scans/queue";
 import {
   getBrandById,
   getPrompts,
@@ -48,9 +47,11 @@ export async function POST() {
     }
 
     const plan = PLAN_CONFIG[entitlements.plan];
-    const providers = state.providers.filter((p) =>
-      plan.features.providers.includes(p),
-    ) as ProviderId[];
+    const providers = (
+      state.providers.filter((p) =>
+        plan.features.providers.includes(p),
+      ) as ProviderId[]
+    ).slice(0, plan.features.providersPerScan);
     if (providers.length === 0) {
       return NextResponse.json(
         { error: "Select at least one provider." },
@@ -100,41 +101,44 @@ export async function POST() {
       );
     }
 
-    const estimatedChecks = activePrompts.length * providers.length;
-    const remaining =
-      plan.features.providerChecksPerMonth - entitlements.providerChecksUsed;
-    if (estimatedChecks > remaining) {
-      return NextResponse.json(
-        {
-          error: `This scan needs ${estimatedChecks} AI checks but only ${Math.max(remaining, 0)} remain this month.`,
-          code: "usage_exceeded",
-        },
-        { status: 402 },
-      );
-    }
+    // The wizard's exact curated questions, asked verbatim by the engine.
+    const promptSlice = activePrompts
+      .slice(0, PRO_AUDIT_QUESTION_COUNT)
+      .map((p) => ({ id: p.id, prompt: p.prompt }));
 
-    const idempotent = await withIdempotency(
-      `onboarding-scan:${user.id}:${brand.id}`,
-      120,
-    );
-    if (!idempotent) {
-      return NextResponse.json(
-        { error: "A scan is already starting for this brand.", code: "in_progress" },
-        { status: 409 },
-      );
-    }
-
-    // The real Python audit, detached from this request — the same runner
-    // every other audit uses. The old TypeScript engine and its queue are
-    // deliberately not called from here any more.
-    const started = await startDetachedAudit({
-      domain: brand.canonical_domain,
-      mode: "pro",
-      assistants: providers,
-      limitPerAssistant: Math.min(activePrompts.length, PRO_AUDIT_QUESTION_COUNT),
-      userId: user.id,
+    // One queue, one engine: the same enqueue path a manual audit uses, with
+    // everything the wizard collected frozen into the input snapshot.
+    const result = await enqueueScan({
       brand,
+      initiatedBy: user.id,
+      scanType: "manual",
+      snapshot: {
+        domain: brand.canonical_domain,
+        mode: "pro",
+        assistants: providers,
+        limit_per_assistant: promptSlice.length,
+        prompts: promptSlice,
+        country: state.country.toLowerCase(),
+        language: state.language.toLowerCase(),
+        geo_market: plan.features.geoMarketSearch,
+        geo_market_name: null,
+        ip_hash: null,
+        plan: plan.id,
+        question_count: promptSlice.length,
+        methodology_version_requested: null,
+        trigger_source: "onboarding",
+        cost_ceiling_usd: Number(process.env.SCAN_COST_CEILING_USD ?? "2.50"),
+        resume: false,
+      },
+      idempotencyKey: `onboarding:${user.id}:${brand.id}`,
+      checksLimit: plan.features.providerChecksPerMonth,
     });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error, code: "usage_exceeded" },
+        { status: result.status },
+      );
+    }
 
     await upsertBrandMonitoringSettings(brand.id, {
       monitoringFrequency: state.monitoringFrequency,
@@ -153,8 +157,8 @@ export async function POST() {
     });
 
     return NextResponse.json({
-      scanRunId: started.scanRunId,
-      brandId: started.brandId,
+      scanRunId: result.scan.id,
+      brandId: brand.id,
       completed: true,
     });
   } catch (error) {

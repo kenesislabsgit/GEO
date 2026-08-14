@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 
 export type ExplorerCitation = {
   url: string;
@@ -85,16 +86,15 @@ function QuestionCard({
             {question.answers.map((answer) => (
               <span
                 key={answer.id}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-0.5 text-xs"
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+                  answer.mentioned
+                    ? "border-[color:var(--rb-green)]/30 bg-[color:var(--rb-green)]/5"
+                    : "border-border bg-muted opacity-70"
+                }`}
               >
-                <span
-                  aria-hidden
-                  className="size-1.5 rounded-full"
-                  style={{
-                    background: answer.mentioned
-                      ? "var(--rb-green)"
-                      : "var(--border)",
-                  }}
+                <ProviderLogo
+                  provider={answer.provider}
+                  className={answer.mentioned ? "size-3" : "size-3 grayscale"}
                 />
                 <span className="font-medium">{answer.assistantName}</span>
                 <span
@@ -142,7 +142,12 @@ function AnswerBlock({
     <div className="grid gap-5 px-5 py-5 lg:grid-cols-[1fr_240px]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="rb-eyebrow">{answer.assistantName}</p>
+          <span className="flex size-6 items-center justify-center rounded-full border border-border bg-background">
+            <ProviderLogo provider={answer.provider} className="size-3.5" />
+          </span>
+          <p className="text-sm font-semibold tracking-tight">
+            {answer.assistantName}
+          </p>
           <span
             className={`text-xs ${answer.mentioned ? "text-[color:var(--rb-green)]" : "text-muted-foreground"}`}
           >

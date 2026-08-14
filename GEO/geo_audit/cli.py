@@ -13,6 +13,7 @@ from .audit_recommendations import (
 )
 from .comparison import compare_user_to_competitors
 from .competitor_evidence import build_competitor_evidence
+from .costs import tracker as cost_tracker
 from .crawler import crawl_website, ensure_url
 from .evidence import build_website_evidence
 from .export import build_frontend_export
@@ -739,6 +740,24 @@ def main() -> None:
         action="store_true",
         help="Use the fast five-question free audit path.",
     )
+    run_parser.add_argument(
+        "--questions-file",
+        help=(
+            "Path to a JSON list of buyer questions to ask verbatim, instead "
+            "of generating questions from the website. Each entry is a string "
+            "or an object with a 'prompt' key. This is how a user's saved "
+            "tracked questions are actually executed."
+        ),
+    )
+    run_parser.add_argument(
+        "--max-cost-usd",
+        type=float,
+        help=(
+            "Stop starting new provider calls once the run's estimated spend "
+            "crosses this many US dollars. The run finishes with what it has "
+            "and is marked partial."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1148,6 +1167,7 @@ def main() -> None:
 
     if args.command == "run":
         run_dir = make_run_dir(Path(args.output_dir), args.url)
+        cost_tracker.reset(args.max_cost_usd)
         firecrawl_client = FirecrawlClient.from_environment()
         resume_dir = Path(args.resume_from).resolve() if args.resume_from else None
         existing_results: list[dict[str, object]] = []
@@ -1313,7 +1333,22 @@ def main() -> None:
             # their answers, and nothing ever read the guess, so a paid run was
             # buying an AI call whose output went straight to disk and stayed
             # there.
-            if args.free_preview:
+            if args.questions_file:
+                # The user's saved questions, asked verbatim. Question
+                # generation is for first audits that have none yet.
+                loaded = json.loads(
+                    Path(args.questions_file).read_text(encoding="utf-8")
+                )
+                prompts = [
+                    {"prompt": item} if isinstance(item, str) else dict(item)
+                    for item in loaded
+                    if (item if isinstance(item, str) else item.get("prompt"))
+                ][: args.limit_per_assistant]
+                if not prompts:
+                    raise SystemExit("--questions-file contained no questions.")
+                prompts_payload = {"source": "questions_file", "count": len(prompts)}
+                prompts_error = None
+            elif args.free_preview:
                 prompts, prompts_payload, prompts_error = (
                     generate_free_customer_intents(profile)
                 )
@@ -1666,6 +1701,15 @@ def main() -> None:
             # instead of silently vanishing from the scan.
             requested_assistants=list(args.assistants),
         )
+        # A run that hit its spend ceiling did not ask everything it was
+        # asked to ask; the scan must say so instead of passing as complete.
+        if cost_tracker.exceeded():
+            export["scan"]["status"] = "partial"
+            partial = export["scan"].setdefault("partial_providers", [])
+            if "cost_ceiling" not in partial:
+                partial.append("cost_ceiling")
+        export["scan"]["estimated_cost_usd"] = cost_tracker.total_usd
+
         export_path = run_dir / "audit_export.json"
         export_path.write_text(
             json.dumps(export, indent=2, ensure_ascii=False),
@@ -1683,6 +1727,7 @@ def main() -> None:
                     "responses_collected": len(raw_results),
                     "collection_errors": len(errors),
                     "overall_score": export["score"]["overall_score"],
+                    "estimated_cost_usd": cost_tracker.total_usd,
                 },
                 ensure_ascii=False,
             )

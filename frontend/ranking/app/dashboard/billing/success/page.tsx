@@ -31,7 +31,7 @@ export default async function BillingSuccessPage({
   if (!user) redirect(routes.login({ returnTo: routes.billingSuccess() }));
   const params = await searchParams;
 
-  // The one thing the redirect may tell us is that the person cancelled —
+  // The one thing the redirect may tell us is that the person cancelled - 
   // showing the cancelled state is harmless even if the parameter lies,
   // because no entitlement is granted or removed by it.
   if (params.status === "cancelled" || params.status === "canceled") {

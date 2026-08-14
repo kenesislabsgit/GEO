@@ -1,14 +1,15 @@
-import { Pool, types } from "pg";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { Pool, types, type PoolClient } from "pg";
 
 /**
  * The one Postgres connection pool for the whole app. Locally this is the
- * geo_dev database; in production it is RDS. Same schema, same code — only
+ * geo_dev database; in production it is RDS. Same schema, same code - only
  * DATABASE_URL changes.
  */
 
 // The driver returns numeric and bigint columns as strings, because they can
-// exceed what a JS number holds. Ours never do — they are scores, counts and
-// costs — and every caller expects numbers, so convert at the edge once.
+// exceed what a JS number holds. Ours never do - they are scores, counts and
+// costs - and every caller expects numbers, so convert at the edge once.
 types.setTypeParser(types.builtins.NUMERIC, (v) => parseFloat(v));
 types.setTypeParser(types.builtins.INT8, (v) => Number(v));
 
@@ -44,12 +45,45 @@ export function getPool(): Pool {
   return global.__rbaiPgPool;
 }
 
+// When code runs inside withTransaction, every helper in this file must use
+// that transaction's client instead of grabbing a fresh pool connection - 
+// otherwise "BEGIN" happens on one connection and the writes on another,
+// which is no transaction at all. AsyncLocalStorage carries the client down
+// the call stack without threading it through 45 repository signatures.
+const txStorage = new AsyncLocalStorage<PoolClient>();
+
+function runner(): Pick<Pool, "query"> {
+  return txStorage.getStore() ?? getPool();
+}
+
+/**
+ * Run `fn` inside one database transaction. Every q/one/exec/insertRow/
+ * updateRow call made (directly or indirectly) by `fn` joins the same
+ * transaction. Commits when `fn` resolves, rolls back when it throws.
+ * Nested calls join the outer transaction rather than opening a second one.
+ */
+export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (txStorage.getStore()) return fn();
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    const result = await txStorage.run(client, fn);
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 /** Run a query, get all rows. */
 export async function q<T = Record<string, unknown>>(
   text: string,
   params: unknown[] = [],
 ): Promise<T[]> {
-  const result = await getPool().query(text, params);
+  const result = await runner().query(text, params);
   return result.rows as T[];
 }
 
@@ -67,7 +101,7 @@ export async function exec(
   text: string,
   params: unknown[] = [],
 ): Promise<number> {
-  const result = await getPool().query(text, params);
+  const result = await runner().query(text, params);
   return result.rowCount ?? 0;
 }
 

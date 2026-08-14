@@ -10,7 +10,7 @@ import {
 import { routes } from "@/lib/routes";
 import { providerDisplayName } from "@/lib/constants";
 import { ProviderLogo } from "@/components/providers/provider-logo";
-import { roundForDisplay } from "@/lib/ai/scoring/score";
+import { roundForDisplay } from "@/lib/scores/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
@@ -25,6 +25,8 @@ const STATUS_STYLES: Record<ScanStatus, string> = {
   cancelled: "bg-muted text-muted-foreground",
   running: "bg-[color:var(--rb-accent-soft)] text-[color:var(--rb-accent)]",
   queued: "bg-muted text-muted-foreground",
+  cancel_requested: "bg-muted text-muted-foreground",
+  timed_out: "bg-destructive/10 text-destructive",
 };
 
 export default async function ScansPage() {
@@ -164,7 +166,7 @@ export default async function ScansPage() {
                           ) : null}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground"> - </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">

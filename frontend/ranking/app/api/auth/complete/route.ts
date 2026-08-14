@@ -1,34 +1,27 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
-import {
-  claimOrCopyBrand,
-  getBrandBySlug,
-  listBrandsForOwner,
-} from "@/lib/db/repository";
+import { listBrandsForOwner } from "@/lib/db/repository";
 import { routes, safeReturnTo } from "@/lib/routes";
 
 export const runtime = "nodejs";
 
-// Where to send someone who has just signed in, and the one side effect that
-// must happen at that moment: attaching a report they audited anonymously to
-// the account they just made. Both login methods land here — the email form
-// calls POST, Google comes back through GET — so the rules live once.
+// Where to send someone who has just signed in. Claiming a report is no
+// longer a login side effect - ownership needs domain verification, so a
+// pending claim just lands on the claim page to start it.
 
 async function resolveRedirect(input: {
   userId: string;
   claim: string | null;
   returnTo: string | null;
 }): Promise<string> {
-  if (input.claim) {
-    const brand = await getBrandBySlug(input.claim);
-    if (brand) await claimOrCopyBrand(brand.id, input.userId);
-    return `${routes.brands}?claimed=${encodeURIComponent(input.claim)}`;
+  if (input.claim && /^[a-z0-9-]{1,80}$/.test(input.claim)) {
+    return `/claim/${input.claim}`;
   }
   const returnTo = safeReturnTo(input.returnTo);
   if (returnTo) return returnTo;
 
   // New accounts with nothing to show yet go straight into the signed-in
-  // scan flow — never the public homepage hero.
+  // scan flow - never the public homepage hero.
   const brands = await listBrandsForOwner(input.userId);
   if (brands.length === 0) return routes.newScan();
   return routes.dashboard;

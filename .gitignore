@@ -56,3 +56,4 @@ webapp_ss/
 .DS_Store
 Thumbs.db
 .git.disabled-*/
+GEO/Python/

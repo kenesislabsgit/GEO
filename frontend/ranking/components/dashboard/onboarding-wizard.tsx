@@ -44,6 +44,7 @@ type PlanInfo = {
   id: string;
   name: string;
   providers: ProviderId[];
+  providersPerScan: number;
   competitorsPerBrand: number;
   countries: number;
   languages: number;
@@ -135,6 +136,8 @@ export function OnboardingWizard({
         if (selected.size === 1) return prev;
         selected.delete(id as OnboardingState["providers"][number]);
       } else {
+        // The plan offers more providers than one audit can run.
+        if (selected.size >= plan.providersPerScan) return prev;
         selected.add(id as OnboardingState["providers"][number]);
       }
       return { ...prev, providers: [...selected] as OnboardingState["providers"] };
@@ -394,7 +397,14 @@ export function OnboardingWizard({
       ) : null}
 
       {step === 4 ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-3">
+          {plan.providers.length > plan.providersPerScan ? (
+            <p className="text-xs text-muted-foreground">
+              {state.providers.length} of {plan.providersPerScan} selected - 
+              deselect one to swap in another.
+            </p>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-3">
           {plan.providers.map((provider) => {
             const selected = state.providers.includes(provider);
             return (
@@ -418,6 +428,7 @@ export function OnboardingWizard({
               </button>
             );
           })}
+          </div>
         </div>
       ) : null}
 
@@ -546,7 +557,7 @@ export function OnboardingWizard({
           <p className="text-sm text-muted-foreground">
             We&apos;ll apply your company details, competitors, active questions,
             providers ({state.providers.map(providerDisplayName).join(", ")}),
-            and region ({state.country.toUpperCase()}/{state.language}) — then
+            and region ({state.country.toUpperCase()}/{state.language}) - then
             run your first premium scan.
           </p>
           <p className="mt-3 text-sm">

@@ -51,7 +51,8 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
         <p className="mt-3 font-medium">No alerts yet</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
           Scheduled monitoring creates alerts when your score moves, a
-          competitor overtakes you, or a citation appears or disappears.
+          competitor appears or drops out, a cited source appears or
+          disappears, your mentions stop, or a scan fails.
         </p>
       </div>
     );

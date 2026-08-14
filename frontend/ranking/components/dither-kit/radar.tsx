@@ -10,7 +10,7 @@ export type RadarProps = {
 }
 
 /**
- * One radar series — a closed polygon over the spokes. Sets this series' fill
+ * One radar series - a closed polygon over the spokes. Sets this series' fill
  * variant; the dithered polygon is painted on the canvas.
  */
 export function Radar({ dataKey, variant = "gradient" }: RadarProps) {

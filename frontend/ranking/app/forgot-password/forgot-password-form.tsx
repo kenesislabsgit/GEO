@@ -56,7 +56,7 @@ export function ForgotPasswordForm() {
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Enter your account email and we&apos;ll send a reset link. If you sign
-        in with Google, just use the Google button instead — there is no
+        in with Google, just use the Google button instead - there is no
         password to reset.
       </p>
       <form

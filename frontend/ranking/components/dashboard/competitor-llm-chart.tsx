@@ -20,8 +20,8 @@ export const LLM_CONFIG: Record<
   bedrock_llama: { color: "purple", label: "Llama", shortLabel: "Llama" },
   bedrock_mistral: { color: "red", label: "Mistral", shortLabel: "Mistral" },
   bedrock_nova: { color: "blue", label: "Nova", shortLabel: "Nova" },
-  openai: { color: "green", label: "OpenAI", shortLabel: "OpenAI" },
-  openai_search: { color: "green", label: "OpenAI Search", shortLabel: "OAI Search" },
+  openai: { color: "green", label: "ChatGPT", shortLabel: "ChatGPT" },
+  openai_search: { color: "green", label: "ChatGPT Search", shortLabel: "ChatGPT" },
   claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
   gemini: { color: "blue", label: "Gemini", shortLabel: "Gemini" },
   perplexity: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },
@@ -61,7 +61,7 @@ export function CompetitorLLMChart({ competitors, allProviders, dropped = [] }: 
   );
 
   // One row per competitor; every active provider present so the stack is
-  // dense. Long names are shortened on the axis — the ranked list below the
+  // dense. Long names are shortened on the axis - the ranked list below the
   // chart carries the full name.
   const chartData = useMemo(
     () =>
@@ -127,8 +127,8 @@ export function CompetitorLLMChart({ competitors, allProviders, dropped = [] }: 
       </div>
 
       {/* Competitor rows with rank badge. Competitors the last audit surfaced
-          but this one didn't trail the list as ghosts — same row shape, hollow
-          rank marker, dimmed — so churn between runs is visible in place
+          but this one didn't trail the list as ghosts - same row shape, hollow
+          rank marker, dimmed - so churn between runs is visible in place
           instead of narrated. */}
       <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {competitors.map((c, i) => (

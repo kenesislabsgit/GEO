@@ -1,26 +1,13 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { one } from "@/lib/db/pg";
 
-type MemoryBucket = { count: number; resetAt: number };
-const memory = new Map<string, MemoryBucket>();
-
-function memoryLimit(
-  key: string,
-  limit: number,
-  windowMs: number,
-): { success: boolean; remaining: number } {
-  const now = Date.now();
-  const current = memory.get(key);
-  if (!current || current.resetAt <= now) {
-    memory.set(key, { count: 1, resetAt: now + windowMs });
-    return { success: true, remaining: limit - 1 };
-  }
-  if (current.count >= limit) {
-    return { success: false, remaining: 0 };
-  }
-  current.count += 1;
-  return { success: true, remaining: limit - current.count };
-}
+/**
+ * Rate limiting that works across every instance. Upstash Redis when
+ * configured; otherwise fixed windows in Postgres - the store all web
+ * instances and workers already share. Never process memory: a per-process
+ * Map resets on deploy and multiplies by instance count.
+ */
 
 function getRedis(): Redis | null {
   if (
@@ -32,37 +19,79 @@ function getRedis(): Redis | null {
   return Redis.fromEnv();
 }
 
-export async function limitIp(ip: string): Promise<{ success: boolean }> {
+/** Fixed-window counter in Postgres. One round trip per check. */
+async function pgLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<{ success: boolean }> {
+  const row = await one<{ count: number }>(
+    `insert into rate_limits (key, window_start, count)
+     values ($1, to_timestamp(floor(extract(epoch from now()) / $2) * $2), 1)
+     on conflict (key, window_start)
+     do update set count = rate_limits.count + 1
+     returning count`,
+    [key, windowSeconds],
+  );
+  return { success: (row?.count ?? 1) <= limit };
+}
+
+async function limit(
+  key: string,
+  max: number,
+  windowSeconds: number,
+): Promise<{ success: boolean }> {
   const redis = getRedis();
-  if (!redis) {
-    return memoryLimit(`ip:${ip}`, 5, 60 * 60 * 1000);
+  if (redis) {
+    const limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(max, `${windowSeconds} s`),
+      prefix: "rbai:rl",
+    });
+    return limiter.limit(key);
   }
-  const limiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, "1 h"),
-    prefix: "rbai:ip",
-  });
-  return limiter.limit(ip);
+  return pgLimit(key, max, windowSeconds);
+}
+
+export async function limitIp(ip: string): Promise<{ success: boolean }> {
+  return limit(`ip:${ip}`, 5, 3600);
 }
 
 /**
  * A short cooldown per website. Several people are allowed to audit the same
- * website, so this only smooths bursts on one site — it never locks a site to
+ * website, so this only smooths bursts on one site - it never locks a site to
  * whoever audited it first.
  */
 export async function limitDomainBurst(
   domain: string,
 ): Promise<{ success: boolean }> {
-  const redis = getRedis();
-  if (!redis) {
-    return memoryLimit(`domain:${domain}`, 3, 2 * 60 * 1000);
-  }
-  const limiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(3, "2 m"),
-    prefix: "rbai:domain",
-  });
-  return limiter.limit(domain);
+  return limit(`domain:${domain}`, 3, 120);
+}
+
+/**
+ * Audit starts are the most expensive thing a user can do. Burst and daily
+ * caps per account, plus an hourly cap per IP for shared/abusive networks.
+ */
+export async function limitAuditStart(
+  userId: string,
+  ip: string,
+): Promise<{ ok: boolean }> {
+  const [burst, daily, byIp] = await Promise.all([
+    limit(`audit:burst:${userId}`, 5, 300),
+    limit(`audit:day:${userId}`, 30, 86_400),
+    limit(`audit:ip:${ip}`, 20, 3600),
+  ]);
+  return { ok: burst.success && daily.success && byIp.success };
+}
+
+/** Cheap per-route guard for other sensitive endpoints. */
+export async function limitAction(
+  name: string,
+  key: string,
+  max: number,
+  windowSeconds: number,
+): Promise<{ success: boolean }> {
+  return limit(`${name}:${key}`, max, windowSeconds);
 }
 
 export async function withIdempotency(
@@ -70,13 +99,13 @@ export async function withIdempotency(
   ttlSeconds: number,
 ): Promise<boolean> {
   const redis = getRedis();
-  if (!redis) {
-    const result = memoryLimit(`idem:${key}`, 1, ttlSeconds * 1000);
-    return result.success;
+  if (redis) {
+    const ok = await redis.set(`rbai:idem:${key}`, "1", {
+      nx: true,
+      ex: ttlSeconds,
+    });
+    return ok === "OK";
   }
-  const ok = await redis.set(`rbai:idem:${key}`, "1", {
-    nx: true,
-    ex: ttlSeconds,
-  });
-  return ok === "OK";
+  const result = await pgLimit(`idem:${key}`, 1, ttlSeconds);
+  return result.success;
 }

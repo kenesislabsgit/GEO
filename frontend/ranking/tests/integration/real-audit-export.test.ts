@@ -37,14 +37,13 @@ describe("an export written by a real audit run", () => {
 
   beforeAll(async () => {
     workDir = await mkdtemp(path.join(tmpdir(), "geo-real-export-"));
-    // Read when local-store is first imported, so it must be set before the
-    // dynamic imports below. LOCAL_DB_DIR does not exist and silently wrote
-    // into the developer's own .data directory.
-    process.env.LOCAL_STORE_PATH = path.join(workDir, "local-store.json");
+    const { resetTestDb } = await import("./pg-test-db");
+    await resetTestDb();
   });
 
   afterAll(async () => {
-    delete process.env.LOCAL_STORE_PATH;
+    const { closeTestDb } = await import("./pg-test-db");
+    await closeTestDb();
     if (workDir) await rm(workDir, { recursive: true, force: true });
   });
 

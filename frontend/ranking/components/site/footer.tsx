@@ -6,7 +6,7 @@ const columns = [
   {
     title: "Product",
     links: [
-      { href: routes.publicScanAnchor, label: "Free scan" },
+      { href: routes.freeAuditSignup, label: "Free audit" },
       { href: routes.pricing, label: "Pricing" },
       { href: routes.dashboard, label: "Dashboard" },
     ],
@@ -15,6 +15,7 @@ const columns = [
     title: "Resources",
     links: [
       { href: routes.methodology, label: "Methodology" },
+      { href: routes.blog, label: "Blog" },
       { href: routes.privacy, label: "Privacy" },
       { href: routes.terms, label: "Terms" },
       { href: routes.refund, label: "Refunds" },
@@ -33,8 +34,8 @@ export function SiteFooter() {
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Measure whether AI answer engines recommend your brand before
-              your competitors do. Sampled from OpenAI, Gemini, and Perplexity
-              APIs.
+              your competitors do. Sampled from ChatGPT, Claude, Gemini,
+              Perplexity, Grok, DeepSeek and more.
             </p>
           </div>
           <div className="flex gap-16">

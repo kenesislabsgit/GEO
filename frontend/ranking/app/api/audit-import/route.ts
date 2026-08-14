@@ -1,18 +1,26 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { importAuditExport, type AuditExport } from "@/lib/audit/import-export";
 
+/**
+ * Internal ingest for audit exports produced outside the queue (operator
+ * tooling). Fail-closed in every environment: no token configured means the
+ * route does not exist, dev included - an open write-anything endpoint on a
+ * dev box is still an open write-anything endpoint.
+ */
 export async function POST(request: NextRequest) {
   const configuredToken = process.env.AUDIT_IMPORT_TOKEN;
-  if (configuredToken) {
-    const providedToken = request.headers.get("x-audit-import-token");
-    if (providedToken !== configuredToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  } else if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Set AUDIT_IMPORT_TOKEN before enabling imports in production." },
-      { status: 403 },
-    );
+  if (!configuredToken) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const providedToken = request.headers.get("x-audit-import-token") ?? "";
+  const expected = Buffer.from(configuredToken);
+  const provided = Buffer.from(providedToken);
+  if (
+    expected.length !== provided.length ||
+    !timingSafeEqual(expected, provided)
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

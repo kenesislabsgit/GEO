@@ -5,7 +5,7 @@
  *
  * Every assistant that cites the same page adds its own row, so one page
  * appeared once per assistant that read it. The page looked padded, and the
- * one number that matters — how many distinct places write about a company —
+ * one number that matters - how many distinct places write about a company - 
  * could not be counted off the screen.
  *
  * And every row was labelled with its domain, so kenesis.ai/products and
@@ -41,7 +41,7 @@ export function canonicalUrl(raw: string): string {
 
 /**
  * What to print for a link. A title when the page gave one, otherwise the
- * address including its path — never the bare domain, which would make every
+ * address including its path - never the bare domain, which would make every
  * page on a site look like the same page.
  */
 export function sourceLabel(source: {

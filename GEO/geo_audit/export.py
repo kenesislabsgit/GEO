@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
+from .costs import per_call_usd
 from .scoring import build_scorecard
 
 
@@ -248,6 +249,8 @@ def build_query_results(
                 "parse_error": result.get("parse_error"),
                 "analysis_confidence": result.get("analysis_confidence"),
                 "collection_mode": result.get("collection_mode"),
+                # Conservative flat estimate; the ledger settles against it.
+                "estimated_cost": per_call_usd(str(result.get("assistant") or "")),
             }
         )
     return rows

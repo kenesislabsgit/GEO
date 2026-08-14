@@ -13,11 +13,10 @@ import {
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { hasFeature } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
-import { roundForDisplay } from "@/lib/ai/scoring/score";
+import { roundForDisplay } from "@/lib/scores/format";
 import { ProviderBadge } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BrandNav } from "@/components/dashboard/brand-nav";
 import { RescanButton } from "@/components/dashboard/rescan-button";
 import { ReportVisibilityToggle } from "@/components/dashboard/report-visibility-toggle";
 import { routes } from "@/lib/routes";
@@ -89,7 +88,7 @@ export default async function WebsiteReportSummary({
       },
     );
   const competitorSignals = evidencedSignals(latest?.competitor_scores);
-  // Competitors the previous audit surfaced that this one didn't — AI answers
+  // Competitors the previous audit surfaced that this one didn't - AI answers
   // churn between runs, and the report should show that instead of silently
   // swapping the list.
   const currentNames = new Set(
@@ -109,7 +108,10 @@ export default async function WebsiteReportSummary({
     .filter((action) => action.status === "open")
     .sort((a, b) => a.priority - b.priority)
     .slice(0, 3);
-  const mentionRate = results.length ? mentionCount / results.length : 0;
+  // The engine's stored per-question mention rate - never recomputed here.
+  // Counting raw rows looked similar but measured question × provider pairs,
+  // which drifts from the scored number as soon as providers differ.
+  const mentionRate = latest ? Number(latest.mention_rate) : 0;
   const verdict =
     mentionRate >= 0.6
       ? "Frequently recommended"
@@ -129,31 +131,19 @@ export default async function WebsiteReportSummary({
       prompt.rationale && prompt.country && prompt.country !== "global",
   );
 
-  // ── Compute per-LLM mention counts for each competitor from raw results ──
-  // Each QueryResult has a provider + recommended_brands (JSON array of brand names/objects)
-  const competitorsWithLLM: CompetitorWithLLM[] = competitorSignals.slice(0, 5).map((signal) => {
-    const name = signal.name ?? "";
-    const mentionsByProvider: Record<string, number> = {};
-    for (const result of results) {
-      const brands = Array.isArray(result.recommended_brands)
-        ? (result.recommended_brands as Array<string | { name?: string }>)
-        : [];
-      const mentioned = brands.some((b) => {
-        const bName = typeof b === "string" ? b : (b?.name ?? "");
-        return bName.toLowerCase().includes(name.toLowerCase()) ||
-          name.toLowerCase().includes(bName.toLowerCase());
-      });
-      if (mentioned) {
-        mentionsByProvider[result.provider] = (mentionsByProvider[result.provider] ?? 0) + 1;
-      }
-    }
-    return {
-      name,
+  // Per-provider competitor mentions come straight from the engine's stored
+  // competitor rows. The old substring re-matching here ("AI" matched
+  // "OpenAI") produced counts the scored data never contained.
+  const competitorsWithLLM: CompetitorWithLLM[] = competitorSignals
+    .slice(0, 5)
+    .map((signal) => ({
+      name: signal.name ?? "",
       mentions: signal.mentions ?? 0,
       average_rank: signal.average_rank,
-      mentionsByProvider,
-    };
-  });
+      mentionsByProvider:
+        (signal as { mentions_by_assistant?: Record<string, number> })
+          .mentions_by_assistant ?? {},
+    }));
 
   return (
     <div className="space-y-6">
@@ -220,12 +210,12 @@ export default async function WebsiteReportSummary({
         )}
       </section>
 
-      {/* One stat band, hairline-divided — the quiet Vercel row. */}
+      {/* One stat band, hairline-divided - the quiet Vercel row. */}
       <div className="rb-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
         {[
           {
             label: "AI visibility",
-            value: score ?? "—",
+            value: score ?? " - ",
             delta: scoreDelta,
             detail: scoreDelta ? "since last audit" : "composite score",
           },
@@ -237,7 +227,7 @@ export default async function WebsiteReportSummary({
           },
           {
             label: "Top competitor",
-            value: topCompetitor?.name ?? "—",
+            value: topCompetitor?.name ?? " - ",
             delta: null,
             detail: topCompetitor ? `${topCompetitor.mentions ?? 0} mentions` : "no competitor signals",
           },
@@ -272,7 +262,6 @@ export default async function WebsiteReportSummary({
         ))}
       </div>
 
-      <BrandNav brandId={brand.id} isPaid={isPaid} />
 
       {hasMarketAnswers ? (
         <Link
@@ -285,7 +274,7 @@ export default async function WebsiteReportSummary({
               <span className="font-medium">Market visibility measured</span>
               <span className="text-muted-foreground">
                 {" "}
-                — see where AI recommends you, continent by continent.
+ - see where AI recommends you, continent by continent.
               </span>
             </span>
           </span>

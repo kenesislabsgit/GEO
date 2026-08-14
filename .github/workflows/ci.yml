@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/ranking
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geo_dev
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geo_test
+      BETTER_AUTH_SECRET: ci-only-secret-not-production
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/ranking/package-lock.json
+      - run: npm ci
+      - name: Create databases and apply migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          createdb -h localhost -U postgres geo_dev
+          npx @better-auth/cli migrate --config lib/auth/auth.ts -y
+          npm run db:migrate
+          createdb -h localhost -U postgres geo_test
+          pg_dump -h localhost -U postgres --schema-only geo_dev \
+            | psql -h localhost -U postgres -d geo_test
+      - run: npm run db:migrate:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: GEO
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Run engine test suites
+        env:
+          PYTHONPATH: ${{ github.workspace }}/GEO
+        run: |
+          python tests/test_pipeline_changes.py
+          python tests/test_scoring_golden.py
+          python tests/test_netguard.py
+          python tests/test_openai_compat_providers.py

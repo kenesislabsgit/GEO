@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getBrandBySlug, getLatestScanForBrand } from "@/lib/db/repository";
 import { APP_NAME } from "@/lib/constants";
-import { roundForDisplay } from "@/lib/ai/scoring/score";
+import { roundForDisplay } from "@/lib/scores/format";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -14,18 +14,21 @@ export default async function OgImage({
 }) {
   const { slug } = await params;
   const brand = await getBrandBySlug(slug);
-  const cached = brand
-    ? await getLatestScanForBrand(brand.id)
-    : null;
+  // A private report reveals nothing anywhere - including here. This image
+  // URL is public and crawlable, so for a private (or missing) brand it
+  // renders the generic brand card: no name, no score, no dates.
+  const isPublic = Boolean(brand && brand.visibility === "public");
+  const cached = isPublic && brand ? await getLatestScanForBrand(brand.id) : null;
   const score = cached?.score
     ? roundForDisplay(Number(cached.score.overall_score))
-    : "—";
+    : " - ";
   const mention = cached?.score
     ? `${roundForDisplay(Number(cached.score.mention_rate) * 100)}%`
-    : "—";
+    : " - ";
   const date = cached?.scan
     ? new Date(cached.scan.created_at).toLocaleDateString()
     : "";
+  const heading = isPublic && brand ? brand.name : APP_NAME;
 
   return new ImageResponse(
     (
@@ -72,7 +75,7 @@ export default async function OgImage({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ fontSize: 60, fontWeight: 600, letterSpacing: -1.5 }}>
-            {brand?.name ?? slug}
+            {heading}
           </div>
           <div style={{ display: "flex", gap: 72, marginTop: 20 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>

@@ -1,6 +1,10 @@
 import type { Brand } from "@/types/database";
 import type { OnboardingState } from "@/types/onboarding";
-import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import {
+  PLAN_CONFIG,
+  type PlanId,
+  defaultScanProviders,
+} from "@/lib/billing/entitlements";
 
 export function createInitialOnboardingState(input: {
   brand: Brand;
@@ -24,7 +28,7 @@ export function createInitialOnboardingState(input: {
       domain: c.domain,
     })),
     activePromptIds: input.promptIds,
-    providers: [...features.providers],
+    providers: defaultScanProviders(input.plan),
     country: input.brand.default_country.toLowerCase(),
     language: input.brand.default_language.toLowerCase(),
     monitoringFrequency: features.dailyMonitoring ? "daily" : "weekly",

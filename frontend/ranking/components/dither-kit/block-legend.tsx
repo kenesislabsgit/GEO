@@ -10,7 +10,7 @@ import { rgb, seedOfColor } from "./palette"
  * The overlay {@link Legend} is pinned absolutely to the top of the plot, so
  * with more than ~3 entries (or a narrow container) its wrapped rows sit on top
  * of the chart. `<BlockLegend>` lives in normal document flow, so it can never
- * overlap the plot at any width — use it for multi-entry charts (donuts, many
+ * overlap the plot at any width - use it for multi-entry charts (donuts, many
  * series) and reserve the overlay `<Legend>` for ≤2–3 entries.
  *
  * It needs no chart context: feed it the same `config` you pass the chart, and

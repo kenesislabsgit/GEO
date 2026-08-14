@@ -1,12 +1,17 @@
+import type { ProviderId } from "@/types/database";
+
 export const APP_NAME = "RankedByAI";
 export const APP_TAGLINE = "Does AI recommend your company?";
-export const METHODOLOGY_VERSION = "v1.1.0";
+// Must track GEO/geo_audit/aggregation.py - the engine stamps every scan
+// with its own version; this constant is only the import fallback and the
+// version shown on marketing pages.
+export const METHODOLOGY_VERSION = "v1.2.0";
 
 /** Customer-facing model names. Which endpoint served a model is an
  * infrastructure detail; the stored `model` field keeps the exact route. */
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  openai: "OpenAI",
-  openai_search: "OpenAI Search",
+  openai: "ChatGPT",
+  openai_search: "ChatGPT Search",
   claude: "Claude",
   gemini: "Gemini",
   perplexity: "Perplexity",
@@ -14,11 +19,38 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   bedrock_nova: "Nova",
   bedrock_llama: "Llama",
   bedrock_mistral: "Mistral",
+  grok: "Grok",
+  deepseek: "DeepSeek",
+  kimi: "Kimi",
+  groq: "Groq",
+  minimax: "MiniMax",
+  sarvam: "Sarvam",
 };
 
 export function providerDisplayName(id: string): string {
   return PROVIDER_DISPLAY_NAMES[id] ?? id;
 }
+
+/**
+ * The ten providers pre-selected for a Pro+/Agency audit, in display order.
+ * Every id here is genuinely integrated in the audit engine
+ * (GEO/geo_audit/llm.py - the OpenAI-compatible registry covers Perplexity,
+ * Grok, DeepSeek, Kimi, Groq, MiniMax and Sarvam). Plans offer more than an
+ * audit runs at once; users swap picks in the provider picker. This list is
+ * also what the landing and pricing pages show.
+ */
+export const DEFAULT_SCAN_PROVIDERS = [
+  "openai_search",
+  "bedrock_claude",
+  "gemini",
+  "perplexity",
+  "grok",
+  "deepseek",
+  "bedrock_llama",
+  "bedrock_mistral",
+  "kimi",
+  "bedrock_nova",
+] as const satisfies readonly ProviderId[];
 
 export const SUPPORTED_COUNTRIES = [
   { code: "us", label: "United States" },
@@ -47,13 +79,13 @@ export const FREE_SCAN_CACHE_DAYS = Number(
   process.env.FREE_SCAN_CACHE_DAYS ?? "30",
 );
 // Template questions generated for a brand before an audit narrows them down.
-// This is a generation pool size, not the free audit's question count — that
+// This is a generation pool size, not the free audit's question count - that
 // is FREE_AUDIT_QUESTION_COUNT below.
 export const FREE_PROMPT_COUNT = 10;
 
 /**
  * The free audit, defined in one place so it cannot drift between the homepage,
- * the dashboard and the plan config. OpenAI with web search is what makes the
+ * the dashboard and the plan config. ChatGPT (OpenAI) with web search is what makes the
  * free report show real, checked sources.
  */
 export const FREE_AUDIT_PROVIDER = "openai_search" as const;
@@ -78,7 +110,7 @@ export const AUDIT_SEARCH_BATCH_SIZE = 1;
 /**
  * How many provider calls are in flight at once. A Pro run creates one task
  * per question for the searching provider plus one batched task per hosted
- * model — 23 in total at twenty questions — so anything below that leaves
+ * model - 23 in total at twenty questions - so anything below that leaves
  * questions queueing for no reason.
  */
 export const AUDIT_PROVIDER_CONCURRENCY = Number(
@@ -94,11 +126,16 @@ export const PROVIDER_CONCURRENCY = Number(
   process.env.PROVIDER_CONCURRENCY ?? "3",
 );
 
+/**
+ * Mirror of SCORE_WEIGHTS in GEO/geo_audit/scoring.py - the engine is the
+ * one source of truth and stores its full breakdown with every snapshot;
+ * these numbers exist only so marketing pages can describe the formula.
+ */
 export const SCORE_WEIGHTS = {
   mention: 0.65,
   position: 0.3,
   citation: 0,
-  sentiment: 0.05,
+  dataConfidence: 0.05,
 } as const;
 
 export const POSITION_SCORES: Record<number, number> = {

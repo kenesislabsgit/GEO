@@ -11,12 +11,12 @@ export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5432/geo_test";
 
-export function useTestDb(): void {
+export function pointAtTestDb(): void {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
 }
 
 export async function resetTestDb(): Promise<void> {
-  useTestDb();
+  pointAtTestDb();
   const { q, exec } = await import("@/lib/db/pg");
   await q(
     `truncate table brands, scan_runs, query_results, score_snapshots,

@@ -6,6 +6,7 @@ export const metadata = {
   title: "Methodology",
   description:
     "How RankedByAI measures AI visibility: provider sampling, unbiased prompts, scoring weights, and known limitations.",
+  alternates: { canonical: "/methodology" },
 };
 
 const weights = [
@@ -17,7 +18,7 @@ const weights = [
   {
     name: "Position",
     weight: SCORE_WEIGHTS.position,
-    body: "Where you appear in the ranked recommendations — first mentions earn full credit, later positions decay.",
+    body: "Where you appear in the ranked recommendations - first mentions earn full credit, later positions decay.",
   },
   {
     name: "Citation",
@@ -25,15 +26,15 @@ const weights = [
     body: "A diagnostic showing whether a search-grounded answer returned verifiable annotations. It does not affect the core visibility score; independently discovered mentions are reported separately.",
   },
   {
-    name: "Sentiment",
-    weight: SCORE_WEIGHTS.sentiment,
-    body: "Whether the framing around your brand is positive, neutral, or negative in context.",
+    name: "Data confidence",
+    weight: SCORE_WEIGHTS.dataConfidence,
+    body: "How complete the evidence behind this scan is: whether providers returned usable answers and whether competitor websites could be read. A thin scan scores lower because less was verified.",
   },
 ];
 
 const providers = [
   {
-    name: "OpenAI Search",
+    name: "ChatGPT Search",
     detail:
       "Responses API with the web_search tool. Answers reflect API sampling, not consumer ChatGPT.",
   },
@@ -43,9 +44,14 @@ const providers = [
       "Claude model responses via API. Source URLs are labelled as model-suggested unless independently grounded.",
   },
   {
-    name: "Llama and Mistral",
+    name: "Gemini, Perplexity, Grok",
     detail:
-      "Additional model perspectives via API. The exact model is stored with every answer.",
+      "Each queried via its official API and labelled with the exact model that answered.",
+  },
+  {
+    name: "Llama, Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam",
+    detail:
+      "Additional model perspectives via their APIs. The exact model is stored with every answer; a provider that cannot answer marks the scan partial rather than vanishing.",
   },
 ];
 
@@ -54,7 +60,7 @@ export default function MethodologyPage() {
     <MarketingShell narrow>
       <section className="border-b border-border pb-14 md:pb-20">
         <Badge variant="secondary" className="rounded-full font-mono text-[11px]">
-          v{METHODOLOGY_VERSION}
+          {METHODOLOGY_VERSION}
         </Badge>
         <h1 className="font-heading mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
           Methodology
@@ -71,7 +77,7 @@ export default function MethodologyPage() {
           Provider sampling
         </h2>
         <p className="mt-3 leading-relaxed text-muted-foreground">
-          We query official provider APIs only — never scraped consumer
+          We query official provider APIs only - never scraped consumer
           interfaces. API samples are not guaranteed to match what an
           individual user sees in a consumer chat interface, and we
           label every result accordingly.
@@ -94,7 +100,7 @@ export default function MethodologyPage() {
         </h2>
         <p className="mt-3 leading-relaxed text-muted-foreground">
           Buyer-intent questions are generated from your category and
-          audience — never from your brand name. Mentioning the brand in
+          audience - never from your brand name. Mentioning the brand in
           the question would prime the model and invalidate the
           measurement. Prompts span discovery, comparison, alternative,
           and purchase-intent phrasing.

@@ -1,54 +1,80 @@
 # Architecture
 
-## Overview
+## The shape
 
-RankedByAI is a Next.js App Router SaaS that:
+```
+Browser ── Next.js app (stateless) ──┐
+                                     ├── PostgreSQL  (the only durable state)
+Worker fleet (separate deploy) ──────┘
+   └─ spawns `python -m geo_audit run …` per claimed scan
+```
 
-1. Understands a company website
-2. Generates unbiased buyer prompts
-3. Queries AI search providers in isolation
-4. Analyzes answers with structured validation + deterministic alias matching
-5. Scores visibility and stores evidence
-6. Serves public reports and premium dashboards
+Everything durable is a Postgres row. The web tier validates, authorizes,
+enqueues, and reads; it holds no scan state in memory and never spawns
+Python. Workers claim jobs with `FOR UPDATE SKIP LOCKED`, heartbeat while
+the engine runs, stream progress into `scan_run_events`, and import the
+engine's `audit_export.json` in **one transaction**. Any web instance can
+serve any scan's progress; a web deploy mid-audit changes nothing.
 
 ## Module layout
 
 ```
-app/                 routes + API handlers
-components/          UI
-lib/ai/providers     OpenAI / Gemini / Perplexity adapters
-lib/ai/prompts       prompt generation
-lib/ai/schemas       Zod schemas
-lib/ai/scoring       pure scoring functions
-lib/billing          entitlements + account helpers
-lib/db               Supabase clients + repository + local store
-lib/jobs             Inngest + scan executor
-lib/rate-limit       Upstash / memory limits
-lib/security         URL/SSRF + Turnstile
-lib/reports          public DTO lock-down
-types/               shared types
-tests/               unit, integration, e2e
-supabase/migrations  SQL + RLS
+app/                    routes + API handlers
+worker/                 the audit worker: queue loop, scheduler, alerts,
+                        retention, billing reconciliation, health server
+lib/scans/queue.ts      enqueue/claim/heartbeat/cancel/retry/reap + events
+lib/audit/import-export transactional import of the engine's export
+lib/billing             entitlements, enforcement, Dodo plumbing
+lib/claims              domain-ownership verification (DNS TXT / well-known)
+lib/db                  pg pool + withTransaction (AsyncLocalStorage) + SQL
+lib/security            URL validation, SSRF-safe fetch, IP hashing
+lib/rate-limit          Upstash when configured, else Postgres fixed windows
+db/migrations           SQL migrations (scripts/migrate.mjs applies them)
+../../GEO/geo_audit     the Python audit engine (crawl → questions →
+                        providers → scoring → export), with netguard.py
+                        SSRF protection and costs.py spend ceiling
 ```
 
-## Scan flow
+## Scan lifecycle
 
 ```
-Domain input → normalize/SSRF checks → cache lookup
-→ Turnstile + rate limits → website understanding → category confirm
-→ create brand/prompts/scan_run → enqueue Inngest (or inline)
-→ per prompt × provider query → analyze → score → recommendations
-→ public report
+queued ──claim──▶ running ──▶ completed | partial
+   │                 │  ├──▶ failed (attempts exhausted) ──retry──▶ queued
+   │                 │  └──▶ timed_out (heartbeat silence, reaper)
+   └──cancel──▶ cancelled ◀──cancel_requested (worker kills engine)
 ```
 
-Provider failures never fail the whole scan; status becomes `partial`.
+Creation is atomic: a partial unique index allows one active scan per brand,
+an idempotency key makes request retries join the existing scan, and the
+provider-check reservation is written in the same transaction (settled
+against actual usage on completion). A retry replays the scan's stored
+`input_snapshot` — never settings edited after the click.
 
-## Persistence
+## Scheduling and alerts
 
-- Production: Supabase service role on server only; RLS for user sessions
-- Local without Supabase: `.data/local-store.json` labelled demo persistence
+The worker owns scheduling (no external cron service): every 5 minutes it
+checks `brand_monitoring` (frequency, local day/hour, timezone, providers,
+locale), rotates deterministically through the brand's tracked questions so
+a month of runs fits the plan's check allowance, and enqueues through the
+same path as a manual audit. After every finished scan the worker diffs
+score, competitors, and cited sources against the previous snapshot and
+raises deduplicated alerts (emailed only after the provider confirms).
 
 ## Entitlements
 
-All plan checks go through `lib/billing/entitlements.ts` and
-`getAccountEntitlements()`. Browser-sent plan claims are never trusted.
+`authorizeAudit` + `enqueueScan` are the door: plan checks, provider and
+question clamps, brand limits (including audit-created brands), and monthly
+allowance reservation happen server-side in one transaction. UI hiding is
+presentation, never enforcement.
+
+## Security
+
+- Crawling: `GEO/geo_audit/netguard.py` guards every fetch of a URL the
+  pipeline did not choose (audited site, redirects, cited URLs): public
+  addresses only, re-checked per redirect hop, size and time caps. Worker
+  egress rules are the infrastructure backstop.
+- Web outbound: `lib/security/safe-fetch.ts` for domain-verification checks.
+- Claiming a report requires domain proof (DNS TXT or well-known file).
+- Security headers (CSP, HSTS, etc.) in `next.config.ts`; admin routes
+  require `ADMIN_EMAILS`; billing webhooks are signature-verified and
+  idempotent.

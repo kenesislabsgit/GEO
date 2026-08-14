@@ -27,7 +27,7 @@ export function CopyMasterPrompt({ prompt }: { prompt: string }) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Could not copy — your browser blocked clipboard access.");
+      toast.error("Could not copy - your browser blocked clipboard access.");
     }
   }
 

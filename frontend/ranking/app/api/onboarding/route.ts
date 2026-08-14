@@ -76,7 +76,7 @@ async function loadOrInitOnboarding(
   if (existing) {
     // An audit can seed more competitors than the plan tracks (the report
     // lists everyone AI named). Saved state over the limit made every later
-    // save fail its plan check — clamp on read so the wizard always starts
+    // save fail its plan check - clamp on read so the wizard always starts
     // from a state it is allowed to save back.
     if (existing.competitors.length > competitorLimit) {
       existing.competitors = existing.competitors.slice(0, competitorLimit);
@@ -131,6 +131,7 @@ export async function GET() {
       id: entitlements.plan,
       name: entitlements.planName,
       providers: plan.features.providers,
+      providersPerScan: plan.features.providersPerScan,
       competitorsPerBrand: plan.features.competitorsPerBrand,
       countries: plan.features.countries,
       languages: plan.features.languages,

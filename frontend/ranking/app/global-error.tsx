@@ -2,7 +2,7 @@
 
 /**
  * Catches failures in the root layout itself, so this page cannot rely on
- * any of the app's own styling or components — it must carry everything.
+ * any of the app's own styling or components - it must carry everything.
  */
 export default function GlobalError({ reset }: { error: Error; reset: () => void }) {
   return (
@@ -39,6 +39,10 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
             Try again
           </button>
           <p style={{ marginTop: 16 }}>
+            {/* A deliberate full-page load: global-error replaces the root
+                layout after a fatal render error, and a hard navigation
+                resets whatever client state broke. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/" style={{ fontSize: 13, color: "#666" }}>
               Back to home
             </a>

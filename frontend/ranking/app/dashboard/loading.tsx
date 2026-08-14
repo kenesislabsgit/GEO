@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Skeleton in the rough shape of a dashboard page — header row, stat tiles,
- * a list — so navigation feels like the page is arriving rather than the
+ * Skeleton in the rough shape of a dashboard page - header row, stat tiles,
+ * a list - so navigation feels like the page is arriving rather than the
  * app pausing.
  */
 export default function DashboardLoading() {

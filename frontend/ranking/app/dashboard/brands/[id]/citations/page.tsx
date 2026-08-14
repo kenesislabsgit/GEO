@@ -13,6 +13,7 @@ import {
 import { assistantNames } from "@/lib/audit/progress-copy";
 import { Badge } from "@/components/ui/badge";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
+import { ProviderStack } from "@/components/providers/provider-logo";
 import { ProReportLock } from "@/components/dashboard/pro-report-lock";
 import { canonicalUrl, sourceLabel } from "@/lib/audit/source-links";
 import type { ProviderId } from "@/types/database";
@@ -103,8 +104,8 @@ export default async function SourcesPage({
   const verifiedMentions = Array.from(mentionMap.values());
   // Grouped by company, and the audited brand first. Ungrouped, a company's own
   // pages sat scattered among its competitors' and the one number this page
-  // exists to show — how many places write about you against how many write
-  // about them — had to be counted by hand off the screen.
+  // exists to show - how many places write about you against how many write
+  // about them - had to be counted by hand off the screen.
   const mentionsByCompany = new Map<string, VerifiedMention[]>();
   for (const mention of verifiedMentions) {
     const company = mention.company_name?.trim() || "Other";
@@ -200,7 +201,7 @@ export default async function SourcesPage({
               <h2 className="text-base font-semibold">Pages the AI actually read</h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Opened by an assistant while it answered. Not what exists on the
-                web — what a model read before deciding who to name.
+                web - what a model read before deciding who to name.
               </p>
             </div>
             {citations.length === 0 ? (
@@ -224,9 +225,16 @@ export default async function SourcesPage({
                           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                             {citation.question ?? "Question unavailable"}
                           </p>
-                          {/* assistantNames: the customer-facing names of the
-                              assistants that answered, deduplicated. */}
-                          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                          {/* The providers that read this page, marks first
+                              so a row scans at a glance. */}
+                          <p
+                            className="mt-1.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"
+                            title={assistantNames(citation.providers).join(", ")}
+                          >
+                            <ProviderStack
+                              providers={citation.providers}
+                              max={6}
+                            />
                             {assistantNames(citation.providers).join(" · ")}
                           </p>
                         </div>
@@ -267,7 +275,7 @@ export default async function SourcesPage({
                           {gap.companies.length > 3
                             ? ` +${gap.companies.length - 3} more`
                             : ""}{" "}
-                          — not you
+ - not you
                         </p>
                       </div>
                     </div>

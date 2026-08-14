@@ -64,7 +64,7 @@ export const auth = betterAuth({
         body:
           `Someone asked to reset the password for this address. If it was you, ` +
           `open this link within the hour:\n\n${url}\n\nIf it was not you, ` +
-          `ignore this email — nothing changes without the link.`,
+          `ignore this email - nothing changes without the link.`,
       });
     },
   },

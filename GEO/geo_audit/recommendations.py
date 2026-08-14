@@ -7,6 +7,7 @@ from json import JSONDecodeError
 import re
 from typing import Any
 
+from .costs import tracker as cost_tracker
 from .firecrawl import environment_int
 from .json_tools import extract_json_object
 from .llm import (
@@ -20,8 +21,10 @@ from .llm import (
     call_anthropic_message,
     call_chat_completion,
     call_gemini_generate_content,
+    call_openai_compatible,
     call_openai_response,
     extract_openai_response_source_urls,
+    openai_compatible_assistants,
 )
 from .source_analysis import verify_source_url
 
@@ -353,8 +356,9 @@ def collect_multi_model_recommendations(
                 {
                     "assistant": assistant,
                     "error": (
-                        "Unsupported assistant. Use openai, openai_search, claude, "
-                        "gemini, bedrock_claude, bedrock_nova, bedrock_llama, or bedrock_mistral."
+                        "Unsupported assistant. Supported: "
+                        + ", ".join(sorted(supported_assistants()))
+                        + "."
                     ),
                 }
             )
@@ -513,6 +517,15 @@ def collect_recommendation_group(
     market_country: str | None = None,
 ) -> list[tuple[int, dict[str, Any] | None, dict[str, Any], str | None]]:
     assistant = group[0][0]
+    # Spend guard: once the run's estimated cost crosses the ceiling, no new
+    # provider call starts. The skipped questions come back as per-question
+    # errors so the export marks the scan partial instead of quietly thin.
+    if cost_tracker.exceeded():
+        return [
+            (index, None, {}, "Cost ceiling reached; question skipped.")
+            for _, index, _ in group
+        ]
+    cost_tracker.add_calls(assistant, len(group))
     # Only batches made of market questions get the location pin; groups are
     # chunked per market upstream so the first record speaks for the batch.
     # Each record carries its own country; the run-level market_country is a
@@ -922,6 +935,25 @@ def collect_single_recommendation(
                 model=model,
             )
             resolved_model = model or provider_metadata.get("modelVersion") or "gemini"
+        elif assistant in openai_compatible_assistants():
+            system_prompt = (
+                BUYER_ANSWER_SYSTEM_PROMPT
+                if (analysis_mode or defer_analysis)
+                else RECOMMENDATION_SYSTEM_PROMPT
+            )
+            raw_response, provider_metadata = call_openai_compatible(
+                assistant,
+                system_prompt,
+                prompt,
+                model=model,
+            )
+            payload = {
+                "provider": assistant,
+                "model": provider_metadata.get("model", model or assistant),
+                "system_prompt": system_prompt,
+                "prompt": prompt,
+            }
+            resolved_model = provider_metadata.get("model") or model or assistant
         else:
             return None, {}, f"Unsupported assistant: {assistant}"
     except (LLMNotConfigured, RuntimeError) as exc:
@@ -1318,6 +1350,7 @@ def supported_assistants() -> set[str]:
         "claude",
         "gemini",
         *bedrock_assistants(),
+        *openai_compatible_assistants(),
     }
 
 

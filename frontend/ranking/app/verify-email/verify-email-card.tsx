@@ -23,7 +23,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           Email confirmed
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You&apos;re all set — run your first audit.
+          You&apos;re all set - run your first audit.
         </p>
         <Button asChild className="mt-6 w-full">
           <Link href={routes.newScan()}>Start your audit</Link>
@@ -132,7 +132,7 @@ function ResendButton({
           Sending…
         </>
       ) : resent ? (
-        "Sent — check your inbox"
+        "Sent - check your inbox"
       ) : (
         "Resend confirmation email"
       )}

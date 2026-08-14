@@ -8,12 +8,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 
 export function BillingActions({
-  email,
   highlightedPlan,
   hasSubscription,
   returnTo = null,
 }: {
-  email: string;
   highlightedPlan?: string;
   hasSubscription: boolean;
   returnTo?: string | null;
@@ -28,7 +26,7 @@ export function BillingActions({
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, interval, email, returnTo }),
+        body: JSON.stringify({ plan, interval, returnTo }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Checkout failed");

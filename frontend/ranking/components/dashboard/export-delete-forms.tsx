@@ -13,11 +13,11 @@ export function ExportDeleteForms() {
     setMessage(null);
     try {
       const res = await fetch("/api/account/export");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Export failed");
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Export failed");
+      }
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -33,13 +33,20 @@ export function ExportDeleteForms() {
   }
 
   async function deleteAccount() {
-    if (!confirm("Delete your account and owned brand data? This cannot be undone.")) {
-      return;
-    }
+    // Explicit typed confirmation, matched again on the server. A misclick
+    // through a yes/no dialog must not be able to erase an account.
+    const typed = prompt(
+      'Deleting your account cancels running audits and your subscription, and permanently removes your data. Type "DELETE" to confirm.',
+    );
+    if (typed !== "DELETE") return;
     setBusy("delete");
     setMessage(null);
     try {
-      const res = await fetch("/api/account/delete", { method: "POST" });
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
       window.location.assign("/");

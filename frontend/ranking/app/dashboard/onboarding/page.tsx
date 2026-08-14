@@ -65,6 +65,7 @@ export default async function OnboardingPage() {
         id: entitlements.plan,
         name: entitlements.planName,
         providers: plan.features.providers,
+        providersPerScan: plan.features.providersPerScan,
         competitorsPerBrand: plan.features.competitorsPerBrand,
         countries: plan.features.countries,
         languages: plan.features.languages,

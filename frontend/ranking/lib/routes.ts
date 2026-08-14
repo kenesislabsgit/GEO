@@ -1,12 +1,16 @@
 /**
- * Central route definitions. Never hardcode these paths elsewhere —
+ * Central route definitions. Never hardcode these paths elsewhere - 
  * import from here so scan/auth destinations stay consistent.
  */
 export const routes = {
   home: "/",
-  publicScanAnchor: "/#plans",
+  /** Unauthenticated "run a free audit" CTA: straight into signup with the
+   * scan page as the destination - never a scroll to a pricing grid. */
+  freeAuditSignup: "/login?mode=signup&returnTo=%2Fdashboard%2Fscans%2Fnew",
   pricing: "/pricing",
   methodology: "/methodology",
+  blog: "/blog",
+  blogPost: (slug: string) => `/blog/${slug}`,
 
   login: (opts?: { claim?: string; returnTo?: string; mode?: "signin" | "signup" }) => {
     const params = new URLSearchParams();
@@ -17,7 +21,6 @@ export const routes = {
     return qs ? `/login?${qs}` : "/login";
   },
 
-  publicScanProgress: (scanId: string) => `/scan/${scanId}`,
   publicReport: (slug: string) => `/report/${slug}`,
 
   dashboard: "/dashboard",

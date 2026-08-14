@@ -32,7 +32,7 @@ export function AuditProgress({
   questionCount: number;
   /** Live per-answer events; the feed that fills the long provider wait. */
   events?: AuditFeedEvent[];
-  /** Wrapper classes — the default suits embedding under a form button. */
+  /** Wrapper classes - the default suits embedding under a form button. */
   className?: string;
 }) {
   const stages = auditStages(plan);

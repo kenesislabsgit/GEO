@@ -50,7 +50,7 @@ export function ReportVisibilityToggle({
     return (
       <p className="text-xs text-muted-foreground">
         <Globe className="mr-1 inline size-3" aria-hidden />
-        Public report — upgrade to make it private.
+        Public report - upgrade to make it private.
       </p>
     );
   }

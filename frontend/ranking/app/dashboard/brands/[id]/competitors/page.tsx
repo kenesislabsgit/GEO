@@ -152,7 +152,7 @@ export default async function CompetitorsPage({
               <div className="lg:px-5">
                 <p className="rb-eyebrow">Avg position</p>
                 <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
-                  {brandAverageRank ? `#${brandAverageRank}` : "—"}
+                  {brandAverageRank ? `#${brandAverageRank}` : " - "}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {aheadOfBrand > 0

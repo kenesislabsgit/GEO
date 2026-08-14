@@ -8,8 +8,8 @@ export type SessionUser = {
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   // Better Auth is the only session that counts. The old fake login's cookie
-  // is deliberately not honoured — it was plain JSON the browser could write
-  // itself — and the Supabase session went with the Supabase login.
+  // is deliberately not honoured - it was plain JSON the browser could write
+  // itself - and the Supabase session went with the Supabase login.
   const session = await auth.api
     .getSession({ headers: await headers() })
     .catch(() => null);

@@ -12,6 +12,7 @@ import {
 import { providerDisplayName } from "@/lib/constants";
 import { assistantNames } from "@/lib/audit/progress-copy";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
+import { ProviderStack } from "@/components/providers/provider-logo";
 import { PromptsManager } from "@/components/dashboard/prompts-manager";
 import {
   AnswerExplorer,
@@ -109,6 +110,9 @@ export default async function AIAnswersPage({
     });
   }
   const questions = Array.from(groups.values());
+  const auditProviders = Array.from(
+    new Set(results.map((result) => result.provider)),
+  );
   const assistantCount = new Set(
     results.map(
       (result) =>
@@ -134,25 +138,40 @@ export default async function AIAnswersPage({
         </div>
       ) : (
         <section>
-          <p className="rb-eyebrow">Answer explorer</p>
-          <h2 className="mt-1 text-base font-semibold">Questions and answers</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {questions.length} questions / {assistantCount} assistants /{" "}
-            {results.length} saved answers. Open a question to read what each
-            assistant said, with {brand.name} highlighted.
-          </p>
-          <div className="mt-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">
+                Questions and answers
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {questions.length} questions · {assistantCount} AI providers ·{" "}
+                {results.length} saved answers. Open a question to read what
+                each provider said, with {brand.name} highlighted.
+              </p>
+            </div>
+            <span className="rb-chip text-muted-foreground">
+              <ProviderStack providers={auditProviders} max={8} />
+              <span className="ml-1">Asked in this audit</span>
+            </span>
+          </div>
+          <div className="mt-4">
             <AnswerExplorer questions={questions} brandName={brand.name} />
           </div>
         </section>
       )}
 
       {isPaid ? (
-        <details className="border-t border-border pt-5">
-          <summary className="cursor-pointer text-sm font-medium">
-            Manage buyer question library
-          </summary>
-          <div className="mt-4">
+        <section className="rb-panel">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-[15px] font-semibold tracking-tight">
+              Buyer question library
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              The questions your audits ask. Active questions run in the next
+              audit; monitoring rotates through the rest.
+            </p>
+          </div>
+          <div className="p-5">
             <PromptsManager
               brandId={brand.id}
               initialPrompts={prompts}
@@ -162,7 +181,7 @@ export default async function AIAnswersPage({
               defaultLanguage={brand.default_language}
             />
           </div>
-        </details>
+        </section>
       ) : null}
     </div>
   );

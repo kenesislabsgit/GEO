@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import {
-  deleteWebhookEvent,
   recordWebhookEvent,
+  setWebhookEventStatus,
   upsertSubscription,
 } from "@/lib/db/repository";
+import { log } from "@/lib/log";
 import { resolvePlanFromProductId } from "@/lib/billing/entitlements";
 import type { SubscriptionStatus } from "@/types/database";
 
@@ -16,8 +17,8 @@ const TIMESTAMP_TOLERANCE_SECONDS = 300;
  * "whsec_" + base64 key material, the signed content is
  * "{webhook-id}.{webhook-timestamp}.{raw body}", and the webhook-signature
  * header carries one or more space-separated "v1,{base64 hmac}" entries.
- * Anything else — including the hex-of-body-only scheme this file used to
- * implement — never matches a real Dodo signature.
+ * Anything else - including the hex-of-body-only scheme this file used to
+ * implement - never matches a real Dodo signature.
  */
 function verifySignature(
   rawBody: string,
@@ -62,7 +63,7 @@ function verifySignature(
 
 /**
  * Only event types with a known meaning may change a subscription's status.
- * The old behaviour — default any subscription/payment event to "active" —
+ * The old behaviour - default any subscription/payment event to "active" - 
  * meant subscription.expired and subscription.on_hold quietly kept the plan
  * alive forever.
  */
@@ -119,7 +120,9 @@ export async function POST(request: Request) {
     payload,
   });
 
-  if (!recorded.inserted) {
+  // Seen before and handled: the retry is a duplicate. Seen before and
+  // FAILED: process it again - that retry is exactly why Dodo resent it.
+  if (!recorded.inserted && recorded.existingStatus !== "failed") {
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
@@ -153,15 +156,24 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
-    // The event is recorded before it is processed, so a database failure
-    // here would otherwise make Dodo's retry look like a duplicate and the
-    // paid user would never be activated. Forget the event and ask for the
-    // retry.
-    await deleteWebhookEvent("dodo", eventId).catch(() => {});
-    console.error("Dodo webhook processing failed:", error);
+    // The event stays recorded with status 'failed'; Dodo's retry finds the
+    // failed row and reprocesses it instead of being dismissed as a
+    // duplicate. Admin sees the failure with its reason.
+    await setWebhookEventStatus(
+      "dodo",
+      eventId,
+      "failed",
+      error instanceof Error ? error.message : String(error),
+    ).catch(() => {});
+    log.error("dodo_webhook_failed", {
+      eventId,
+      eventType,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 
+  await setWebhookEventStatus("dodo", eventId, "processed", null).catch(() => {});
   return NextResponse.json({ ok: true });
 }
 

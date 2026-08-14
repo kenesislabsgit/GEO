@@ -1,90 +1,78 @@
 # RankedByAI
 
-Find out whether AI recommends your company before your competitors.
+Measures whether AI answer engines recommend a company when buyers ask
+commercial questions, and what to do about it.
 
-RankedByAI helps companies measure whether AI answer engines recommend their brand when buyers ask relevant commercial questions.
+## Architecture in one paragraph
+
+A Next.js App Router app (this directory) handles accounts, billing,
+dashboards and reports against **PostgreSQL**. Audits are executed by a
+**separately deployed worker** (`worker/`) that claims queued `scan_runs`
+rows and runs the **Python audit engine** (`../../GEO/geo_audit`) as a child
+process — the web server never spawns Python. All scan state, progress
+events, and results live in Postgres; a web restart cannot lose or orphan an
+audit. See `ARCHITECTURE.md`.
 
 ## Stack
 
-- Next.js App Router + TypeScript (strict)
-- Tailwind CSS + shadcn/ui
-- Supabase Auth + PostgreSQL + RLS (with local demo persistence fallback)
-- OpenAI Responses API (`web_search`), Gemini grounding, Perplexity API
-- Inngest jobs, Upstash rate limits, Turnstile, Dodo Payments, Resend
-- Vitest + Playwright
+- Next.js App Router + TypeScript (strict), Tailwind + shadcn/ui
+- PostgreSQL via `pg` (no ORM; SQL in `lib/db/repository.ts`)
+- Better Auth (email/password + Google) — sessions in the same Postgres
+- Python `geo_audit` engine: crawl → questions → providers → scoring → export
+- Dodo Payments (hosted checkout + signed webhooks; no simulation anywhere)
+- Resend for email; Vitest + Playwright for tests
 
 ## Local setup
 
 ```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
+npm install
+cp .env.example .env.local            # fill DATABASE_URL at minimum
+npx @better-auth/cli migrate --config lib/auth/auth.ts -y   # creates auth tables
+npm run db:migrate                    # applies db/migrations/*.sql
+npm run dev                           # web app
+npm run worker                        # audit worker (separate terminal)
 ```
 
-Without provider/Supabase keys the app runs in labelled **demo mode**:
+The Python engine needs its own keys in `GEO/.env` (see `GEO/README.md`).
+Python deps: `pip install -r ../../GEO/requirements.txt`.
 
-- AI providers return fixture answers prefixed with `[DEMO MODE]`
-- Persistence uses `.data/local-store.json`
-- Billing checkout simulates subscriptions with usage limits enforced
-- Turnstile is skipped outside production when secret is unset
+## Commands
 
-## Supabase setup
+| Command | What |
+|---|---|
+| `npm run dev` / `build` / `start` | web app |
+| `npm run worker` | audit worker (claims queue, runs engine, imports results) |
+| `npm run db:migrate` | apply pending SQL migrations |
+| `npm run db:migrate:check` | fail if unapplied migrations exist (CI/deploy) |
+| `npm test` | Vitest unit + integration (needs local Postgres, geo_test DB) |
+| `npm run test:e2e` | Playwright smoke tests |
+| `npm run lint` / `typecheck` | ESLint / tsc |
 
-1. Create a Supabase project.
-2. Apply `supabase/migrations/20260716000000_init.sql`.
-3. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-4. Enable email auth.
+Python tests: `PYTHONPATH=<repo>/GEO python tests/test_pipeline_changes.py`
+(plus `test_scoring_golden.py`, `test_netguard.py`). `pytest` is not used.
 
-## Provider keys
+## Test database
 
-| Variable | Purpose |
-|----------|---------|
-| `OPENAI_API_KEY` | Responses API + `web_search` + analysis |
-| `OPENAI_SEARCH_MODEL` | default `gpt-5.6` |
-| `OPENAI_ANALYSIS_MODEL` | default `gpt-5.6-luna` |
-| `GEMINI_API_KEY` | Google Search grounding |
-| `PERPLEXITY_API_KEY` | Web-grounded answers |
-
-Never use deprecated Assistants API, `web_search_preview`, or search-preview chat models.
-
-## Background jobs
-
-Inngest route: `/api/inngest`
-
-If `INNGEST_EVENT_KEY` is unset, scans execute inline for local development.
-
-## Dodo Payments test mode
-
-Set `DODO_PAYMENTS_ENVIRONMENT=test_mode` and product IDs from your Dodo dashboard. Webhook endpoint: `/api/billing/webhook`. Without keys, checkout activates a local simulated subscription (Founder trial = 7 days, usage limits still apply).
-
-## Resend
-
-Set `RESEND_API_KEY` and `EMAIL_FROM`. Without keys, alert emails log to the server console as `[email:demo]`.
-
-## Tests
+Integration tests run against `geo_test`, a schema clone of `geo_dev`:
 
 ```bash
-pnpm test
-pnpm test:e2e
-pnpm lint
-pnpm typecheck
-pnpm build
+psql -U postgres -c "drop database if exists geo_test with (force)"
+psql -U postgres -c "create database geo_test"
+pg_dump -U postgres --schema-only geo_dev | psql -U postgres -d geo_test
 ```
+
+Re-clone after every schema migration.
 
 ## Scoring
 
-Overall score = mention 55% + position 25% + citation 15% + sentiment 5%. See `METHODOLOGY.md` and `lib/ai/scoring/score.ts`.
+One source of truth: `GEO/geo_audit/scoring.py`, pinned by golden tests.
+Every score snapshot stores its full breakdown and methodology version; the
+frontend renders stored numbers and never recomputes. See `METHODOLOGY.md`.
 
-## Provider APIs vs consumer AI products
+## Production notes
 
-Reports sample **OpenAI**, **Gemini**, and **Perplexity** APIs. They are not claimed to be identical to consumer ChatGPT, Gemini, or Perplexity interfaces. Results can vary between runs.
-
-## Docs
-
-- `ARCHITECTURE.md`
-- `METHODOLOGY.md`
-- `DEPLOYMENT.md`
-- `SECURITY.md`
-- `BUILD_STATUS.md`
-
-# ranking
+- `lib/env.ts` makes production refuse to boot without required config
+  (database, auth, Dodo, Resend, IP salt). There are no demo fallbacks.
+- Deploy web and worker separately; both need `DATABASE_URL`. The worker
+  machine needs Python + the GEO directory. See `DEPLOYMENT.md`.
+- Operational procedures: `../../docs/RUNBOOK.md`.

@@ -9,7 +9,7 @@ import { rgb } from "./palette"
  *
  * Note: this is an absolute overlay pinned to the top of the plot, so it's best
  * for ≤2–3 entries. With more entries (or a narrow container) it wraps onto
- * extra rows that overlay the chart — reach for the in-flow `<BlockLegend>`
+ * extra rows that overlay the chart - reach for the in-flow `<BlockLegend>`
  * instead, which renders as a sibling and can't overlap at any width. */
 export function Legend({
   isClickable = false,

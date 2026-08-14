@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { ProviderStack } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import { getSessionUser } from "@/lib/auth/session";
@@ -11,6 +12,7 @@ export const metadata = {
   title: "Pricing",
   description:
     "Free, Pro, Pro+ and Agency plans for AI visibility monitoring.",
+  alternates: { canonical: "/pricing" },
 };
 
 function formatChecks(count: number): string {
@@ -24,44 +26,61 @@ const CONTACT_HREF =
 
 /**
  * The short sell per card. Every line here corresponds to something the app
- * actually does — the full grid below is the exhaustive version.
+ * actually does - the full grid below is the exhaustive version. A line that
+ * names providers carries their ids so the card can show the marks.
  */
-const CARD_FEATURES: Record<PlanId, string[]> = {
+type CardFeature = { text: string; providers?: readonly string[] };
+
+const CARD_FEATURES: Record<PlanId, CardFeature[]> = {
   free: [
-    "1 website, 1 free audit every 30 days",
-    "5 real buyer questions",
-    "OpenAI with live web search",
-    "Visibility score with full breakdown",
-    "Your top competitor, with evidence",
-    "One prioritized website fix",
+    { text: "1 website, 1 free audit every 30 days" },
+    { text: "5 real buyer questions" },
+    {
+      text: "ChatGPT with live web search",
+      providers: PLAN_CONFIG.free.features.providers,
+    },
+    { text: "Visibility score with full breakdown" },
+    { text: "Your top competitor, with evidence" },
+    { text: "One prioritized website fix" },
   ],
   founder: [
-    "20 buyer questions per audit",
-    "4 AI providers compared side by side",
-    "Full answers, sources & verified mentions",
-    "Citation gaps — where rivals are cited, you aren't",
-    "Complete action plan + copy-paste AI prompt",
-    "Weekly monitoring, score alerts, history",
-    "Private or public report link",
+    { text: "20 buyer questions per audit" },
+    {
+      text: "4 AI providers compared side by side",
+      providers: PLAN_CONFIG.founder.features.providers,
+    },
+    { text: "Full answers, sources & verified mentions" },
+    { text: "Citation gaps - where rivals are cited, you aren't" },
+    { text: "Complete action plan + copy-paste AI prompt" },
+    { text: "Weekly monitoring, score alerts, history" },
+    { text: "Private or public report link" },
   ],
   growth: [
-    "Everything in Pro",
-    "5 websites, 100 questions each",
-    "Daily monitoring",
-    "CSV exports + PDF reports",
-    "Content briefs on recommendations",
-    "Impact tracking on completed fixes",
+    { text: "Everything in Pro" },
+    {
+      text: `${PLAN_CONFIG.growth.features.providers.length} AI providers - run any ${PLAN_CONFIG.growth.features.providersPerScan} per audit`,
+      providers: PLAN_CONFIG.growth.features.providers,
+    },
+    { text: "5 websites, 100 tracked questions each" },
+    { text: "Daily monitoring that rotates through your questions" },
+    { text: "CSV exports + PDF reports" },
+    { text: "Impact tracking on completed fixes" },
   ],
   agency: [
-    "Everything in Pro+",
-    "20 websites, 500 questions",
-    "10k provider checks a month",
-    "Priority support",
-    "White-label & team seats — talk to us",
+    { text: "Everything in Pro+, at agency scale" },
+    { text: "20 websites, 500 tracked questions" },
+    {
+      text: `10k provider checks a month`,
+      providers: PLAN_CONFIG.agency.features.providers,
+    },
+    { text: "Priority support - talk to us before you buy" },
   ],
 };
 
-type Cell = string | boolean;
+type Cell =
+  | string
+  | boolean
+  | { label: string; providers: readonly string[] };
 
 /** The exhaustive comparison. One row per real capability. */
 const COMPARISON: Array<{
@@ -72,10 +91,34 @@ const COMPARISON: Array<{
     section: "Audit",
     rows: [
       { label: "Websites", cells: ["1", "1", "5", "20"] },
-      { label: "Buyer questions per audit", cells: ["5", "20", "100", "500"] },
+      {
+        label: "Tracked buyer questions per website",
+        cells: ["5", "20", "100", "500"],
+      },
+      {
+        label: "Questions asked per audit run",
+        cells: ["5", "20", "20", "20"],
+      },
       {
         label: "AI providers compared",
-        cells: ["1", "4", "5", "5"],
+        cells: [
+          {
+            label: "1",
+            providers: PLAN_CONFIG.free.features.providers,
+          },
+          {
+            label: "4",
+            providers: PLAN_CONFIG.founder.features.providers,
+          },
+          {
+            label: `any ${PLAN_CONFIG.growth.features.providersPerScan} of ${PLAN_CONFIG.growth.features.providers.length}`,
+            providers: PLAN_CONFIG.growth.features.providers,
+          },
+          {
+            label: `any ${PLAN_CONFIG.agency.features.providersPerScan} of ${PLAN_CONFIG.agency.features.providers.length}`,
+            providers: PLAN_CONFIG.agency.features.providers,
+          },
+        ],
       },
       {
         label: "Provider checks per month",
@@ -116,7 +159,6 @@ const COMPARISON: Array<{
         label: "Copy-paste prompt for your AI coding tool",
         cells: [true, true, true, true],
       },
-      { label: "Content briefs", cells: [false, false, true, true] },
       {
         label: "Impact tracking on completed fixes",
         cells: [false, false, true, true],
@@ -150,6 +192,14 @@ const FAQS = [
     a: "One question asked to one AI provider. A 20-question Pro audit across 4 providers uses 80 checks. Monthly limits reset on the 1st.",
   },
   {
+    q: "How do 100 tracked questions fit into audits of 20?",
+    a: "You curate up to 100 (Pro+) or 500 (Agency) tracked questions per website. Each audit run asks up to 20 of them; scheduled monitoring rotates deterministically through the rest, sized so a month of runs fits inside your provider-check allowance. Your dashboard shows which questions the latest run checked.",
+  },
+  {
+    q: "How do the Pro+ providers work?",
+    a: "Pro+ and Agency offer 13 AI providers - ChatGPT (with live web search), Claude, Gemini, Perplexity, Grok, DeepSeek, Llama, Mistral, Kimi, Nova, Groq, MiniMax, and Sarvam. Each audit runs up to 10 at a time; a default ten is pre-selected and you can swap any of them in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
+  },
+  {
     q: "What does the free audit include?",
     a: "A real audit, not a teaser: your visibility score, five buyer questions with mention status, your top competitor with evidence, and your first prioritized fix. One per website every 30 days.",
   },
@@ -163,7 +213,7 @@ const FAQS = [
   },
   {
     q: "Do you guarantee better AI rankings?",
-    a: "No — and you should distrust anyone who does. We measure honestly and recommend changes backed by evidence from real AI answers and competitor pages.",
+    a: "No - and you should distrust anyone who does. We measure honestly and recommend changes backed by evidence from real AI answers and competitor pages.",
   },
 ];
 
@@ -174,6 +224,14 @@ function CellValue({ value }: { value: Cell }) {
   if (value === false) {
     return <Minus className="mx-auto size-4 text-border" aria-label="Not included" />;
   }
+  if (typeof value === "object") {
+    return (
+      <span className="inline-flex flex-col items-center gap-1.5">
+        <span className="text-sm">{value.label}</span>
+        <ProviderStack providers={value.providers} max={6} />
+      </span>
+    );
+  }
   return <span className="text-sm">{value}</span>;
 }
 
@@ -183,7 +241,7 @@ export default async function PricingPage() {
 
   const ctaFor = (planId: PlanId) => {
     if (planId === "free") {
-      return user ? routes.newScan() : routes.publicScanAnchor;
+      return user ? routes.newScan() : routes.freeAuditSignup;
     }
     return user
       ? routes.billing({ plan: planId })
@@ -230,15 +288,26 @@ export default async function PricingPage() {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {plan.yearlyPriceUsd > 0
-                  ? `$${plan.yearlyPriceUsd}/year — 2 months free`
+                  ? `$${plan.yearlyPriceUsd}/year - 2 months free`
                   : "No card required"}
                 {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
               </p>
               <ul className="mt-5 flex-1 space-y-2.5">
                 {CARD_FEATURES[planId].map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
+                  <li
+                    key={feature.text}
+                    className="flex items-start gap-2 text-sm"
+                  >
                     <Check className="mt-0.5 size-3.5 shrink-0 text-[color:var(--rb-green)]" />
-                    <span className="text-foreground/80">{feature}</span>
+                    <span className="text-foreground/80">
+                      {feature.text}
+                      {feature.providers ? (
+                        <ProviderStack
+                          providers={feature.providers}
+                          className="mt-1.5 flex"
+                        />
+                      ) : null}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -334,8 +403,8 @@ export default async function PricingPage() {
           ))}
         </div>
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Every score decomposes into mention, position, and sentiment — read
-          the{" "}
+          Every score decomposes into mention, position, and evidence
+          quality - read the{" "}
           <Link
             href={routes.methodology}
             className="text-foreground underline underline-offset-4"

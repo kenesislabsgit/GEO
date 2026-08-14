@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -29,15 +29,17 @@ type ProgressState = {
   completedQueries: number;
   totalQueries: number;
   slug: string | null;
-  demoMode: boolean;
   errorSummary: string | null;
   providers?: string[];
   events?: AuditFeedEvent[];
+  cancelRequested?: boolean;
 };
 
 export type ScanDestination =
   | { type: "public" }
   | { type: "dashboard"; brandId: string };
+
+const ENDED_BADLY = new Set(["failed", "cancelled", "timed_out"]);
 
 export function ScanProgress({
   scanId,
@@ -46,13 +48,16 @@ export function ScanProgress({
 }: {
   scanId: string;
   destination?: ScanDestination;
-  /** Chooses the stage list — pro audits have more visible stages. */
+  /** Chooses the stage list - pro audits have more visible stages. */
   plan?: AuditPlan;
 }) {
   const router = useRouter();
   const [state, setState] = useState<ProgressState | null>(null);
+  const [events, setEvents] = useState<AuditFeedEvent[]>([]);
   const [unreachable, setUnreachable] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const lastSeq = useRef(0);
 
   const destType = destination.type;
   const destBrandId =
@@ -63,7 +68,9 @@ export function ScanProgress({
     let failures = 0;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/scans/${scanId}/progress`);
+        const res = await fetch(
+          `/api/scans/${scanId}/progress?after=${lastSeq.current}`,
+        );
         if (!res.ok) {
           failures += 1;
           if (failures >= 5 && alive) setUnreachable(true);
@@ -74,6 +81,14 @@ export function ScanProgress({
         if (!alive) return;
         setUnreachable(false);
         setState(data);
+        if (data.events?.length) {
+          const fresh = data.events;
+          lastSeq.current = Math.max(
+            lastSeq.current,
+            ...fresh.map((event) => event.seq),
+          );
+          setEvents((current) => [...current, ...fresh].slice(-200));
+        }
         if (data.status === "completed" || data.status === "partial") {
           if (destType === "dashboard" && destBrandId) {
             router.push(routes.brand(destBrandId));
@@ -98,22 +113,41 @@ export function ScanProgress({
     if (destination.type !== "dashboard") return;
     setRetrying(true);
     try {
-      const res = await fetch("/api/scans/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId: destination.brandId }),
-      });
+      const res = await fetch(`/api/scans/${scanId}/retry`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Retry failed");
-      router.push(routes.scanProgress(data.scanRunId));
+      // The same scan re-enters the queue under its stored settings; this
+      // page keeps polling the same id.
+      lastSeq.current = 0;
+      setEvents([]);
+      setRetrying(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Retry failed");
       setRetrying(false);
     }
   }
 
+  async function cancel() {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/scans/${scanId}/cancel`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cancel failed");
+      toast.success("Cancellation requested. The audit is stopping.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   const progress = state?.progress ?? 0;
-  const failed = state?.status === "failed" || state?.status === "cancelled";
+  const failed = ENDED_BADLY.has(state?.status ?? "");
+  const queued = state?.status === "queued";
+  const stopping =
+    state?.status === "cancel_requested" || Boolean(state?.cancelRequested);
   const stages = auditStages(plan);
   const activeIdx = activeStageIndex(stages, state?.step ?? null, progress);
 
@@ -134,11 +168,21 @@ export function ScanProgress({
           ) : null}
           <div className="min-w-0">
             <p className="rb-eyebrow">
-              {failed ? "Audit stopped" : "Live audit"}
+              {failed
+                ? "Audit stopped"
+                : queued
+                  ? "Audit queued"
+                  : stopping
+                    ? "Stopping"
+                    : "Live audit"}
             </p>
             <h1 className="font-heading mt-1.5 text-2xl font-semibold tracking-tight">
               {failed ? (
                 "Scan did not complete"
+              ) : queued ? (
+                "Waiting for the next available audit slot"
+              ) : stopping ? (
+                "Stopping this audit"
               ) : (
                 <span className="rb-shimmer">
                   Running your AI visibility audit
@@ -147,8 +191,8 @@ export function ScanProgress({
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {destination.type === "dashboard"
-                ? "You can leave this page — the audit keeps running."
-                : "Live progress from the job queue — not a simulated timer."}
+                ? "You can leave this page - the audit keeps running."
+                : "Live progress from the job queue - not a simulated timer."}
             </p>
           </div>
         </div>
@@ -159,14 +203,22 @@ export function ScanProgress({
           </p>
           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
             {state
-              ? `${state.completedQueries}/${state.totalQueries} checks · ${state.status}`
+              ? `${state.completedQueries}/${state.totalQueries} checks · ${state.status.replace("_", " ")}`
               : "connecting…"}
           </p>
         </div>
       </div>
       <Progress value={progress} className="mt-4" />
 
-      {!failed ? (
+      {queued ? (
+        <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          <Clock className="size-4 shrink-0" aria-hidden />
+          Your audit is in the queue and starts as soon as a worker is free.
+          This page updates by itself.
+        </div>
+      ) : null}
+
+      {!failed && !queued ? (
         <div className="mt-5 grid items-start gap-4 lg:grid-cols-[1fr_240px]">
           {/* The audit as reasoning steps, with the live feed inside. */}
           <section className="rb-panel p-5">
@@ -177,7 +229,7 @@ export function ScanProgress({
                 state?.status === "completed" || state?.status === "partial"
               }
               providers={providers}
-              events={state?.events ?? []}
+              events={events}
             />
           </section>
 
@@ -206,72 +258,85 @@ export function ScanProgress({
         </div>
       ) : null}
 
-        {state?.demoMode && !failed ? (
-          <Alert className="mt-6">
-            <AlertTitle>Demo mode</AlertTitle>
-            <AlertDescription>
-              Provider API keys are not configured, so this scan uses labelled
-              fixtures. The live OpenAI, Gemini, and Perplexity integrations
-              remain fully wired.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {state?.errorSummary && state.status === "partial" ? (
-          <Alert variant="destructive" className="mt-6">
-            <AlertTitle>Partial failures</AlertTitle>
-            <AlertDescription>{state.errorSummary}</AlertDescription>
-          </Alert>
-        ) : null}
-        {failed ? (
-          <Alert variant="destructive" className="mt-6">
-            <AlertTitle>
-              {state?.status === "cancelled" ? "Scan cancelled" : "Scan failed"}
-            </AlertTitle>
-            <AlertDescription>
-              <p>
-                {state?.errorSummary ??
-                  "All provider checks failed. No usage was consumed for failed checks."}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {destination.type === "dashboard" ? (
-                  <>
-                    <Button size="sm" onClick={retry} disabled={retrying}>
-                      {retrying ? (
-                        <>
-                          <Loader2
-                            data-icon="inline-start"
-                            className="animate-spin"
-                          />
-                          Retrying…
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw data-icon="inline-start" />
-                          Retry scan
-                        </>
-                      )}
-                    </Button>
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={routes.brand(destination.brandId)}>
-                        Back to brand
-                      </Link>
-                    </Button>
-                  </>
-                ) : (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={routes.home}>Back to home</Link>
+      {(queued || (!failed && !stopping && state)) &&
+      destination.type === "dashboard" ? (
+        <div className="mt-4">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={cancel}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <Loader2 data-icon="inline-start" className="animate-spin" />
+            ) : (
+              <XCircle data-icon="inline-start" />
+            )}
+            Cancel audit
+          </Button>
+        </div>
+      ) : null}
+
+      {state?.errorSummary && state.status === "partial" ? (
+        <Alert variant="destructive" className="mt-6">
+          <AlertTitle>Partial failures</AlertTitle>
+          <AlertDescription>{state.errorSummary}</AlertDescription>
+        </Alert>
+      ) : null}
+      {failed ? (
+        <Alert variant="destructive" className="mt-6">
+          <AlertTitle>
+            {state?.status === "cancelled"
+              ? "Scan cancelled"
+              : state?.status === "timed_out"
+                ? "Scan timed out"
+                : "Scan failed"}
+          </AlertTitle>
+          <AlertDescription>
+            <p>
+              {state?.errorSummary ??
+                "The audit did not finish. Unused provider checks were released."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {destination.type === "dashboard" ? (
+                <>
+                  <Button size="sm" onClick={retry} disabled={retrying}>
+                    {retrying ? (
+                      <>
+                        <Loader2
+                          data-icon="inline-start"
+                          className="animate-spin"
+                        />
+                        Retrying…
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw data-icon="inline-start" />
+                        Retry with the same settings
+                      </>
+                    )}
                   </Button>
-                )}
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={routes.brand(destination.brandId)}>
+                      Back to brand
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={routes.home}>Back to home</Link>
+                </Button>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {unreachable ? (
         <Alert variant="destructive" className="mt-6">
           <AlertTitle>Connection issue</AlertTitle>
           <AlertDescription>
             We can&apos;t reach the scan right now. We&apos;ll keep retrying
-            automatically — leave this page open.
+            automatically - leave this page open.
           </AlertDescription>
         </Alert>
       ) : null}

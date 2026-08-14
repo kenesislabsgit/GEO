@@ -68,7 +68,7 @@ export default async function BillingPage({
             </p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              No active subscription — you&apos;re on the free tier.
+              No active subscription - you&apos;re on the free tier.
             </p>
           )}
         </div>
@@ -93,7 +93,6 @@ export default async function BillingPage({
       </div>
 
       <BillingActions
-        email={user.email}
         highlightedPlan={params.plan}
         hasSubscription={Boolean(subscription)}
         returnTo={params.returnTo ?? null}

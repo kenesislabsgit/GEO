@@ -116,7 +116,7 @@ export default async function MarketsPage({
     .sort((a, b) => b.rate - a.rate || b.mentioned - a.mentioned);
   const best = countries.find((entry) => entry.mentioned > 0) ?? null;
 
-  // Continent rollup for the radar — fixed axes so the shape stays readable.
+  // Continent rollup for the radar - fixed axes so the shape stays readable.
   const radarData = CONTINENTS.map((continent) => {
     const rows = countries.filter(
       (entry) => CONTINENT_BY_COUNTRY[entry.code] === continent,
@@ -135,7 +135,7 @@ export default async function MarketsPage({
         brandId={brand.id}
         brandName={brand.name}
         title="Markets"
-        description="Where AI recommends you when buyers ask with their country in the question — measured across world markets, web search located per country."
+        description="Where AI recommends you when buyers ask with their country in the question - measured across world markets, web search located per country."
         isPaid={isPaid}
       />
 
@@ -151,8 +151,8 @@ export default async function MarketsPage({
               </h2>
               <p className="mt-1 max-w-lg text-sm text-muted-foreground">
                 Pro+ audits ask up to half their questions the way buyers in
-                India, the US, Europe and other markets would — with web search
-                located in each country — and map where you get recommended.
+                India, the US, Europe and other markets would - with web search
+                located in each country - and map where you get recommended.
               </p>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default async function MarketsPage({
           <Globe className="mx-auto size-5 text-muted-foreground" aria-hidden />
           <p className="mt-3 font-medium">No market answers yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Run an audit — Pro+ audits spread a slice of their questions across
+            Run an audit - Pro+ audits spread a slice of their questions across
             world markets automatically. Pick a home market in audit settings
             to lead the sweep.
           </p>
@@ -187,7 +187,7 @@ export default async function MarketsPage({
             <div className="lg:pr-5">
               <p className="rb-eyebrow">Recommended most in</p>
               <p className="mt-1.5 truncate text-2xl font-semibold tracking-tight">
-                {best ? `${flagOf(best.code)} ${best.name}` : "— nowhere yet"}
+                {best ? `${flagOf(best.code)} ${best.name}` : " -  nowhere yet"}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {best

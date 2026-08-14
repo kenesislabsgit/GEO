@@ -17,7 +17,7 @@ import type { PlanId } from "@/lib/billing/entitlements";
 
 /**
  * The single door between the app and its data. Every function here is one
- * or two SQL statements against the Postgres in DATABASE_URL — locally the
+ * or two SQL statements against the Postgres in DATABASE_URL - locally the
  * geo_dev database, in production RDS. Accounts live in the same database
  * under Better Auth's "user" table, which is why owner ids are text.
  */
@@ -25,7 +25,7 @@ import type { PlanId } from "@/lib/billing/entitlements";
 /**
  * The most recent brand record for a website, whoever created it.
  * Several people may each have their own record for the same website, so this is
- * only for public/display lookups — never to decide what a signed-in user may do.
+ * only for public/display lookups - never to decide what a signed-in user may do.
  */
 export async function getBrandByDomain(domain: string): Promise<Brand | null> {
   return one<Brand>(
@@ -46,10 +46,14 @@ export async function getBrandByDomainForOwner(
 }
 
 /** Report links must stay unique even when several people audit one website. */
+function escapeLike(value: string): string {
+  return value.replace(/([%_\\])/g, "\\$1");
+}
+
 async function findAvailableSlug(base: string): Promise<string> {
   const rows = await q<{ slug: string }>(
-    `select slug from brands where slug like $1`,
-    [`${base}%`],
+    `select slug from brands where slug like $1 escape '\\'`,
+    [`${escapeLike(base)}%`],
   );
   const taken = new Set(rows.map((r) => r.slug));
   if (!taken.has(base)) return base;
@@ -79,7 +83,8 @@ export async function upsertBrand(
       ? await getBrandByDomainForOwner(brand.canonical_domain, brand.owner_id)
       : null;
 
-  const { id: _ignored, ...fields } = brand;
+  const { id: _brandId, ...fields } = brand;
+  void _brandId;
 
   if (existing) {
     const updated = await updateRow<Brand>("brands", existing.id, {
@@ -91,10 +96,27 @@ export async function upsertBrand(
     return updated;
   }
 
-  return insertRow<Brand>("brands", {
-    ...fields,
-    slug: await findAvailableSlug(brand.slug),
-  });
+  // The slug column's unique constraint is the truth; the availability scan
+  // above is only a first guess. Two concurrent inserts can pick the same
+  // slug, so a unique violation retries with a fresh random suffix instead
+  // of failing the audit that raced second.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await insertRow<Brand>("brands", {
+        ...fields,
+        slug:
+          attempt === 0
+            ? await findAvailableSlug(brand.slug)
+            : `${brand.slug}-${Math.random().toString(36).slice(2, 8)}`,
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const constraint = (error as { constraint?: string }).constraint ?? "";
+      if (code === "23505" && constraint.includes("slug")) continue;
+      throw error;
+    }
+  }
+  throw new Error("Could not allocate a unique report link.");
 }
 
 export async function createScanRun(
@@ -260,23 +282,74 @@ export async function upsertUserOnboarding(
   return next;
 }
 
-function brandMonitoringSettingsKey(brandId: string): string {
-  return `brand_monitoring:${brandId}`;
-}
-
+/** Monitoring settings live in brand_monitoring (0002); they cascade with
+ * the brand and the scheduler can join them. */
 export async function getBrandMonitoringSettings(
   brandId: string,
 ): Promise<BrandMonitoringSettings | null> {
-  return getSetting<BrandMonitoringSettings>(brandMonitoringSettingsKey(brandId));
+  const row = await one<{
+    frequency: "daily" | "weekly";
+    alerts: BrandMonitoringSettings["alerts"];
+    providers: BrandMonitoringSettings["providers"];
+    country: string | null;
+    language: string | null;
+    enabled: boolean;
+    day_of_week: number;
+    hour_local: number;
+    timezone: string;
+    updated_at: string;
+  }>(`select * from brand_monitoring where brand_id = $1`, [brandId]);
+  if (!row) return null;
+  return {
+    monitoringFrequency: row.frequency,
+    alerts: row.alerts ?? {},
+    providers: row.providers ?? [],
+    country: row.country ?? "US",
+    language: row.language ?? "en",
+    enabled: row.enabled,
+    dayOfWeek: row.day_of_week,
+    hourLocal: row.hour_local,
+    timezone: row.timezone,
+    updatedAt: row.updated_at,
+  };
 }
 
 export async function upsertBrandMonitoringSettings(
   brandId: string,
-  settings: BrandMonitoringSettings,
+  settings: Partial<BrandMonitoringSettings> &
+    Pick<BrandMonitoringSettings, "monitoringFrequency" | "alerts" | "providers">,
 ): Promise<BrandMonitoringSettings> {
-  const next = { ...settings, updatedAt: new Date().toISOString() };
-  await putSetting(brandMonitoringSettingsKey(brandId), next);
-  return next;
+  await exec(
+    `insert into brand_monitoring
+       (brand_id, enabled, frequency, day_of_week, hour_local, timezone,
+        providers, country, language, alerts)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     on conflict (brand_id) do update set
+       enabled = excluded.enabled,
+       frequency = excluded.frequency,
+       day_of_week = excluded.day_of_week,
+       hour_local = excluded.hour_local,
+       timezone = excluded.timezone,
+       providers = excluded.providers,
+       country = excluded.country,
+       language = excluded.language,
+       alerts = excluded.alerts`,
+    [
+      brandId,
+      settings.enabled ?? true,
+      settings.monitoringFrequency,
+      settings.dayOfWeek ?? 0,
+      settings.hourLocal ?? 9,
+      settings.timezone ?? "UTC",
+      JSON.stringify(settings.providers ?? []),
+      settings.country ?? null,
+      settings.language ?? null,
+      JSON.stringify(settings.alerts ?? {}),
+    ],
+  );
+  const stored = await getBrandMonitoringSettings(brandId);
+  if (!stored) throw new Error("Monitoring settings upsert returned nothing.");
+  return stored;
 }
 
 export async function insertQueryResult(
@@ -372,9 +445,20 @@ export async function replaceCompetitors(
   brandId: string,
   rows: Array<Omit<Competitor, "id" | "created_at" | "brand_id">>,
 ) {
-  await exec(`delete from competitors where brand_id = $1`, [brandId]);
-  const stored: Competitor[] = [];
+  // Discovered competitors are replaced by each audit; ones the user added
+  // by hand survive it, the same way custom prompts do.
+  await exec(
+    `delete from competitors where brand_id = $1 and is_custom = false`,
+    [brandId],
+  );
+  const kept = await q<Competitor>(
+    `select * from competitors where brand_id = $1`,
+    [brandId],
+  );
+  const keptNames = new Set(kept.map((row) => row.name.toLowerCase()));
+  const stored: Competitor[] = [...kept];
   for (const row of rows) {
+    if (keptNames.has(row.name.toLowerCase())) continue;
     stored.push(
       await insertRow<Competitor>("competitors", { ...row, brand_id: brandId }),
     );
@@ -414,7 +498,7 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
 
 /**
  * The newest subscription row whatever its status. Billing screens and the
- * customer portal need to see a past_due or canceled subscription — hiding
+ * customer portal need to see a past_due or canceled subscription - hiding
  * it (as getSubscription does for entitlement checks) would lock people out
  * of the portal exactly when they need it to fix a failed payment.
  */
@@ -450,7 +534,8 @@ export async function upsertSubscription(
       [row.user_id],
     ));
   if (target) {
-    const { id: _ignored, ...fields } = row;
+    const { id: _rowId, ...fields } = row;
+    void _rowId;
     const updated = await updateRow<Subscription>("subscriptions", target.id, fields);
     if (!updated) throw new Error("Subscription update returned nothing.");
     return updated;
@@ -500,85 +585,46 @@ export async function markAllAlertsRead(userId: string): Promise<number> {
   );
 }
 
+/**
+ * Record a webhook event once. Returns whether this call inserted it and,
+ * when it already existed, its processing status - so a retry of a FAILED
+ * event gets reprocessed while a retry of a processed one is a no-op.
+ */
 export async function recordWebhookEvent(
   row: Omit<WebhookEvent, "id" | "processed_at">,
-) {
-  const inserted = await exec(
-    `insert into webhook_events (provider, event_id, event_type, payload)
-     values ($1, $2, $3, $4)
-     on conflict (provider, event_id) do nothing`,
+): Promise<{ inserted: boolean; existingStatus: string | null }> {
+  const stored = await one<{ status: string; inserted: boolean }>(
+    `insert into webhook_events (provider, event_id, event_type, payload, status)
+     values ($1, $2, $3, $4, 'processed')
+     on conflict (provider, event_id) do update set event_type = webhook_events.event_type
+     returning status, (xmax = 0) as inserted`,
     [row.provider, row.event_id, row.event_type, JSON.stringify(row.payload)],
   );
-  return { inserted: inserted > 0 };
+  return {
+    inserted: Boolean(stored?.inserted),
+    existingStatus: stored?.inserted ? null : (stored?.status ?? null),
+  };
 }
 
-/**
- * Forget a recorded webhook event so the provider's retry is processed
- * instead of being dismissed as a duplicate. Used when processing fails
- * after the event was recorded.
- */
-export async function deleteWebhookEvent(provider: string, eventId: string) {
+/** Mark a recorded webhook event's outcome; error text is for operators. */
+export async function setWebhookEventStatus(
+  provider: string,
+  eventId: string,
+  status: "processed" | "failed" | "skipped",
+  error?: string | null,
+) {
   await exec(
-    `delete from webhook_events where provider = $1 and event_id = $2`,
-    [provider, eventId],
+    `update webhook_events set status = $3, error = $4
+     where provider = $1 and event_id = $2`,
+    [provider, eventId, status, error ?? null],
   );
 }
 
 /**
- * Take ownership of a report when nobody owns it. If someone else already owns
- * it, this person gets their own copy of the website record instead of an error,
- * so they can still audit the same website.
+ * Ownership transfer lives in lib/claims/verification.ts now: it requires a
+ * verified domain proof and does the transfer atomically. The old click-to-
+ * claim helpers were removed with the unverified claim flow.
  */
-export async function claimOrCopyBrand(
-  brandId: string,
-  ownerId: string,
-): Promise<Brand | null> {
-  const existing = await getBrandById(brandId);
-  if (!existing) return null;
-  if (existing.owner_id && existing.owner_id !== ownerId) {
-    return copyBrandForOwner(brandId, ownerId);
-  }
-  return claimBrand(brandId, ownerId);
-}
-
-export async function copyBrandForOwner(
-  brandId: string,
-  ownerId: string,
-): Promise<Brand | null> {
-  const source = await getBrandById(brandId);
-  if (!source) return null;
-  const own = await getBrandByDomainForOwner(source.canonical_domain, ownerId);
-  if (own) return own;
-  const now = new Date().toISOString();
-  return upsertBrand({
-    owner_id: ownerId,
-    name: source.name,
-    canonical_domain: source.canonical_domain,
-    slug: source.slug,
-    logo_url: source.logo_url,
-    description: source.description,
-    category: source.category,
-    target_audience: source.target_audience,
-    aliases: source.aliases,
-    default_country: source.default_country,
-    default_language: source.default_language,
-    visibility: source.visibility,
-    claimed_at: now,
-    metadata_confidence: source.metadata_confidence,
-  });
-}
-
-export async function claimBrand(brandId: string, ownerId: string) {
-  const existing = await getBrandById(brandId);
-  if (!existing) return null;
-  if (existing.owner_id && existing.owner_id !== ownerId) {
-    throw new Error("Brand already claimed by another account.");
-  }
-  return updateRow<Brand>("brands", brandId, {
-    owner_id: ownerId,
-    claimed_at: new Date().toISOString(),
-  });
-}
 
 export async function listBrandsForOwner(ownerId: string) {
   return q<Brand>(
@@ -634,6 +680,7 @@ export async function addCompetitor(
     ...row,
     brand_id: brandId,
     aliases: [],
+    is_custom: true,
   });
 }
 
@@ -701,40 +748,170 @@ export async function scoresForBrand(brandId: string) {
 
 export async function adminStats() {
   const today = new Date().toISOString().slice(0, 10);
-  const [users, brands, subs, scansToday, failed, usage] = await Promise.all([
-    one<{ n: number }>(`select count(*)::int as n from "user"`),
-    one<{ n: number }>(`select count(*)::int as n from brands`),
-    one<{ n: number }>(
-      `select count(*)::int as n from subscriptions where status in ('active', 'trialing')`,
-    ),
-    one<{ n: number }>(
-      `select count(*)::int as n from scan_runs where created_at >= $1`,
+  const [counts, queue, usage, webhookFailures, recentLog] = await Promise.all([
+    one<{
+      users: number;
+      brands: number;
+      subs: number;
+      scans_today: number;
+      free_scans: number;
+    }>(
+      `select
+         (select count(*)::int from "user") as users,
+         (select count(*)::int from brands) as brands,
+         (select count(*)::int from subscriptions where status in ('active', 'trialing')) as subs,
+         (select count(*)::int from scan_runs where created_at >= $1) as scans_today,
+         (select count(*)::int from free_scan_requests) as free_scans`,
       [`${today}T00:00:00.000Z`],
     ),
-    one<{ n: number }>(
-      `select count(*)::int as n from scan_runs where status = 'failed'`,
+    one<{
+      queued: number;
+      running: number;
+      failed: number;
+      cancelled: number;
+      timed_out: number;
+      completed: number;
+      stale: number;
+      worker_seen: boolean;
+      cost: number;
+    }>(
+      `select
+         count(*) filter (where status = 'queued')::int as queued,
+         count(*) filter (where status in ('running', 'cancel_requested'))::int as running,
+         count(*) filter (where status = 'failed')::int as failed,
+         count(*) filter (where status = 'cancelled')::int as cancelled,
+         count(*) filter (where status = 'timed_out')::int as timed_out,
+         count(*) filter (where status in ('completed', 'partial'))::int as completed,
+         count(*) filter (where status in ('running', 'cancel_requested')
+           and heartbeat_at < timezone('utc', now()) - interval '3 minutes')::int as stale,
+         bool_or(heartbeat_at > timezone('utc', now()) - interval '10 minutes') as worker_seen,
+         coalesce(sum(estimated_cost_usd), 0)::float as cost
+       from scan_runs`,
     ),
-    q<{ provider: string | null; units: number; estimated_cost: number }>(
-      `select provider, units, estimated_cost from usage_ledger`,
+    q<{ provider: string | null; units: number; cost: number }>(
+      `select provider, coalesce(sum(units), 0)::int as units,
+              coalesce(sum(estimated_cost), 0)::float as cost
+       from usage_ledger group by provider`,
+    ),
+    q<{ event_id: string; event_type: string; error: string | null; processed_at: string }>(
+      `select event_id, event_type, error, processed_at
+       from webhook_events where status = 'failed'
+       order by processed_at desc limit 10`,
+    ),
+    q<{ admin_email: string; action: string; target: string | null; created_at: string }>(
+      `select admin_email, action, target, created_at
+       from admin_audit_log order by created_at desc limit 15`,
     ),
   ]);
 
   const providerUsage: Record<string, number> = {};
   let estimatedCost = 0;
   for (const row of usage) {
-    const key = row.provider ?? "unknown";
-    providerUsage[key] = (providerUsage[key] ?? 0) + Number(row.units || 0);
-    estimatedCost += Number(row.estimated_cost || 0);
+    providerUsage[row.provider ?? "unknown"] = row.units;
+    estimatedCost += row.cost;
   }
 
   return {
-    users: users?.n ?? 0,
-    brands: brands?.n ?? 0,
-    activeSubscriptions: subs?.n ?? 0,
-    scansToday: scansToday?.n ?? 0,
-    failedScans: failed?.n ?? 0,
+    users: counts?.users ?? 0,
+    brands: counts?.brands ?? 0,
+    activeSubscriptions: counts?.subs ?? 0,
+    scansToday: counts?.scans_today ?? 0,
+    freeScanCount: counts?.free_scans ?? 0,
+    queue: {
+      queued: queue?.queued ?? 0,
+      running: queue?.running ?? 0,
+      failed: queue?.failed ?? 0,
+      cancelled: queue?.cancelled ?? 0,
+      timedOut: queue?.timed_out ?? 0,
+      completed: queue?.completed ?? 0,
+      stale: queue?.stale ?? 0,
+      workerSeenRecently: Boolean(queue?.worker_seen),
+    },
     providerUsage,
     estimatedCost,
-    freeScanCount: 0,
+    scanSpendUsd: queue?.cost ?? 0,
+    webhookFailures,
+    recentAdminActions: recentLog,
   };
+}
+
+export async function adminRecentScans(limit = 25) {
+  return q<{
+    id: string;
+    status: string;
+    scan_type: string;
+    trigger_source: string | null;
+    brand_name: string;
+    attempts: number;
+    error_summary: string | null;
+    created_at: string;
+  }>(
+    `select s.id, s.status, s.scan_type, s.trigger_source, b.name as brand_name,
+            s.attempts, s.error_summary, s.created_at
+     from scan_runs s join brands b on b.id = s.brand_id
+     order by s.created_at desc limit $1`,
+    [limit],
+  );
+}
+
+/**
+ * Account-level series for the dashboard overview: per-scan provider answer
+ * counts for the stacked bars, and every score snapshot for the trend lines.
+ */
+export async function accountOverviewSeries(ownerId: string): Promise<{
+  scans: Array<{
+    scan_id: string;
+    created_at: string;
+    brand_name: string;
+    provider: string;
+    answers: number;
+    mentioned: number;
+  }>;
+  snapshots: Array<{
+    created_at: string;
+    overall_score: number;
+    mention_rate: number;
+  }>;
+}> {
+  const scans = await q<{
+    scan_id: string;
+    created_at: string;
+    brand_name: string;
+    provider: string;
+    answers: number;
+    mentioned: number;
+  }>(
+    `select s.id as scan_id, s.created_at::text as created_at, b.name as brand_name,
+            r.provider, count(*)::int as answers,
+            count(*) filter (where r.brand_mentioned)::int as mentioned
+     from scan_runs s
+     join brands b on b.id = s.brand_id
+     join query_results r on r.scan_run_id = s.id
+     where b.owner_id = $1 and s.status in ('completed', 'partial')
+       and s.id in (
+         select s2.id from scan_runs s2
+         join brands b2 on b2.id = s2.brand_id
+         where b2.owner_id = $1 and s2.status in ('completed', 'partial')
+         order by s2.created_at desc limit 14
+       )
+     group by s.id, s.created_at, b.name, r.provider
+     order by s.created_at`,
+    [ownerId],
+  );
+  const snapshots = await q<{
+    created_at: string;
+    overall_score: number;
+    mention_rate: number;
+  }>(
+    `select sc.created_at::text as created_at,
+            sc.overall_score::float as overall_score,
+            sc.mention_rate::float as mention_rate
+     from score_snapshots sc
+     join brands b on b.id = sc.brand_id
+     where b.owner_id = $1
+     order by sc.created_at
+     limit 90`,
+    [ownerId],
+  );
+  return { scans, snapshots };
 }

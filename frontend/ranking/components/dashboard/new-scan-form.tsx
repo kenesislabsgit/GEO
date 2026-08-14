@@ -11,7 +11,9 @@ import { AuditProgress } from "@/components/scan/audit-progress";
 import { useDetachedAudit } from "@/components/scan/use-detached-audit";
 import { routes } from "@/lib/routes";
 import {
+  DEFAULT_SCAN_PROVIDERS,
   FREE_AUDIT_PROVIDER,
+  FREE_AUDIT_QUESTION_COUNT,
   PRO_AUDIT_QUESTION_COUNT,
   providerDisplayName,
 } from "@/lib/constants";
@@ -43,19 +45,29 @@ type PlanInfo = {
   name: string;
   isPaid: boolean;
   allowedProviders: ProviderId[];
+  providersPerScan: number;
   countries: number;
   languages: number;
   checksLimit: number;
   checksUsed: number;
 };
 
-/** Providers that at least one plan actually offers, in display order. */
+/** Providers that at least one plan actually offers, in display order.
+ * Every id here is wired into the audit engine - nothing aspirational. */
 const OFFERED_PROVIDERS: ProviderId[] = [
   "openai_search",
   "bedrock_claude",
+  "gemini",
+  "perplexity",
+  "grok",
+  "deepseek",
   "bedrock_llama",
   "bedrock_mistral",
+  "kimi",
   "bedrock_nova",
+  "groq",
+  "minimax",
+  "sarvam",
 ];
 
 /** The cheapest plan whose provider list includes this provider. */
@@ -99,8 +111,14 @@ export function NewScanForm({
   const initialBrand =
     brands.find((b) => b.id === preselectedBrandId) ?? brands[0]!;
   const [brandId, setBrandId] = useState(initialBrand.id);
+  // Pre-select the default slice, not the whole catalog - plans can offer
+  // more providers than one audit may run.
   const [providers, setProviders] = useState<string[]>(
-    plan.isPaid ? [...plan.allowedProviders] : [FREE_AUDIT_PROVIDER],
+    plan.isPaid
+      ? DEFAULT_SCAN_PROVIDERS.filter((id) =>
+          plan.allowedProviders.includes(id),
+        ).slice(0, plan.providersPerScan)
+      : [FREE_AUDIT_PROVIDER],
   );
   const [market, setMarket] = useState<string>("auto");
   const [recentBlock, setRecentBlock] = useState<{
@@ -134,7 +152,7 @@ export function NewScanForm({
     PLAN_CONFIG[plan.id as PlanId]?.features.geoMarketSearch,
   );
   // This form always starts a Pro run, so the estimate has to be the Pro
-  // question count. It used to cap at five — the old Pro size — which made a
+  // question count. It used to cap at five - the old Pro size - which made a
   // twenty-question run look like a five-question one and under-counted the
   // monthly allowance by four times.
   const questionsPerProvider = PRO_AUDIT_QUESTION_COUNT;
@@ -149,23 +167,28 @@ export function NewScanForm({
         if (prev.length === 1) return prev;
         return prev.filter((p) => p !== id);
       }
+      if (prev.length >= plan.providersPerScan) return prev;
       return [...prev, id];
     });
   }
 
   function startScan() {
     setRecentBlock(null);
+    // A free account gets the free audit it is entitled to - requesting Pro
+    // here used to hand free users a payment error instead of their audit.
     void start({
       brandId,
       domain: brand.domain,
       assistants: providers,
-      limitPerAssistant: PRO_AUDIT_QUESTION_COUNT,
-      mode: "pro",
-      ...(geoEnabled && market !== "auto" ? { market } : {}),
+      limitPerAssistant: plan.isPaid
+        ? PRO_AUDIT_QUESTION_COUNT
+        : FREE_AUDIT_QUESTION_COUNT,
+      mode: plan.isPaid ? "pro" : "free",
+      ...(plan.isPaid && geoEnabled && market !== "auto" ? { market } : {}),
     });
   }
 
-  // While the audit runs, the form gives way to a full-width progress view —
+  // While the audit runs, the form gives way to a full-width progress view - 
   // the reasoning timeline was unreadable squeezed into the summary sidebar.
   if (loading) {
     return (
@@ -188,7 +211,7 @@ export function NewScanForm({
           </Alert>
         ) : null}
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          You can leave this page — the audit keeps running and the report
+          You can leave this page - the audit keeps running and the report
           opens when it finishes.
         </p>
       </div>
@@ -271,7 +294,7 @@ export function NewScanForm({
           </p>
           {brand.prompts.length === 0 ? (
             <p className="px-5 py-6 text-sm text-muted-foreground">
-              No questions yet — this is the first audit for this website.
+              No questions yet - this is the first audit for this website.
             </p>
           ) : (
             <div className="max-h-72 divide-y divide-border overflow-y-auto">
@@ -299,10 +322,11 @@ export function NewScanForm({
             <div>
               <p className="text-sm font-medium">AI providers</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Included in your {plan.name} plan. Every selected provider
-                answers the same questions.
+                {availableProviders.length > plan.providersPerScan
+                  ? `Your ${plan.name} plan offers ${availableProviders.length} providers - run up to ${plan.providersPerScan} per audit (${providers.length} selected). Deselect one to swap in another.`
+                  : `Included in your ${plan.name} plan. Every selected provider answers the same questions.`}
               </p>
-              {/* What the plan includes — selectable, with the provider's own
+              {/* What the plan includes - selectable, with the provider's own
                   mark. Locked providers live below, not greyed out in here. */}
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {availableProviders.map((id) => {
@@ -389,7 +413,7 @@ export function NewScanForm({
                   onChange={(event) => setMarket(event.target.value)}
                   className="mt-2.5 h-9 w-full max-w-xs rounded-lg border border-border bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <option value="auto">Auto — detect from website</option>
+                  <option value="auto">Auto - detect from website</option>
                   {GEO_MARKETS.map((name) => (
                     <option key={name} value={name}>
                       {name}
@@ -400,8 +424,8 @@ export function NewScanForm({
             ) : plan.isPaid ? (
               <p className="text-xs text-muted-foreground">
                 <Lock className="mr-1 inline size-3" aria-hidden />
-                Geographic market simulation — asking as a buyer in your home
-                market — is available on{" "}
+                Geographic market simulation - asking as a buyer in your home
+                market - is available on{" "}
                 <Link
                   href={routes.billing({ plan: "growth", returnTo: routes.newScan(brandId) })}
                   className="text-[color:var(--rb-accent)] hover:underline"
@@ -561,7 +585,7 @@ export function NewScanForm({
               {brand.lastCompletedScanAt
                 ? formatDate(brand.lastCompletedScanAt)
                 : "recently"}
-              . You can run it again — a recent read of the website is reused, and
+              . You can run it again - a recent read of the website is reused, and
               each run uses your monthly AI checks.
             </p>
             <div className="mt-2.5 flex gap-2">

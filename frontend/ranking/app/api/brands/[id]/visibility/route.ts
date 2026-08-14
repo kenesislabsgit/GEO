@@ -11,7 +11,7 @@ const schema = z.object({
 
 /**
  * Flip a brand's report between public and private. The report page already
- * enforces the column on read; this is the switch that was missing — every
+ * enforces the column on read; this is the switch that was missing - every
  * brand was hardcoded public with no way to change it.
  */
 export async function POST(

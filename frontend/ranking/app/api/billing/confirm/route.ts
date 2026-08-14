@@ -20,7 +20,7 @@ const schema = z.object({
 
 /**
  * Reconcile the signed-in user's subscription with Dodo directly, instead of
- * waiting for a webhook that may be delayed — or, on localhost, can never
+ * waiting for a webhook that may be delayed - or, on localhost, can never
  * arrive at all. Nothing from the browser is believed: the subscription id
  * from the redirect is only a hint, and the subscription counts only if
  * Dodo's own record carries this user's id in its metadata (written by our
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     if (!dodoSub) {
-      // No usable hint — find this user's newest subscription at Dodo.
+      // No usable hint - find this user's newest subscription at Dodo.
       const candidates = (await listDodoSubscriptions()).filter(
         (sub) => sub.metadata?.user_id === user.id,
       );

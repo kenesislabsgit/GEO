@@ -23,7 +23,7 @@ export default async function LoginPage({
   searchParams: Promise<{ claim?: string; returnTo?: string }>;
 }) {
   // A genuinely signed-in person skips the form. This is the real session
-  // check, not the cookie-presence guess the middleware makes — a stale
+  // check, not the cookie-presence guess the middleware makes - a stale
   // cookie lands on the form and can simply sign in again.
   const user = await getSessionUser();
   if (user) {

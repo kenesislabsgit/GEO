@@ -20,10 +20,10 @@ export async function POST() {
   }
 
   if (!process.env.DODO_PAYMENTS_API_KEY) {
-    return NextResponse.json({
-      url: "/dashboard/billing",
-      simulated: true,
-    });
+    return NextResponse.json(
+      { error: "Billing management is not available right now." },
+      { status: 503 },
+    );
   }
 
   const response = await fetch(

@@ -1,15 +1,21 @@
 import { test, expect } from "@playwright/test";
 
-test("Free plan requires an account and opens the signed-in audit flow", async ({
+test("free audit CTA goes straight to signup and into the audit flow", async ({
   page,
 }) => {
   const email = `free-plan-${Date.now()}@example.com`;
 
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Does AI recommend your company/i }),
+    page.getByRole("heading", {
+      name: /See what AI tells your buyers/i,
+    }),
   ).toBeVisible();
-  await page.getByRole("link", { name: /Free \$0/i }).click();
+  // The hero CTA is the signup journey — never a scroll to a pricing grid.
+  await page
+    .getByRole("link", { name: /Run your free audit/i })
+    .first()
+    .click();
 
   await expect(page).toHaveURL(/\/login\?/);
   await page.getByLabel("Email").fill(email);
@@ -18,5 +24,7 @@ test("Free plan requires an account and opens the signed-in audit flow", async (
 
   await page.waitForURL(/\/dashboard\/scans\/new/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "New audit" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Audit a website" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Audit a website" }),
+  ).toBeVisible();
 });

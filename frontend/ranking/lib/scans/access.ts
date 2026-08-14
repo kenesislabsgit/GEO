@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/lib/auth/session";
-import { getBrandById, getScanRun } from "@/lib/db/repository";
+import { getBrandById } from "@/lib/db/repository";
 import type { ScanRun } from "@/types/database";
 
 export class ScanAccessError extends Error {

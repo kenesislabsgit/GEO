@@ -6,7 +6,7 @@ import type {
   ScoreSnapshot,
   TrackedPrompt,
 } from "@/types/database";
-import { roundForDisplay } from "@/lib/ai/scoring/score";
+import { roundForDisplay } from "@/lib/scores/format";
 
 function safeHost(url: string): string {
   try {

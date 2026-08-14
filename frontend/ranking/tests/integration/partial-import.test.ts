@@ -26,10 +26,11 @@ describe("an import that dies partway through", () => {
     await closeTestDb();
   });
 
-  it("does not leave a finished-looking report with empty panels", async () => {
-    // A Windows file lock killed an import between the answers and the score,
-    // and the dashboard showed a completed audit with no competitors, no
-    // actions and a dash where the score belongs.
+  it("rolls the whole import back when any step fails", async () => {
+    // A Windows file lock once killed an import between the answers and the
+    // score, and the dashboard showed a completed audit with empty panels.
+    // The import is one transaction now: a failure anywhere means nothing at
+    // all was written — no brand, no scan, no half-replaced prompts.
     const repository = await import("@/lib/db/repository");
     const { importAuditExport } = await import("@/lib/audit/import-export");
     const failure = new Error("EPERM: operation not permitted, rename");
@@ -41,16 +42,16 @@ describe("an import that dies partway through", () => {
     );
 
     const { one } = await import("@/lib/db/pg");
-    const scan = await one<{ id: string; brand_id: string; status: string }>(
-      `select id, brand_id, status from scan_runs order by created_at desc limit 1`,
+    const scan = await one<{ id: string }>(
+      `select id from scan_runs order by created_at desc limit 1`,
     );
-    expect(scan).not.toBeNull();
-    expect(scan!.status).toBe("running");
-
-    // getLatestScanForBrand only offers finished audits, so a broken one is
-    // never shown as a report.
-    const latest = await repository.getLatestScanForBrand(scan!.brand_id);
-    expect(latest).toBeNull();
+    expect(scan).toBeNull();
+    const brand = await one<{ id: string }>(`select id from brands limit 1`);
+    expect(brand).toBeNull();
+    const prompts = await one<{ id: string }>(
+      `select id from tracked_prompts limit 1`,
+    );
+    expect(prompts).toBeNull();
   });
 
   it("marks the scan finished once every panel is stored", async () => {

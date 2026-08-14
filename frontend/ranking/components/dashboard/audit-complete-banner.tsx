@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, X } from "lucide-react";
 
 /**
- * Shown once, straight after an audit finishes — the arrival "?completed=1"
+ * Shown once, straight after an audit finishes - the arrival "?completed=1"
  * only ever comes from the audit redirect, so ordinary visits never see it.
  * Dismissing just cleans the URL.
  */

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from .netguard import open_url_guarded
 
 
 SOURCE_TYPE_RULES = (
@@ -135,15 +135,14 @@ def resolve_source_url(url: str) -> str:
         _RESOLVE_CACHE[url] = url
         return url
 
-    request = Request(
-        url,
-        headers={"User-Agent": "GEOAuditBot/0.1 (+https://example.local/audit)"},
-        method="GET",
-    )
     try:
-        with urlopen(request, timeout=12) as response:
-            final_url = response.url
-    except (HTTPError, URLError, TimeoutError, ValueError):
+        final_url, _, _ = open_url_guarded(
+            url,
+            timeout=12,
+            max_bytes=256 * 1024,
+            headers={"User-Agent": "GEOAuditBot/0.1 (+https://example.local/audit)"},
+        )
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
         final_url = url
 
     _RESOLVE_CACHE[url] = final_url
@@ -163,46 +162,44 @@ def verify_source_url(
             "verified": False,
             "error": "Not an HTTP(S) URL.",
         }
-    request = Request(
-        url,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 Chrome/126.0 Safari/537.36 GEOAuditBot/0.2"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.5",
-        },
-        method="GET",
-    )
     try:
-        with urlopen(request, timeout=12) as response:
-            status = int(getattr(response, "status", 200))
-            content_type = response.headers.get("Content-Type", "")
-            final_url = response.url
-            valid_content = (
-                "text/html" in content_type
-                or "application/xhtml+xml" in content_type
-                or "application/pdf" in content_type
-            )
-            mentions_company = None
-            if match_terms and valid_content and "text/html" in content_type:
-                mentions_company = page_mentions_terms(
-                    response.read(MAX_VERIFY_BYTES),
-                    match_terms,
-                )
-            return {
-                "url": url,
-                "resolved_url": final_url,
-                "verified": 200 <= status < 400 and valid_content,
-                "http_status": status,
-                "content_type": content_type,
-                "mentions_company": mentions_company,
-                "checked_at": datetime.now(timezone.utc).isoformat(),
-                "error": None
-                if valid_content
-                else f"Unsupported content type: {content_type}",
-            }
-    except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+        # AI answers cite arbitrary URLs; every one is untrusted input and
+        # goes through the network guard (public addresses only, capped body).
+        final_url, response_headers, body = open_url_guarded(
+            url,
+            timeout=12,
+            max_bytes=MAX_VERIFY_BYTES,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 Chrome/126.0 Safari/537.36 GEOAuditBot/0.2"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.5",
+            },
+        )
+        status = 200
+        content_type = response_headers.get("Content-Type", "")
+        valid_content = (
+            "text/html" in content_type
+            or "application/xhtml+xml" in content_type
+            or "application/pdf" in content_type
+        )
+        mentions_company = None
+        if match_terms and valid_content and "text/html" in content_type:
+            mentions_company = page_mentions_terms(body, match_terms)
+        return {
+            "url": url,
+            "resolved_url": final_url,
+            "verified": 200 <= status < 400 and valid_content,
+            "http_status": status,
+            "content_type": content_type,
+            "mentions_company": mentions_company,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "error": None
+            if valid_content
+            else f"Unsupported content type: {content_type}",
+        }
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError) as exc:
         return {
             "url": url,
             "verified": False,

@@ -1,117 +1,99 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { closeTestDb, resetTestDb } from "./pg-test-db";
 
 /**
- * Several people must be able to audit the same website. Only the read of the
- * website is shared; questions, competitors and reports stay per person.
+ * Several accounts may audit the same website; whoever got there first must
+ * not own it for everyone else. Each owner gets their own brand row for the
+ * domain (unique per owner), and their audits never collide with each
+ * other's active-scan guard.
  */
-
-let store: typeof import("@/lib/db/local-store");
-let tempDir: string;
-
-beforeAll(async () => {
-  tempDir = await mkdtemp(path.join(tmpdir(), "rbai-store-"));
-  process.env.LOCAL_STORE_PATH = path.join(tempDir, "local-store.json");
-  store = await import("@/lib/db/local-store");
-});
-
-afterAll(async () => {
-  delete process.env.LOCAL_STORE_PATH;
-  await rm(tempDir, { recursive: true, force: true });
-});
-
-function brandInput(domain: string, ownerId: string | null) {
-  return {
-    owner_id: ownerId,
-    name: "Example",
-    canonical_domain: domain,
-    slug: domain.replace(/\./g, "-"),
-    logo_url: null,
-    description: null,
-    category: null,
-    target_audience: null,
-    aliases: [],
-    default_country: "us",
-    default_language: "en",
-    visibility: "public" as const,
-    claimed_at: null,
-    metadata_confidence: null,
-  };
-}
-
-describe("one website, many people", () => {
-  const domain = "example.com";
-  const alice = "11111111-1111-1111-1111-111111111111";
-  const bob = "22222222-2222-2222-2222-222222222222";
-
-  it("gives each account its own record for the same website", async () => {
-    const aliceBrand = await store.localUpsertBrand(brandInput(domain, alice));
-    const bobBrand = await store.localUpsertBrand(brandInput(domain, bob));
-
-    expect(aliceBrand.id).not.toBe(bobBrand.id);
-    expect(aliceBrand.slug).not.toBe(bobBrand.slug);
-    expect(bobBrand.canonical_domain).toBe(domain);
+describe("two accounts auditing the same website", () => {
+  beforeAll(async () => {
+    await resetTestDb();
+  });
+  afterAll(async () => {
+    await closeTestDb();
   });
 
-  it("reuses the same record when one person audits again", async () => {
-    const first = await store.localGetBrandByDomainForOwner(domain, alice);
-    const again = await store.localUpsertBrand(brandInput(domain, alice));
-    expect(again.id).toBe(first?.id);
-    expect(again.slug).toBe(first?.slug);
+  it("gives each owner an independent brand for the same domain", async () => {
+    const { exec } = await import("@/lib/db/pg");
+    const { upsertBrand, getBrandByDomainForOwner } = await import(
+      "@/lib/db/repository"
+    );
+    for (const id of ["owner-a", "owner-b"]) {
+      await exec(
+        `insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+         values ($1, $1, $2, true, now(), now()) on conflict (id) do nothing`,
+        [id, `${id}@example.com`],
+      );
+    }
+    const base = {
+      name: "shared.example",
+      canonical_domain: "shared.example",
+      logo_url: null,
+      description: null,
+      category: null,
+      target_audience: null,
+      aliases: ["shared.example"],
+      default_country: "US",
+      default_language: "en",
+      visibility: "public" as const,
+      claimed_at: null,
+      metadata_confidence: null,
+    };
+    const a = await upsertBrand({ ...base, owner_id: "owner-a", slug: "shared-a" });
+    const b = await upsertBrand({ ...base, owner_id: "owner-b", slug: "shared-b" });
+    expect(a.id).not.toBe(b.id);
+
+    const aAgain = await getBrandByDomainForOwner("shared.example", "owner-a");
+    const bAgain = await getBrandByDomainForOwner("shared.example", "owner-b");
+    expect(aAgain?.id).toBe(a.id);
+    expect(bAgain?.id).toBe(b.id);
   });
 
-  it("keeps anonymous audits of the same website apart", async () => {
-    const one = await store.localUpsertBrand(brandInput(domain, null));
-    const two = await store.localUpsertBrand(brandInput(domain, null));
-    expect(one.id).not.toBe(two.id);
-    expect(one.slug).not.toBe(two.slug);
-  });
-
-  it("copies a website record instead of refusing a second owner", async () => {
-    const aliceBrand = await store.localGetBrandByDomainForOwner(domain, alice);
-    const carol = "33333333-3333-3333-3333-333333333333";
-    const copy = await store.localCopyBrandForOwner(aliceBrand!.id, carol);
-
-    expect(copy?.owner_id).toBe(carol);
-    expect(copy?.id).not.toBe(aliceBrand!.id);
-    expect(copy?.canonical_domain).toBe(domain);
-  });
-
-  it("finds the latest audit per record, not per website", async () => {
-    const aliceBrand = await store.localGetBrandByDomainForOwner(domain, alice);
-    const bobBrand = await store.localGetBrandByDomainForOwner(domain, bob);
-
-    await store.localCreateScanRun({
-      brand_id: aliceBrand!.id,
-      initiated_by: alice,
-      scan_type: "free",
-      status: "completed",
-      provider_ids: ["openai"],
-      total_queries: 1,
-      completed_queries: 1,
-      started_at: null,
-      completed_at: null,
-      error_summary: null,
-      methodology_version: "test",
-      demo_mode: false,
-      cancelled_at: null,
-      country: null,
-      language: null,
+  it("keeps the one-active-scan guard per brand, not per domain", async () => {
+    const { enqueueScan } = await import("@/lib/scans/queue");
+    const { getBrandByDomainForOwner } = await import("@/lib/db/repository");
+    const a = await getBrandByDomainForOwner("shared.example", "owner-a");
+    const b = await getBrandByDomainForOwner("shared.example", "owner-b");
+    const snapshot = {
+      domain: "shared.example",
+      mode: "free" as const,
+      assistants: ["openai_search" as const],
+      limit_per_assistant: 5,
+      prompts: [],
+      country: "us",
+      language: "en",
+      geo_market: false,
+      geo_market_name: null,
+      ip_hash: null,
+      plan: "free",
+      question_count: 5,
+      methodology_version_requested: null,
+      trigger_source: "free",
+      cost_ceiling_usd: 2.5,
+      resume: false,
+    };
+    const first = await enqueueScan({
+      brand: a!,
+      initiatedBy: "owner-a",
+      scanType: "free",
+      snapshot,
+      checksLimit: 5,
     });
-
-    const aliceLatest = await store.localLatestCompletedScanForBrand(
-      aliceBrand!.id,
-      null,
-    );
-    const bobLatest = await store.localLatestCompletedScanForBrand(
-      bobBrand!.id,
-      null,
-    );
-
-    expect(aliceLatest?.scan.brand_id).toBe(aliceBrand!.id);
-    // Bob has no audit of his own yet, and must not inherit Alice's.
-    expect(bobLatest).toBeNull();
+    const second = await enqueueScan({
+      brand: b!,
+      initiatedBy: "owner-b",
+      scanType: "free",
+      snapshot,
+      checksLimit: 5,
+    });
+    // Different owners, same website — both scans queue independently.
+    expect(first.ok && second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.alreadyRunning).toBe(false);
+      expect(second.alreadyRunning).toBe(false);
+      expect(first.scan.id).not.toBe(second.scan.id);
+    }
   });
 });

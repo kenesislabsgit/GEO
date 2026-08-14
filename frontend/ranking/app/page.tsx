@@ -2,15 +2,28 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
+import { JsonLd } from "@/components/site/json-ld";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import {
+  APP_NAME,
+  APP_TAGLINE,
+  DEFAULT_SCAN_PROVIDERS,
+  providerDisplayName,
+} from "@/lib/constants";
 import { routes } from "@/lib/routes";
+
+export const metadata = {
+  alternates: { canonical: "/" },
+};
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit uses OpenAI with web search; paid audits compare the same questions across multiple providers.",
+    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search; paid audits compare the same questions across multiple providers.",
   },
   {
     q: "Can results change between runs?",
@@ -18,11 +31,11 @@ const faqs = [
   },
   {
     q: "Do free scans require an account?",
-    a: "Yes — a free account, no card. Sign up, run your free audit, and your report is saved to your dashboard so you can come back to it any time.",
+    a: "Yes - a free account, no card. Sign up, run your free audit, and your report is saved to your dashboard so you can come back to it any time.",
   },
   {
     q: "Do you guarantee ranking improvements?",
-    a: "No — and you should distrust anyone who does. The action centre gives evidence-based, directional recommendations tied to exact prompts and sources.",
+    a: "No - and you should distrust anyone who does. The action centre gives evidence-based, directional recommendations tied to exact prompts and sources.",
   },
 ];
 
@@ -127,14 +140,18 @@ function Cross({ className }: { className: string }) {
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
+// Only providers the audit engine genuinely asks.
 const PROVIDER_PILLS = [
-  { name: "OpenAI", color: "#10a37f", className: "top-[6%] left-[10%] opacity-50" },
-  { name: "Claude", color: "#d97757", className: "top-[16%] right-[12%]" },
-  { name: "Gemini", color: "#4285f4", className: "top-[36%] left-[22%]" },
-  { name: "Perplexity", color: "#20b8cd", className: "top-[58%] left-[6%] opacity-50" },
-  { name: "Llama", color: "#0668e1", className: "top-[52%] right-[14%]" },
-  { name: "Mistral", color: "#f54e42", className: "top-[76%] left-[30%]" },
-  { name: "Nova", color: "#8b5cf6", className: "top-[88%] right-[8%] opacity-50" },
+  { name: "ChatGPT", provider: "openai", className: "top-[4%] left-[10%] opacity-50" },
+  { name: "Claude", className: "top-[13%] right-[12%]" },
+  { name: "Gemini", className: "top-[28%] left-[22%]" },
+  { name: "Perplexity", className: "top-[44%] left-[6%] opacity-50" },
+  { name: "Grok", className: "top-[40%] right-[10%]" },
+  { name: "DeepSeek", className: "top-[58%] left-[28%]" },
+  { name: "Llama", className: "top-[56%] right-[24%] opacity-50" },
+  { name: "Mistral", className: "top-[72%] left-[10%]" },
+  { name: "Kimi", className: "top-[74%] right-[8%]" },
+  { name: "Nova", className: "top-[88%] right-[26%] opacity-50" },
 ] as const;
 
 const SOURCE_DOTS = [
@@ -149,10 +166,55 @@ const SOURCE_DOTS = [
 export default function HomePage() {
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": `${appUrl}/#organization`,
+              name: APP_NAME,
+              url: appUrl,
+              description:
+                "AI visibility monitoring: measures whether AI answer engines like ChatGPT, Claude, and Gemini mention and recommend your brand.",
+            },
+            {
+              "@type": "WebSite",
+              "@id": `${appUrl}/#website`,
+              name: APP_NAME,
+              url: appUrl,
+              publisher: { "@id": `${appUrl}/#organization` },
+            },
+            {
+              "@type": "SoftwareApplication",
+              name: APP_NAME,
+              url: appUrl,
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              description: `${APP_TAGLINE} Sampled AI visibility reports across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+                description: "Free AI visibility audit - no card required.",
+              },
+              publisher: { "@id": `${appUrl}/#organization` },
+            },
+            {
+              "@type": "FAQPage",
+              mainEntity: faqs.map((faq) => ({
+                "@type": "Question",
+                name: faq.q,
+                acceptedAnswer: { "@type": "Answer", text: faq.a },
+              })),
+            },
+          ],
+        }}
+      />
       <SiteHeader />
 
       <main>
-        {/* Hero — editorial blueprint */}
+        {/* Hero - editorial blueprint */}
         <section className="relative bg-background">
           <div aria-hidden className="rb-hatch h-8 border-b border-border" />
           <div className="mx-auto max-w-6xl">
@@ -170,7 +232,7 @@ export default function HomePage() {
               <div className="relative max-w-2xl">
                 <p className="rb-fade-up inline-flex items-center gap-2 border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
                   <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-green)]" />
-                  Measured from real provider APIs — never simulated
+                  Measured from real provider APIs - never simulated
                 </p>
 
                 <h1 className="rb-fade-up rb-fade-up-delay-1 font-heading mt-6 text-[2.75rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance sm:text-6xl md:text-[4.25rem]">
@@ -185,7 +247,7 @@ export default function HomePage() {
 
                 <div className="rb-fade-up rb-fade-up-delay-3 mt-8 flex flex-wrap items-center gap-3">
                   <Button asChild size="lg" className="h-11 rounded-none px-6">
-                    <Link href={routes.publicScanAnchor}>
+                    <Link href={routes.freeAuditSignup}>
                       Run your free audit
                       <ArrowRight data-icon="inline-end" />
                     </Link>
@@ -230,17 +292,17 @@ export default function HomePage() {
             <p className="text-center text-xs text-muted-foreground">
               Answers measured across
             </p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
-              {["OpenAI", "Claude", "Llama", "Mistral", "Nova"].map((name) => (
-                <span key={name} className="inline-flex items-center gap-2">
-                  <ProviderLogo provider={name.toLowerCase()} />
-                  {name}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-sm tracking-wide text-muted-foreground/70">
+              {DEFAULT_SCAN_PROVIDERS.map((id) => (
+                <span key={id} className="inline-flex items-center gap-2">
+                  <ProviderLogo provider={id} />
+                  {providerDisplayName(id)}
                 </span>
               ))}
             </div>
           </div>
         </section>
-        {/* Bento — dark evidence grid */}
+        {/* Bento - dark evidence grid */}
         <section className="relative overflow-hidden bg-[color:var(--rb-ink)] text-white">
           <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.08]" />
           <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
@@ -252,13 +314,13 @@ export default function HomePage() {
                 Evidence, not vibes
               </h2>
               <p className="mt-3 text-white/50">
-                Everything below ships in every paid report — and the free audit
+                Everything below ships in every paid report - and the free audit
                 is a real slice of it.
               </p>
             </div>
 
             <div className="mt-12 grid gap-4 lg:grid-cols-3">
-              {/* Visibility score — stat + bars */}
+              {/* Visibility score - stat + bars */}
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8 lg:col-span-2">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-white/35 uppercase">
                   Visibility score
@@ -267,7 +329,7 @@ export default function HomePage() {
                   A score that moves when you do
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm leading-relaxed text-white/50">
-                  Mentions, position and sentiment compiled into one number —
+                  Mentions, position and evidence quality compiled into one number - 
                   comparable scan after scan, never a black box.
                 </p>
                 <div className="mt-8 flex items-end justify-between gap-4">
@@ -286,7 +348,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Citations — glowing source map */}
+              {/* Citations - glowing source map */}
               <div className="relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:row-span-2">
                 <div className="relative min-h-56 flex-1">
                   <div
@@ -309,13 +371,13 @@ export default function HomePage() {
                     Trace every citation
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-white/50">
-                    The exact pages that taught each model who to recommend —
+                    The exact pages that taught each model who to recommend - 
                     mapped across the open web, including where you&rsquo;re missing.
                   </p>
                 </div>
               </div>
 
-              {/* Providers — floating pills */}
+              {/* Providers - floating pills */}
               <div className="relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:row-span-2">
                 <div className="relative min-h-72 flex-1">
                   {PROVIDER_PILLS.map((pill) => (
@@ -324,9 +386,12 @@ export default function HomePage() {
                       className={`absolute inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-sm text-white/70 ${pill.className}`}
                     >
                       <ProviderLogo
-                        provider={pill.name.toLowerCase()}
+                        provider={
+                          "provider" in pill
+                            ? pill.provider
+                            : pill.name.toLowerCase()
+                        }
                         className="size-3.5"
-                        style={{ color: pill.color }}
                       />
                       {pill.name}
                     </span>
@@ -340,8 +405,8 @@ export default function HomePage() {
                     One method, every model
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-white/50">
-                    The same buyer questions asked across OpenAI, Claude, Gemini
-                    and more — answers compared side by side.
+                    The same buyer questions asked across ChatGPT, Claude, Gemini
+                    and more - answers compared side by side.
                   </p>
                 </div>
               </div>
@@ -350,13 +415,13 @@ export default function HomePage() {
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,#173a5e,#0a1626_65%)] p-6 text-center md:p-8">
                 <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.1]" />
                 <p className="rb-tabular font-heading relative bg-gradient-to-b from-white via-white/75 to-white/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
-                  120+
+                  200
                 </p>
                 <p className="relative mt-1 text-white/70">
-                  real buyer questions per audit
+                  provider answers per Pro+ audit - 20 questions × 10 AIs
                 </p>
                 <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
-                  {["5 providers", "Cited sources", "Share of voice"].map((chip) => (
+                  {["13 AI providers", "Cited sources", "Share of voice"].map((chip) => (
                     <span
                       key={chip}
                       className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white/60"
@@ -369,7 +434,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Monitoring — trend chart */}
+              {/* Monitoring - trend chart */}
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:col-span-2">
                 <div className="relative px-2 pt-14">
                   <span className="absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-[#161616] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white/80">
@@ -443,7 +508,7 @@ export default function HomePage() {
                 {[
                   {
                     title: "We read your website",
-                    body: "Category, audience and claims extracted from your public pages — you correct anything before the scan.",
+                    body: "Category, audience and claims extracted from your public pages - you correct anything before the scan.",
                   },
                   {
                     title: "AI gets asked real buyer questions",
@@ -451,7 +516,7 @@ export default function HomePage() {
                   },
                   {
                     title: "Every answer becomes evidence",
-                    body: "Mentions, positions, citations and competitor patterns — scored into one number and a prioritized fix list.",
+                    body: "Mentions, positions, citations and competitor patterns - scored into one number and a prioritized fix list.",
                   },
                 ].map((step, index) => (
                   <li key={step.title} className="relative">
@@ -563,7 +628,7 @@ export default function HomePage() {
                   Honest answers
                 </h2>
                 <p className="mt-3 text-muted-foreground">
-                  What AI visibility measurement can — and cannot — tell you.
+                  What AI visibility measurement can - and cannot - tell you.
                 </p>
               </div>
               <div className="divide-y divide-border">
@@ -596,7 +661,7 @@ export default function HomePage() {
               Find out before your competitors do.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-white/55">
-              Run a free AI visibility audit. No card needed — a shareable
+              Run a free AI visibility audit. No card needed - a shareable
               report in minutes.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -605,7 +670,7 @@ export default function HomePage() {
                 size="lg"
                 className="h-10 bg-white px-5 text-black shadow-none hover:bg-white/90"
               >
-                <Link href={routes.publicScanAnchor}>
+                <Link href={routes.freeAuditSignup}>
                   Start free audit
                   <ArrowRight data-icon="inline-end" />
                 </Link>

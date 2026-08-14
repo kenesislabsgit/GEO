@@ -1,6 +1,6 @@
 import { METHODOLOGY_VERSION } from "@/lib/constants";
+import { exec, withTransaction } from "@/lib/db/pg";
 import {
-  addUsage,
   createScanRun,
   insertQueryResult,
   recordFreeScan,
@@ -12,7 +12,7 @@ import {
   upsertScore,
 } from "@/lib/db/repository";
 import { domainToSlug } from "@/lib/utils/slug";
-import type { Json, ProviderId, Sentiment } from "@/types/database";
+import type { Json, ProviderId } from "@/types/database";
 
 export type AuditExport = {
   generated_at?: string;
@@ -50,6 +50,16 @@ function normalizePromptKey(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+export type ImportResult = {
+  brandId: string;
+  scanRunId: string;
+  reportPath: string;
+  importedQueryResults: number;
+  /** Actual provider checks and estimated spend, for reservation settlement. */
+  actualUnits: number;
+  actualCostUsd: number;
+};
+
 export async function importAuditExport(
   audit: AuditExport,
   options: {
@@ -59,12 +69,33 @@ export async function importAuditExport(
     scanType?: "free" | "manual" | "scheduled";
     initiatedBy?: string | null;
     recordFreeScan?: boolean;
+    /** Hashed request IP from enqueue time, for the free-scan abuse table. */
+    ipHash?: string | null;
+    /** Brand locale to keep; the import must not reset what the user set. */
+    country?: string | null;
+    language?: string | null;
+    /**
+     * Curated prompts the audit was told to ask, in question order. When
+     * present, the import links results to these existing rows instead of
+     * replacing the brand's prompts with regenerated ones.
+     */
+    curatedPrompts?: Array<{ id: string; prompt: string }>;
     // A run row created before the audit started. The import fills it in
     // instead of creating a second one, so the page that has been polling
     // this id sees the same run turn into the finished report.
     scanRunId?: string;
   } = {},
-) {
+): Promise<ImportResult> {
+  // One transaction. Either the whole audit lands - brand, prompts,
+  // competitors, answers, score, actions, scan status - or none of it does
+  // and the scan row can be marked failed by the caller.
+  return withTransaction(() => importInTransaction(audit, options));
+}
+
+async function importInTransaction(
+  audit: AuditExport,
+  options: Parameters<typeof importAuditExport>[1] & object,
+): Promise<ImportResult> {
   const domain = normalizeDomain(audit.brand?.domain);
   if (!domain) {
     throw new Error("audit_export.brand.domain is required");
@@ -82,8 +113,8 @@ export async function importAuditExport(
     category: asNullableString(audit.brand?.category),
     target_audience: asNullableString(audit.brand?.target_audience),
     aliases: audit.brand?.aliases?.filter(Boolean) ?? [asString(audit.brand?.name, domain)],
-    default_country: "us",
-    default_language: "en",
+    default_country: options.country ?? "us",
+    default_language: options.language ?? "en",
     visibility: options.visibility ?? "public",
     claimed_at: null,
     metadata_confidence: ({ source: "geo_audit_import", quality: audit.quality ?? null } as Json),
@@ -99,30 +130,41 @@ export async function importAuditExport(
     .filter(({ promptIndex }) =>
       testedPromptIndexes.size ? testedPromptIndexes.has(promptIndex) : true,
     );
-  const prompts = await replacePrompts(
-    brand.id,
-    promptRows
-      .map(({ row }) => ({
-        prompt: asString(row.prompt, ""),
-        prompt_type: asString(row.prompt_type, "unknown"),
-        buyer_stage: asString(row.buyer_stage, "unknown"),
-        // Geo-localized questions carry their market's country code; every
-        // other question is "global". The market's display name rides in
-        // rationale — the one spare per-prompt column — so the report can
-        // say "India", not "in".
-        country: asString(row.market_country, "global").toLowerCase() || "global",
-        language: "en",
-        active: true,
-        is_custom: false,
-        rationale: asString(row.market, "") || null,
-      }))
-      .filter((row) => row.prompt),
-  );
 
   const promptIdByIndex = new Map<number, string>();
-  prompts.forEach((prompt, index) =>
-    promptIdByIndex.set(promptRows[index]?.promptIndex ?? index + 1, prompt.id),
-  );
+  let prompts: Array<{ id: string; prompt: string }>;
+  if (options.curatedPrompts?.length) {
+    // The audit asked exactly the user's saved questions, in order. Nothing
+    // is regenerated and nothing the user curated is touched.
+    prompts = options.curatedPrompts;
+    options.curatedPrompts.forEach((prompt, index) =>
+      promptIdByIndex.set(index + 1, prompt.id),
+    );
+  } else {
+    const stored = await replacePrompts(
+      brand.id,
+      promptRows
+        .map(({ row }) => ({
+          prompt: asString(row.prompt, ""),
+          prompt_type: asString(row.prompt_type, "unknown"),
+          buyer_stage: asString(row.buyer_stage, "unknown"),
+          // Geo-localized questions carry their market's country code; every
+          // other question is "global". The market's display name rides in
+          // rationale - the one spare per-prompt column - so the report can
+          // say "India", not "in".
+          country: asString(row.market_country, "global").toLowerCase() || "global",
+          language: "en",
+          active: true,
+          is_custom: false,
+          rationale: asString(row.market, "") || null,
+        }))
+        .filter((row) => row.prompt),
+    );
+    prompts = stored;
+    stored.forEach((prompt, index) =>
+      promptIdByIndex.set(promptRows[index]?.promptIndex ?? index + 1, prompt.id),
+    );
+  }
 
   const providerIds = Array.from(
     new Set(
@@ -157,7 +199,7 @@ export async function importAuditExport(
     total_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
     completed_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
     started_at: audit.generated_at ?? now,
-    completed_at: audit.generated_at ?? now,
+    completed_at: now,
     error_summary: audit.scan?.partial_providers?.length
       ? `No usable company recommendations were retained from: ${audit.scan.partial_providers.join(", ")}.`
       : null,
@@ -165,8 +207,8 @@ export async function importAuditExport(
     methodology_version: asString(audit.scan?.methodology_version, METHODOLOGY_VERSION),
     demo_mode: false,
     cancelled_at: null,
-    country: "us",
-    language: "en",
+    country: options.country ?? "us",
+    language: options.language ?? "en",
   };
   const scan = options.scanRunId
     ? await updateScanRun(options.scanRunId, scanFields)
@@ -175,47 +217,41 @@ export async function importAuditExport(
     throw new Error(`Scan run ${options.scanRunId} to import into was not found.`);
   }
 
-  await Promise.all(
-    (audit.query_results ?? []).map(async (row) => {
-      const provider = toProviderId(row.provider);
-      await insertQueryResult({
-        scan_run_id: scan.id,
-        tracked_prompt_id: promptIdByIndex.get(Number(row.prompt_index)) ?? null,
-        provider,
-        model: asString(row.model, "unknown"),
-        raw_answer: asString(row.raw_answer, ""),
-        answer_summary: asNullableString(row.answer_summary),
-        brand_mentioned: Boolean(row.brand_mentioned),
-        brand_position: asNumberOrNull(row.brand_position),
-        brand_sentiment: "neutral" satisfies Sentiment,
-        confidence: asNumberOrNull(row.analysis_confidence),
-        recommended_brands: (row.recommended_brands ?? []) as Json,
-        citations: (row.citations ?? []) as Json,
-        sources: (row.verified_mentions ?? []) as Json,
-        claims: [] as Json,
-        latency_ms: null,
-        usage_metadata: {
-          parse_error: row.parse_error ?? null,
-          collection_mode: row.collection_mode ?? null,
-        } as Json,
-        estimated_cost: null,
-        error: asNullableString(row.parse_error),
-        is_demo: false,
-      });
-      if (options.initiatedBy) {
-        await addUsage({
-          user_id: options.initiatedBy,
-          brand_id: brand.id,
-          scan_run_id: scan.id,
-          provider,
-          operation: "provider_check",
-          units: 1,
-          estimated_cost: asNumber(row.estimated_cost, 0),
-          billing_period: now.slice(0, 7),
-        });
-      }
-    }),
-  );
+  // A retried import starts clean instead of stacking a second set of
+  // answers onto the same scan.
+  await exec(`delete from query_results where scan_run_id = $1`, [scan.id]);
+
+  let actualCostUsd = 0;
+  for (const row of audit.query_results ?? []) {
+    const provider = toProviderId(row.provider);
+    actualCostUsd += asNumber(row.estimated_cost, 0);
+    await insertQueryResult({
+      scan_run_id: scan.id,
+      tracked_prompt_id: promptIdByIndex.get(Number(row.prompt_index)) ?? null,
+      provider,
+      model: asString(row.model, "unknown"),
+      raw_answer: asString(row.raw_answer, ""),
+      answer_summary: asNullableString(row.answer_summary),
+      brand_mentioned: Boolean(row.brand_mentioned),
+      brand_position: asNumberOrNull(row.brand_position),
+      // The engine does not measure sentiment; storing a fabricated
+      // "neutral" made the product look like it did.
+      brand_sentiment: null,
+      confidence: asNumberOrNull(row.analysis_confidence),
+      recommended_brands: (row.recommended_brands ?? []) as Json,
+      citations: (row.citations ?? []) as Json,
+      sources: (row.verified_mentions ?? []) as Json,
+      claims: [] as Json,
+      latency_ms: null,
+      usage_metadata: {
+        parse_error: row.parse_error ?? null,
+        collection_mode: row.collection_mode ?? null,
+      } as Json,
+      estimated_cost: asNumberOrNull(row.estimated_cost),
+      error: asNullableString(row.parse_error),
+      is_demo: false,
+    });
+  }
 
   await upsertScore({
     brand_id: brand.id,
@@ -229,6 +265,13 @@ export async function importAuditExport(
     average_position: asNumberOrNull(audit.score?.average_position),
     share_of_voice: asNumber(audit.score?.share_of_voice, 0),
     competitor_scores: (audit.score?.competitor_scores ?? {}) as Json,
+    methodology_version: asString(
+      audit.scan?.methodology_version,
+      METHODOLOGY_VERSION,
+    ),
+    // The complete breakdown as the engine computed it, weights included.
+    // The frontend renders this object; it never recomputes a score.
+    breakdown: (audit.score ?? {}) as Json,
   });
 
   // Lost buyer questions arrive as objects (prompt text + who won it). Keep the
@@ -275,7 +318,7 @@ export async function importAuditExport(
     await recordFreeScan({
       domain,
       normalized_domain: domain,
-      ip_hash: null,
+      ip_hash: options.ipHash ?? null,
       scan_run_id: scan.id,
     });
   }
@@ -287,6 +330,8 @@ export async function importAuditExport(
     scanRunId: scan.id,
     reportPath: `/report/${brand.slug}`,
     importedQueryResults: audit.query_results?.length ?? 0,
+    actualUnits: audit.query_results?.length ?? 0,
+    actualCostUsd,
   };
 }
 
@@ -316,6 +361,12 @@ function toProviderId(value: unknown): ProviderId {
     "bedrock_nova",
     "bedrock_llama",
     "bedrock_mistral",
+    "grok",
+    "deepseek",
+    "kimi",
+    "groq",
+    "minimax",
+    "sarvam",
   ];
   return known.includes(provider) ? provider : "openai";
 }

@@ -9,11 +9,15 @@ const sections = [
   },
   {
     title: "How data is protected",
-    body: "Row-level security scopes every table to its owner. Service-role credentials never ship to the browser. Public reports expose only explicitly public fields.",
+    body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Public reports expose only explicitly public fields; private reports reveal nothing on any surface, including preview images.",
+  },
+  {
+    title: "How long we keep things",
+    body: "Report data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
   },
   {
     title: "Your controls",
-    body: "You can export all of your data as JSON or permanently delete your account and owned brand data from Settings at any time.",
+    body: "You can export all of your data as JSON or permanently delete your account and owned data from Settings at any time. Deletion cancels running audits and your subscription, and signs out every session.",
   },
 ];
 

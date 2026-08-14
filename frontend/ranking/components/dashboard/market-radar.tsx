@@ -2,7 +2,6 @@
 
 import { Radar } from "@/components/dither-kit/radar";
 import { RadarChart } from "@/components/dither-kit/radar-chart";
-import { Legend } from "@/components/dither-kit/legend";
 import { Tooltip } from "@/components/dither-kit/tooltip";
 
 const CONFIG = { rate: { label: "Mention rate %", color: "blue" } } as const;

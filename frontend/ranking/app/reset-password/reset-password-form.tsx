@@ -75,7 +75,7 @@ export function ResetPasswordForm() {
     if (result.error) {
       setError(
         result.error.message ||
-          "The link may have expired — request a new one.",
+          "The link may have expired - request a new one.",
       );
       setLoading(false);
       return;

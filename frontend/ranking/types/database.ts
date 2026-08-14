@@ -8,7 +8,15 @@ export type Json =
 
 export type BrandVisibility = "public" | "private";
 export type ScanType = "free" | "manual" | "scheduled";
-export type ScanStatus = "queued" | "running" | "completed" | "partial" | "failed" | "cancelled";
+export type ScanStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "partial"
+  | "failed"
+  | "cancel_requested"
+  | "cancelled"
+  | "timed_out";
 export type ProviderId =
   | "openai"
   | "openai_search"
@@ -18,7 +26,13 @@ export type ProviderId =
   | "bedrock_claude"
   | "bedrock_nova"
   | "bedrock_llama"
-  | "bedrock_mistral";
+  | "bedrock_mistral"
+  | "grok"
+  | "deepseek"
+  | "kimi"
+  | "groq"
+  | "minimax"
+  | "sarvam";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type ActionStatus = "open" | "in_progress" | "completed" | "dismissed";
 export type SubscriptionStatus =
@@ -64,6 +78,8 @@ export type Competitor = {
   name: string;
   domain: string | null;
   aliases: string[];
+  /** Added by the user; audits never replace these rows. */
+  is_custom?: boolean;
   created_at: string;
 };
 
@@ -105,7 +121,48 @@ export type ScanRun = {
   // The page polls these instead of holding a connection open.
   step?: string | null;
   progress?: number;
+  // Durable-queue fields (0002_durable_audits.sql). The worker owns these.
+  queued_at?: string | null;
+  heartbeat_at?: string | null;
+  last_error_at?: string | null;
+  attempts?: number;
+  max_attempts?: number;
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  cancel_requested_at?: string | null;
+  failure_reason?: string | null;
+  trigger_source?: string | null;
+  input_snapshot?: ScanInputSnapshot | null;
+  idempotency_key?: string | null;
+  cost_ceiling_usd?: number | null;
+  estimated_cost_usd?: number;
+  worker_version?: string | null;
   created_at: string;
+};
+
+/**
+ * Everything the worker needs to run an audit, frozen when the scan is
+ * enqueued. A retry replays this snapshot; it never silently picks up
+ * settings edited after the user clicked.
+ */
+export type ScanInputSnapshot = {
+  domain: string;
+  mode: "free" | "pro";
+  assistants: ProviderId[];
+  limit_per_assistant: number;
+  prompts: Array<{ id: string; prompt: string }>;
+  country: string | null;
+  language: string | null;
+  geo_market: boolean;
+  geo_market_name: string | null;
+  /** Hashed request IP captured at enqueue time, for free-audit abuse rows. */
+  ip_hash: string | null;
+  plan: string;
+  question_count: number;
+  methodology_version_requested: string | null;
+  trigger_source: string;
+  cost_ceiling_usd: number | null;
+  resume: boolean;
 };
 
 export type QueryResult = {
@@ -145,6 +202,11 @@ export type ScoreSnapshot = {
   average_position: number | null;
   share_of_voice: number;
   competitor_scores: Json;
+  /** Which scoring rules produced this snapshot. Never compare across
+   * versions without saying so. */
+  methodology_version?: string | null;
+  /** The full component breakdown exactly as the engine computed it. */
+  breakdown?: Json | null;
   created_at: string;
 };
 

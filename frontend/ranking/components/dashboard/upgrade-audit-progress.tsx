@@ -22,7 +22,7 @@ export function UpgradeAuditProgress({
   const router = useRouter();
   // The run belongs to the server; this page only watches it. Reloading picks
   // the same run back up, and the server refuses to start a second run for
-  // the same website while one is going — so a refresh cannot double-pay.
+  // the same website while one is going - so a refresh cannot double-pay.
   const { loading, error, progress, step, events, start } = useDetachedAudit({
     storageKey: `rbai_audit_upgrade_${brandId}`,
     onDone: (doneBrandId) => {

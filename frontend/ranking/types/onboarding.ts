@@ -53,5 +53,10 @@ export type BrandMonitoringSettings = {
   providers: ProviderId[];
   country: string;
   language: string;
+  enabled?: boolean;
+  /** 0 = Monday .. 6 = Sunday; weekly schedules only. */
+  dayOfWeek?: number;
+  hourLocal?: number;
+  timezone?: string;
   updatedAt: string;
 };

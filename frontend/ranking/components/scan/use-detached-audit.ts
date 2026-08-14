@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Client side of the detached audit. Starting returns an id at once; the run
- * belongs to the server. This hook polls the run's progress row and — because
- * the id is kept in localStorage — picks a still-running audit back up after
+ * belongs to the server. This hook polls the run's progress row and - because
+ * the id is kept in localStorage - picks a still-running audit back up after
  * a reload or a wander to another tab, which used to kill it.
  */
 
@@ -43,14 +43,21 @@ export function useDetachedAudit(options: {
   const lastSeq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDoneRef = useRef(options.onDone);
-  onDoneRef.current = options.onDone;
   const storageKey = options.storageKey;
+  useEffect(() => {
+    onDoneRef.current = options.onDone;
+  }, [options.onDone]);
 
   const stopPolling = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
   }, []);
 
+  // The poll re-arms itself through this ref so the callback never has to
+  // name itself before it exists.
+  const pollRef = useRef<(scanRunId: string) => Promise<void>>(
+    async () => {},
+  );
   const poll = useCallback(
     async (scanRunId: string) => {
       let response: ProgressResponse;
@@ -62,7 +69,10 @@ export function useDetachedAudit(options: {
         response = (await res.json()) as ProgressResponse;
       } catch {
         // One failed poll is a blip, not a dead audit. Ask again shortly.
-        timer.current = setTimeout(() => void poll(scanRunId), POLL_MS * 2);
+        timer.current = setTimeout(
+          () => void pollRef.current(scanRunId),
+          POLL_MS * 2,
+        );
         return;
       }
 
@@ -85,16 +95,26 @@ export function useDetachedAudit(options: {
         if (response.brandId) onDoneRef.current(response.brandId);
         return;
       }
-      if (response.status === "failed" || response.status === "cancelled") {
+      if (
+        response.status === "failed" ||
+        response.status === "cancelled" ||
+        response.status === "timed_out"
+      ) {
         localStorage.removeItem(storageKey);
         setLoading(false);
         setError(response.errorSummary || "The audit failed.");
         return;
       }
-      timer.current = setTimeout(() => void poll(scanRunId), POLL_MS);
+      timer.current = setTimeout(
+        () => void pollRef.current(scanRunId),
+        POLL_MS,
+      );
     },
     [storageKey],
   );
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
 
   const track = useCallback(
     (scanRunId: string) => {
@@ -113,10 +133,16 @@ export function useDetachedAudit(options: {
       setProgress(1);
       setStep("starting");
       try {
+        // One key per click: a network retry of this exact request joins the
+        // scan it already created instead of paying for a second one.
+        const idempotencyKey =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const res = await fetch("/api/audit-run/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, idempotencyKey }),
         });
         const data = (await res.json().catch(() => ({}))) as {
           scanRunId?: string;
@@ -142,11 +168,16 @@ export function useDetachedAudit(options: {
   );
 
   // A reload lands here: if an audit was running for this form, keep showing
-  // it rather than pretending nothing is happening.
+  // it rather than pretending nothing is happening. Resuming is deferred a
+  // tick so the effect itself does not set state synchronously.
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
-    if (stored) track(stored);
-    return stopPolling;
+    if (!stored) return stopPolling;
+    const id = setTimeout(() => track(stored), 0);
+    return () => {
+      clearTimeout(id);
+      stopPolling();
+    };
   }, [storageKey, track, stopPolling]);
 
   return { loading, error, progress, step, events, start };

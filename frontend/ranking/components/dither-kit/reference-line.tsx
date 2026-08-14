@@ -3,7 +3,7 @@
 import { useChartPart } from "./chart-context"
 
 /**
- * A horizontal marker line at a value on the y-axis — most useful as the zero
+ * A horizontal marker line at a value on the y-axis - most useful as the zero
  * baseline for diverging data (`<ReferenceLine y={0} />`), or to mark a target
  * / threshold. Renders in the front SVG layer so it stays visible over the
  * dither fill; pass an optional `label` to annotate it at the right edge.

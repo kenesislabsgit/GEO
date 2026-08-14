@@ -3,7 +3,7 @@ import type { SubscriptionStatus } from "@/types/database";
 /**
  * Shared plumbing for talking to Dodo Payments from the server. Checkout,
  * webhook, confirm and portal all need the same base URL, the same status
- * translation, and the same subscription shape — defining them once keeps
+ * translation, and the same subscription shape - defining them once keeps
  * the four routes from drifting apart.
  */
 
@@ -31,7 +31,7 @@ export type DodoSubscription = {
 /**
  * Dodo's subscription statuses are pending, active, on_hold, cancelled,
  * failed and expired. Ours differ; translate rather than store theirs.
- * "pending" maps to inactive — a mandate that has not gone through yet
+ * "pending" maps to inactive - a mandate that has not gone through yet
  * grants nothing.
  */
 export function mapDodoSubscriptionStatus(status: string): SubscriptionStatus {

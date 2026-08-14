@@ -8,6 +8,7 @@ import { routes } from "@/lib/routes";
 const nav = [
   { href: routes.pricing, label: "Pricing" },
   { href: routes.methodology, label: "Methodology" },
+  { href: routes.blog, label: "Blog" },
 ];
 
 export async function SiteHeader() {
@@ -47,7 +48,7 @@ export async function SiteHeader() {
                 <Link href={routes.login({ mode: "signin" })}>Sign in</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href={routes.publicScanAnchor}>Choose a plan</Link>
+                <Link href={routes.pricing}>Choose a plan</Link>
               </Button>
             </>
           )}

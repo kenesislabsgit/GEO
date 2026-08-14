@@ -20,6 +20,36 @@ const ICON_PATHS: Record<string, string> = {
   gemini:
     "M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81",
   nova: "M12 0l2.7 9.3L24 12l-9.3 2.7L12 24l-2.7-9.3L0 12l9.3-2.7Z",
+  grok: "M6.469 8.776L16.512 23h-4.464L2.005 8.776H6.47zm-.004 7.9l2.233 3.164L6.467 23H2l4.465-6.324zM22 2.582V23h-3.659V7.764L22 2.582zM22 1l-9.952 14.095-2.233-3.163L17.533 1H22z",
+  deepseek:
+    "M23.748 4.651c-.254-.124-.364.113-.512.233-.051.04-.094.09-.137.137-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.155-.708-.311-.955-.65-.172-.24-.219-.509-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.094.172.187.129.323-.082.28-.18.553-.266.833-.055.179-.137.218-.328.14a5.5 5.5 0 0 1-1.737-1.179c-.857-.828-1.631-1.743-2.597-2.46a12 12 0 0 0-.689-.47c-.985-.957.13-1.743.387-1.836.27-.098.094-.433-.778-.428-.872.003-1.67.295-2.687.685a3 3 0 0 1-.465.136 9.6 9.6 0 0 0-2.883-.101c-1.885.21-3.39 1.1-4.497 2.622C.082 8.776-.231 10.854.152 13.02c.403 2.284 1.568 4.175 3.36 5.653 1.857 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.132-.284 4.994-1.86.47.234.962.328 1.78.398.629.058 1.235-.031 1.705-.129.735-.155.684-.836.418-.961-2.155-1.004-1.682-.595-2.112-.926 1.095-1.295 2.768-3.598 3.284-6.733.05-.346.115-.834.108-1.114-.004-.171.035-.238.23-.257a4.2 4.2 0 0 0 1.545-.475c1.397-.763 1.96-2.016 2.093-3.517.02-.23-.004-.467-.247-.588M11.58 18.168c-2.088-1.642-3.101-2.183-3.52-2.16-.39.024-.32.472-.234.763.09.288.207.487.371.74.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.168-1.361-.801-2.5-1.86-3.301-3.306-.775-1.393-1.225-2.888-1.299-4.482-.02-.385.094-.522.477-.592a4.7 4.7 0 0 1 1.53-.038c2.131.311 3.946 1.264 5.467 2.774.868.86 1.525 1.887 2.202 2.89.72 1.066 1.494 2.082 2.48 2.915.348.291.626.513.892.677-.802.09-2.14.109-3.055-.615zm1.001-6.44a.306.306 0 0 1 .415-.287.3.3 0 0 1 .113.074.3.3 0 0 1 .086.214c0 .17-.136.307-.308.307a.303.303 0 0 1-.306-.307m3.11 1.596c-.2.081-.4.151-.591.16a1.25 1.25 0 0 1-.798-.254c-.274-.23-.47-.358-.551-.758a1.7 1.7 0 0 1 .015-.588c.07-.327-.007-.537-.238-.727-.188-.156-.426-.199-.689-.199a.6.6 0 0 1-.254-.078.253.253 0 0 1-.114-.358 1 1 0 0 1 .192-.21c.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.392.451.462.576.685.915.176.264.336.536.446.848.066.194-.02.353-.25.45",
+  kimi: "M21.765.351C22.998.351 24 1.353 24 2.586S22.998 4.82 21.765 4.82h-1.974c-.15 0-.26-.12-.26-.26V2.586A2.237 2.237 0 0 1 21.765.35M9.41 13.388l8.447-8.377c.16-.16.07-.471-.14-.471h-4.55s-.1.02-.14.06l-9.099 9.029c-.14.14-.35.02-.35-.21V4.81c0-.15-.1-.27-.221-.27H.22c-.12 0-.22.12-.22.27v18.57c0 .15.1.27.22.27h3.137c.12 0 .22-.12.22-.27v-3.79c0-.08.03-.16.08-.21l2.826-2.796c.07-.07.16-.08.241-.03l7.546 5.551a8.9 8.9 0 0 0 4.018 1.493c.12.01.23-.11.23-.27V19.76c0-.14-.08-.25-.19-.26a5.8 5.8 0 0 1-2.355-.942l-6.533-4.73c-.14-.09-.15-.32-.03-.441",
+  groq: "M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z",
+  minimax:
+    "M11.43 3.92a.86.86 0 1 0-1.718 0v14.236a1.999 1.999 0 0 1-3.997 0V9.022a.86.86 0 1 0-1.718 0v3.87a1.999 1.999 0 0 1-3.997 0V11.49a.57.57 0 0 1 1.139 0v1.404a.86.86 0 0 0 1.719 0V9.022a1.999 1.999 0 0 1 3.997 0v9.134a.86.86 0 0 0 1.719 0V3.92a1.998 1.998 0 1 1 3.996 0v11.788a.57.57 0 1 1-1.139 0zm10.572 3.105a2 2 0 0 0-1.999 1.997v7.63a.86.86 0 0 1-1.718 0V3.923a1.999 1.999 0 0 0-3.997 0v16.16a.86.86 0 0 1-1.719 0V18.08a.57.57 0 1 0-1.138 0v2a1.998 1.998 0 0 0 3.996 0V3.92a.86.86 0 0 1 1.719 0v12.73a1.999 1.999 0 0 0 3.996 0V9.023a.86.86 0 1 1 1.72 0v6.686a.57.57 0 0 0 1.138 0V9.022a2 2 0 0 0-1.998-1.997",
+  // Sarvam has no published monochrome mark; a lotus-ish diamond stands in,
+  // same convention as Nova's star above.
+  sarvam:
+    "M12 1.5l3.2 7.3 7.3 3.2-7.3 3.2L12 22.5l-3.2-7.3-7.3-3.2 7.3-3.2Zm0 6.6L10.6 11 7.4 12l3.2 1 1.4 2.9 1.4-2.9 3.2-1-3.2-1Z",
+};
+
+/**
+ * Brand colors, one flat tone per mark (gradients flattened). Grok's own
+ * mark is monochrome, so it stays on currentColor and adapts to the theme.
+ */
+const BRAND_COLORS: Record<string, string> = {
+  openai: "#10a37f",
+  claude: "#d97757",
+  llama: "#0668e1",
+  mistral: "#fa520f",
+  perplexity: "#20b8cd",
+  gemini: "#4285f4",
+  nova: "#8b5cf6",
+  deepseek: "#4d6bfe",
+  kimi: "#00d3ab",
+  groq: "#f55036",
+  minimax: "#f23f5d",
+  sarvam: "#ff7a1a",
 };
 
 /** Provider/assistant id → which mark to draw. */
@@ -36,6 +66,12 @@ const ICON_BY_PROVIDER: Record<string, string> = {
   bedrock_nova: "nova",
   gemini: "gemini",
   perplexity: "perplexity",
+  grok: "grok",
+  deepseek: "deepseek",
+  kimi: "kimi",
+  groq: "groq",
+  minimax: "minimax",
+  sarvam: "sarvam",
 };
 
 export function ProviderLogo({
@@ -47,18 +83,60 @@ export function ProviderLogo({
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const path = ICON_PATHS[ICON_BY_PROVIDER[provider] ?? provider];
+  const key = ICON_BY_PROVIDER[provider] ?? provider;
+  const path = ICON_PATHS[key];
   if (!path) return null;
   return (
     <svg
       viewBox="0 0 24 24"
       className={cn("size-3.5 shrink-0", className)}
       style={style}
-      fill="currentColor"
+      fill={BRAND_COLORS[key] ?? "currentColor"}
       aria-hidden
     >
       <path d={path} />
     </svg>
+  );
+}
+
+/**
+ * Overlapping row of provider marks - the way a plan's providers are shown
+ * next to marketing copy. Symbols only; names go in the surrounding text.
+ */
+export function ProviderStack({
+  providers,
+  max,
+  className,
+}: {
+  providers: readonly string[];
+  /** Marks shown before collapsing the rest into a "+n" bubble. */
+  max?: number;
+  className?: string;
+}) {
+  const shown = max ? providers.slice(0, max) : providers;
+  const hidden = providers.length - shown.length;
+  return (
+    <span
+      className={cn("inline-flex items-center", className)}
+      title={providers.map((p) => providerDisplayName(p)).join(", ")}
+    >
+      {shown.map((provider, i) => (
+        <span
+          key={provider}
+          className={cn(
+            "flex size-5 items-center justify-center rounded-full border border-border bg-background",
+            i > 0 && "-ml-1.5",
+          )}
+        >
+          <ProviderLogo provider={provider} className="size-2.5" />
+        </span>
+      ))}
+      {hidden > 0 ? (
+        <span className="-ml-1.5 flex h-5 items-center justify-center rounded-full border border-border bg-background px-1 text-[9px] font-medium text-muted-foreground">
+          +{hidden}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

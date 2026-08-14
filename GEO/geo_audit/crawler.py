@@ -9,7 +9,7 @@ import re
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urldefrag, urljoin, urlparse
-from urllib.request import Request, urlopen
+from .netguard import BlockedUrlError, open_url_guarded
 
 
 IMPORTANT_PATH_KEYWORDS = (
@@ -212,8 +212,12 @@ def same_page_key(url: str) -> str:
 
 
 def fetch_html(url: str) -> tuple[str, int, str]:
-    request = Request(
+    # Guarded fetch: the audited website and every redirect it takes is
+    # untrusted input. netguard validates each hop against internal ranges
+    # and caps the body.
+    final_url, response_headers, body = open_url_guarded(
         url,
+        timeout=15,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -224,18 +228,21 @@ def fetch_html(url: str) -> tuple[str, int, str]:
             "Accept-Language": "en-US,en;q=0.9",
         },
     )
-    with urlopen(request, timeout=15) as response:
-        content_type = response.headers.get("Content-Type", "")
-        if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
-            raise ValueError(f"Unsupported content type: {content_type}")
-        charset = response.headers.get_content_charset() or "utf-8"
-        html = response.read().decode(charset, errors="replace")
-        return html, response.status, response.url
+    content_type = response_headers.get("Content-Type", "")
+    if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+        raise ValueError(f"Unsupported content type: {content_type}")
+    charset = "utf-8"
+    match = re.search(r"charset=([A-Za-z0-9_-]+)", content_type)
+    if match:
+        charset = match.group(1)
+    html = body.decode(charset, errors="replace")
+    return html, 200, final_url
 
 
 def fetch_sitemap_urls(url: str, max_urls: int = 50) -> list[str]:
-    request = Request(
+    _, _, body = open_url_guarded(
         url,
+        timeout=15,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -245,9 +252,7 @@ def fetch_sitemap_urls(url: str, max_urls: int = 50) -> list[str]:
             "Accept": "application/xml,text/xml,*/*;q=0.8",
         },
     )
-    with urlopen(request, timeout=15) as response:
-        charset = response.headers.get_content_charset() or "utf-8"
-        text = response.read().decode(charset, errors="replace")
+    text = body.decode("utf-8", errors="replace")
     urls = re.findall(r"<loc>\s*(https?://[^<\s]+)\s*</loc>", text, flags=re.IGNORECASE)
     return [normalize_url(url) for url in urls[:max_urls]]
 
