@@ -44,13 +44,7 @@ export default async function BrandsPage() {
             </Button>
           ) : (
             <Button asChild size="sm">
-              <Link
-                href={
-                  brands.length === 0
-                    ? routes.newScan()
-                    : `${routes.newScan()}#add-website`
-                }
-              >
+              <Link href={routes.addWebsite}>
                 <Plus data-icon="inline-start" />
                 Add website
               </Link>
@@ -74,7 +68,7 @@ export default async function BrandsPage() {
             Add your company website and run your first AI visibility audit.
           </p>
           <Button asChild size="sm" className="mt-5">
-            <Link href={routes.newScan()}>Run an audit</Link>
+            <Link href={routes.addWebsite}>Add a website</Link>
           </Button>
         </div>
       ) : (

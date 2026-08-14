@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { PLAN_CONFIG, defaultScanProviders } from "@/lib/billing/entitlements";
@@ -74,16 +78,26 @@ export default async function NewScanPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          New audit
-        </h1>
-        {/* Was hardcoded to "five-question", which is only the free size. */}
-        <p className="mt-1 text-sm text-muted-foreground">
-          {brands.length === 0
-            ? `Add your website and run a ${isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT}-question AI visibility audit.`
-            : "Choose a website and compare how AI providers answer buyer questions."}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            New audit
+          </h1>
+          {/* Was hardcoded to "five-question", which is only the free size. */}
+          <p className="mt-1 text-sm text-muted-foreground">
+            {brands.length === 0
+              ? `Add your website and run a ${isPaid ? PRO_AUDIT_QUESTION_COUNT : FREE_AUDIT_QUESTION_COUNT}-question AI visibility audit.`
+              : "Choose a website and compare how AI providers answer buyer questions."}
+          </p>
+        </div>
+        {brands.length > 0 && !brandLimitReached ? (
+          <Button asChild size="sm" variant="outline">
+            <Link href={routes.addWebsite}>
+              <Plus data-icon="inline-start" />
+              Add a new website
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
       {brands.length === 0 ? (
@@ -112,21 +126,7 @@ export default async function NewScanPage({
               checksUsed: entitlements.providerChecksUsed,
             }}
           />
-          {isPaid ? (
-            // Always render for paid accounts: under the limit it is the add
-            // form, at the limit it explains the cap and offers the upgrade - 
-            // never a silently missing button.
-            <div id="add-website" className="scroll-mt-24 border-t border-border pt-8">
-              <h2 className="mb-4 text-sm font-semibold tracking-tight">
-                Add another website
-              </h2>
-              <AddBrandScanForm
-                isPaid={isPaid}
-                brandLimitReached={brandLimitReached}
-                providers={defaultScanProviders(entitlements.plan)}
-              />
-            </div>
-          ) : null}
+
         </>
       )}
     </div>

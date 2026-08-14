@@ -24,6 +24,7 @@ export const routes = {
   publicReport: (slug: string) => `/report/${slug}`,
 
   dashboard: "/dashboard",
+  addWebsite: "/dashboard/brands/new",
   brands: "/dashboard/brands",
   brand: (brandId: string) => `/dashboard/brands/${brandId}`,
   brandUpgrade: (brandId: string) => `/dashboard/brands/${brandId}/upgrade`,
