@@ -36,11 +36,11 @@ class LLMNotConfigured(RuntimeError):
 
 
 # ── OpenAI-compatible providers ──────────────────────────────────────────────
-# Perplexity, Grok (xAI), DeepSeek, Kimi (Moonshot), Groq, MiniMax and Sarvam
-# all speak the OpenAI chat-completions dialect, so one caller serves them
-# all. Each entry: accepted key env vars (first present wins), the API base
-# (overridable via <ID>_API_BASE), and the default model (overridable via
-# <ID>_MODEL). A missing key raises LLMNotConfigured, which the pipeline
+# Perplexity, Grok (xAI), DeepSeek, Kimi (Moonshot), Groq, MiniMax, Sarvam and
+# Qwen (Alibaba) all speak the OpenAI chat-completions dialect, so one caller
+# serves them all. Each entry: accepted key env vars (first present wins), the
+# API base (overridable via <ID>_API_BASE), and the default model (overridable
+# via <ID>_MODEL). A missing key raises LLMNotConfigured, which the pipeline
 # records per-question and reports the provider as partial — same contract
 # as every other provider here.
 
@@ -82,6 +82,11 @@ OPENAI_COMPAT_PROVIDERS: dict[str, dict[str, Any]] = {
         # Sarvam also accepts its subscription-key header; sending both makes
         # either auth scheme work without configuration.
         "extra_key_header": "api-subscription-key",
+    },
+    "qwen": {
+        "key_envs": ("DASHSCOPE_API_KEY", "QWEN_API_KEY"),
+        "base": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus",
     },
 }
 

@@ -68,6 +68,7 @@ const OFFERED_PROVIDERS: ProviderId[] = [
   "groq",
   "minimax",
   "sarvam",
+  "qwen",
 ];
 
 /** The cheapest plan whose provider list includes this provider. */

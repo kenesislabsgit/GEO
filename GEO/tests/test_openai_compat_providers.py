@@ -20,8 +20,8 @@ from geo_audit.recommendations import supported_assistants
 
 
 class Registry(unittest.TestCase):
-    def test_all_seven_are_supported_assistants(self) -> None:
-        expected = {"perplexity", "grok", "deepseek", "kimi", "groq", "minimax", "sarvam"}
+    def test_all_eight_are_supported_assistants(self) -> None:
+        expected = {"perplexity", "grok", "deepseek", "kimi", "groq", "minimax", "sarvam", "qwen"}
         self.assertEqual(openai_compatible_assistants(), expected)
         self.assertTrue(expected.issubset(supported_assistants()))
 

@@ -27,6 +27,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   groq: "Groq",
   minimax: "MiniMax",
   sarvam: "Sarvam",
+  qwen: "Qwen",
 };
 
 export function providerDisplayName(id: string): string {
@@ -37,7 +38,7 @@ export function providerDisplayName(id: string): string {
  * The ten providers pre-selected for a Pro+/Agency audit, in display order.
  * Every id here is genuinely integrated in the audit engine
  * (GEO/geo_audit/llm.py - the OpenAI-compatible registry covers Perplexity,
- * Grok, DeepSeek, Kimi, Groq, MiniMax and Sarvam). Plans offer more than an
+ * Grok, DeepSeek, Kimi, Groq, MiniMax, Sarvam and Qwen). Plans offer more than an
  * audit runs at once; users swap picks in the provider picker. This list is
  * also what the landing and pricing pages show.
  */

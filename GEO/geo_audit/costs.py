@@ -29,6 +29,7 @@ PER_CALL_USD: dict[str, float] = {
     "groq": 0.003,
     "minimax": 0.005,
     "sarvam": 0.003,
+    "qwen": 0.003,
 }
 DEFAULT_CALL_USD = 0.010
 

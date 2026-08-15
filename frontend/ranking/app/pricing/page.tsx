@@ -197,7 +197,7 @@ const FAQS = [
   },
   {
     q: "How do the Pro+ providers work?",
-    a: "Pro+ and Agency offer 13 AI providers - ChatGPT (with live web search), Claude, Gemini, Perplexity, Grok, DeepSeek, Llama, Mistral, Kimi, Nova, Groq, MiniMax, and Sarvam. Each audit runs up to 10 at a time; a default ten is pre-selected and you can swap any of them in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
+    a: "Pro+ and Agency offer 14 AI providers - ChatGPT (with live web search), Claude, Gemini, Perplexity, Grok, DeepSeek, Llama, Mistral, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen. Each audit runs up to 10 at a time; a default ten is pre-selected and you can swap any of them in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
   },
   {
     q: "What does the free audit include?",

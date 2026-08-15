@@ -32,7 +32,8 @@ export type ProviderId =
   | "kimi"
   | "groq"
   | "minimax"
-  | "sarvam";
+  | "sarvam"
+  | "qwen";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type ActionStatus = "open" | "in_progress" | "completed" | "dismissed";
 export type SubscriptionStatus =

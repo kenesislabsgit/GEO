@@ -49,7 +49,7 @@ const providers = [
       "Each queried via its official API and labelled with the exact model that answered.",
   },
   {
-    name: "Llama, Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam",
+    name: "Llama, Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam, Qwen",
     detail:
       "Additional model perspectives via their APIs. The exact model is stored with every answer; a provider that cannot answer marks the scan partial rather than vanishing.",
   },

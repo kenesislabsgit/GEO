@@ -131,7 +131,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       brands: 5,
       activePrompts: 100,
       // Every provider here is genuinely wired into the audit engine - 
-      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the seven
+      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the eight
       // OpenAI-compatible ones. Providers without configured API keys show
       // up as partial in scan results rather than silently vanishing.
       providers: [
@@ -148,6 +148,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
         "groq",
         "minimax",
         "sarvam",
+        "qwen",
       ],
       providersPerScan: 10,
       competitorsPerBrand: 10,
@@ -183,7 +184,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       brands: 20,
       activePrompts: 500,
       // Every provider here is genuinely wired into the audit engine - 
-      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the seven
+      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the eight
       // OpenAI-compatible ones. Providers without configured API keys show
       // up as partial in scan results rather than silently vanishing.
       providers: [
@@ -200,6 +201,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
         "groq",
         "minimax",
         "sarvam",
+        "qwen",
       ],
       providersPerScan: 10,
       competitorsPerBrand: 20,

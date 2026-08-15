@@ -385,6 +385,10 @@ function EvidencePanel() {
   );
 }
 
+// The default ten plus Qwen, so the hero strip reflects the full catalog
+// without changing what an audit pre-selects by default.
+const PROVIDER_STRIP = [...DEFAULT_SCAN_PROVIDERS, "qwen"] as const;
+
 /* ---------------------------------------------------- bento mini-visuals -- */
 
 // Only providers the audit engine genuinely asks, dotted around the radar.
@@ -592,10 +596,10 @@ export default function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Answers measured across 10 AI models
+              Answers measured across 11 AI models
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
-              {DEFAULT_SCAN_PROVIDERS.map((id, index) => (
+              {PROVIDER_STRIP.map((id, index) => (
                 <span
                   key={id}
                   className="rb-rise opacity-55"
@@ -772,7 +776,7 @@ export default function HomePage() {
                   provider answers per Pro+ audit - 20 questions × 10 AIs
                 </p>
                 <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
-                  {["13 AI providers", "Cited sources", "Share of voice"].map((chip) => (
+                  {["14 AI providers", "Cited sources", "Share of voice"].map((chip) => (
                     <span
                       key={chip}
                       className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground"

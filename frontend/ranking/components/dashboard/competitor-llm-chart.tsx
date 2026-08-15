@@ -25,6 +25,7 @@ export const LLM_CONFIG: Record<
   claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
   gemini: { color: "blue", label: "Gemini", shortLabel: "Gemini" },
   perplexity: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },
+  qwen: { color: "purple", label: "Qwen", shortLabel: "Qwen" },
 };
 
 function getLLMColor(provider: string): DitherColor {
