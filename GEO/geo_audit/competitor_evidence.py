@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urlparse
 
+from .aggregation import canonical_company_key
 from .crawler import crawl_website
 from .evidence import build_website_evidence
 from .firecrawl import (
@@ -517,9 +518,11 @@ def find_web_presence(
     name: str,
     web_presence: dict[str, Any],
 ) -> dict[str, Any]:
-    normalized_name = normalize_name(name)
+    # Canonical, so "Kenesis Labs" here finds the research done under
+    # "Kenesis" - the two names are one company.
+    normalized_name = canonical_company_key(name)
     for entity in web_presence.get("entities", []):
-        if normalize_name(str(entity.get("company_name", ""))) == normalized_name:
+        if canonical_company_key(str(entity.get("company_name", ""))) == normalized_name:
             return entity
     return {}
 

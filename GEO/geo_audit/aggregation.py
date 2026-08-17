@@ -1,9 +1,67 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 
 from .source_analysis import analyze_sources, build_global_source_analysis
+
+
+# Words that describe what a company is, not which company it is. An answer
+# saying "Kenesis" and another saying "Kenesis Labs" are one company placed
+# twice, not two companies placed once each - counting them apart split the
+# mention frequency that decides the competitor ranking.
+COMPANY_SUFFIX_WORDS = {
+    # Legal forms.
+    "inc",
+    "incorporated",
+    "llc",
+    "ltd",
+    "limited",
+    "corp",
+    "corporation",
+    "co",
+    "company",
+    "gmbh",
+    "ag",
+    "bv",
+    "nv",
+    "plc",
+    "sa",
+    "srl",
+    "pty",
+    "pvt",
+    "private",
+    "oy",
+    "ab",
+    "as",
+    "sas",
+    "sarl",
+    # Generic descriptors and the domain endings a model writes instead of a
+    # name ("kenesis.ai").
+    "lab",
+    "labs",
+    "tech",
+    "technology",
+    "technologies",
+    "software",
+    "solutions",
+    "systems",
+    "platform",
+    "platforms",
+    "group",
+    "holdings",
+    "ventures",
+    "partners",
+    "digital",
+    "global",
+    "international",
+    "ai",
+    "io",
+    "com",
+    "net",
+    "org",
+}
 
 
 def aggregate_recommendations(
@@ -89,13 +147,15 @@ def aggregate_recommendations(
             }
         )
         for recommendation in prompt_recommendations:
-            name = normalize_company_name(recommendation.get("company_name", ""))
-            if not name or is_user_company(name, user_keys):
+            written_name = str(recommendation.get("company_name", "")).strip()
+            name = canonical_company_key(written_name)
+            if not name or is_user_company(written_name, user_keys):
                 continue
 
             if name not in companies:
                 companies[name] = {
-                    "company_name": recommendation.get("company_name", name),
+                    "company_name": written_name or name,
+                    "name_variants": defaultdict(int),
                     "mention_frequency": 0,
                     "rank_total": 0,
                     "models": set(),
@@ -110,6 +170,8 @@ def aggregate_recommendations(
                 }
 
             item = companies[name]
+            if written_name:
+                item["name_variants"][written_name] += 1
             item["mention_frequency"] += 1
             item["rank_total"] += int(recommendation.get("rank", 0) or 0)
             item["models"].add(model)
@@ -137,9 +199,15 @@ def aggregate_recommendations(
                 item["sample_reasoning"].append(reasoning)
 
     competitor_stats = []
-    for item in companies.values():
+    for key, item in companies.items():
         mentions = item["mention_frequency"]
         rank_total = item.pop("rank_total")
+        variants = item.pop("name_variants")
+        if variants:
+            item["company_name"] = choose_display_name(variants)
+        # Kept so a report can say the two names it merged were one company.
+        item["canonical_key"] = key
+        item["name_variants"] = sorted(variants)
         item["average_rank"] = round(rank_total / mentions, 2) if mentions else None
         item["models"] = sorted(item["models"])
         item["assistants"] = sorted(item["assistants"])
@@ -266,7 +334,7 @@ def rank_for_investigation(
 
         for recommendation in result.get("recommended_companies", []):
             name = recommendation.get("company_name", "")
-            key = normalize_company_name(name)
+            key = canonical_company_key(name)
             if not key or is_user_company(name, user_keys):
                 continue
             rank = recommendation.get("rank")
@@ -342,16 +410,42 @@ def normalize_company_name(value: str) -> str:
     return " ".join(str(value).lower().split())
 
 
+def canonical_company_key(value: str) -> str:
+    """One key per company, whatever form the model wrote its name in.
+
+    "Kenesis", "Kenesis Labs", "Kenesis AI", "Kenesis Inc." and "kenesis.ai"
+    are the same company. Only whole trailing words are dropped, so "OpenAI"
+    stays "openai" and "Amazon Web Services" stays its own company. The last
+    word is never dropped - a company actually called "Labs" keeps its name.
+    """
+    words = re.findall(r"[a-z0-9+]+", normalize_company_name(value))
+    while len(words) > 1 and words[-1] in COMPANY_SUFFIX_WORDS:
+        words.pop()
+    return " ".join(words)
+
+
+def choose_display_name(variants: dict[str, int]) -> str:
+    """The form the assistants used most often, shortest form breaking ties."""
+    return sorted(
+        variants.items(),
+        key=lambda item: (-item[1], len(item[0]), item[0].lower()),
+    )[0][0]
+
+
 def is_user_company(name: str, user_keys: set[str]) -> bool:
-    """The audited company, including its own sub-products. "Stripe Connect" is
-    Stripe, not a competitor, and must never be listed as one."""
+    """The audited company, including its own sub-products and name variants.
+    "Stripe Connect" is Stripe, not a competitor, and must never be listed as
+    one; neither is "Kenesis" when the audited company is "Kenesis Labs"."""
     normalized = normalize_company_name(name)
     if not normalized:
         return False
-    return any(
-        normalized == key or normalized.startswith(f"{key} ")
-        for key in user_keys
-    )
+    canonical = canonical_company_key(name)
+    for key in user_keys:
+        if normalized == key or normalized.startswith(f"{key} "):
+            return True
+        if canonical and canonical == canonical_company_key(key):
+            return True
+    return False
 
 
 def build_user_keys(

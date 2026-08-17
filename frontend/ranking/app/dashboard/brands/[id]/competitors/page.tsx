@@ -12,6 +12,7 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { providerDisplayName } from "@/lib/constants";
+import { canonicalCompanyKey } from "@/lib/utils/company-name";
 import { ProviderBadge, ProviderLogo } from "@/components/providers/provider-logo";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { CompetitorsManager } from "@/components/dashboard/competitors-manager";
@@ -542,7 +543,9 @@ function aggregateOtherMentions(
 }
 
 function normalizeCompanyName(value: string | undefined): string {
-  return (value ?? "").trim().toLowerCase();
+  // Canonical, so a competitor shown as "Kenesis" is not listed again under
+  // "Also named" because one answer wrote "Kenesis Labs".
+  return canonicalCompanyKey(value);
 }
 
 function conciseSnippet(value: string): string {
