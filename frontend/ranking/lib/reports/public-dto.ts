@@ -7,6 +7,7 @@ import type {
   TrackedPrompt,
 } from "@/types/database";
 import { roundForDisplay } from "@/lib/scores/format";
+import { canonicalCompanyKey } from "@/lib/utils/company-name";
 
 function safeHost(url: string): string {
   try {
@@ -138,10 +139,18 @@ export function toPublicReportDTO(input: {
         .filter((item) => Boolean(item?.name))
         .sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
       const beatenBy: string[] = [];
+      // Deduped on the canonical key: one company that two providers named
+      // differently ("Kenesis", "Kenesis Labs") must not fill two of these
+      // three slots.
+      const beatenByKeys = new Set<string>();
       for (const item of ranked) {
         const name = String(item.name);
         if (position !== null && (item.position ?? 99) >= position) break;
-        if (!beatenBy.includes(name)) beatenBy.push(name);
+        const key = canonicalCompanyKey(name);
+        if (key && !beatenByKeys.has(key)) {
+          beatenByKeys.add(key);
+          beatenBy.push(name);
+        }
         if (beatenBy.length === 3) break;
       }
 

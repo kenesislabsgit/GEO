@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
+from .aggregation import build_user_keys, canonical_company_key, find_user_match
 from .costs import per_call_usd
 from .scoring import build_scorecard
 
@@ -184,7 +185,10 @@ def build_query_results(
     web_presence: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     web_presence = web_presence or {}
-    brand_key = brand_name.lower().strip()
+    # The same rule the score uses. Exact string equality here meant an answer
+    # naming a sub-product ("Stripe Connect") counted towards mention_score and
+    # position_score while this table said the brand was absent with no rank.
+    brand_keys = build_user_keys(brand_name, None)
     rows = []
     # A page written about a company is a fact about that company, not about
     # one answer. Attached per answer, the same page was written out once for
@@ -204,14 +208,7 @@ def build_query_results(
                 continue
             exported_mentions.add(url)
             verified_mentions.append(mention)
-        brand_rec = next(
-            (
-                item
-                for item in recommendations
-                if item.get("company_name", "").lower().strip() == brand_key
-            ),
-            None,
-        )
+        brand_rec = find_user_match(recommendations, brand_keys)
         rows.append(
             {
                 "prompt_index": result.get("prompt_index"),
@@ -357,15 +354,17 @@ def build_competitor_report_rows(
     allow_answer_only: bool = False,
 ) -> list[dict[str, Any]]:
     evidence_by_name = {
-        normalize_name(item.get("company_name", "")): item
+        canonical_company_key(item.get("company_name", "")): item
         for item in competitor_evidence.get("competitors", [])
     }
     rows = []
     for score_row in score_rows:
         name = str(score_row.get("name", "Unknown"))
-        if audited_company and normalize_name(name) == normalize_name(audited_company):
+        if audited_company and canonical_company_key(name) == canonical_company_key(
+            audited_company
+        ):
             continue
-        evidence = evidence_by_name.get(normalize_name(name), {})
+        evidence = evidence_by_name.get(canonical_company_key(name), {})
         answer_evidence = answer_evidence_for_company(name, raw_results)
         website_evidence = website_proof_rows(
             evidence.get("website_evidence") or {}
@@ -404,10 +403,12 @@ def answer_evidence_for_company(
     raw_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     rows = []
-    company_key = normalize_name(company_name)
+    # Matched on the canonical key so an answer that wrote "Kenesis Labs"
+    # still counts as evidence for the merged "Kenesis" row.
+    company_key = canonical_company_key(company_name)
     for result in raw_results:
         for recommendation in result.get("recommended_companies", []):
-            if normalize_name(recommendation.get("company_name", "")) != company_key:
+            if canonical_company_key(recommendation.get("company_name", "")) != company_key:
                 continue
             rows.append(
                 {
