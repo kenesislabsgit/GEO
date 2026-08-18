@@ -179,9 +179,9 @@ export default async function WebsiteReportSummary({
         </div>
       </div>
 
-      <section className="rb-panel flex flex-wrap items-center justify-between gap-5 p-5">
+      <section className="arc-panel flex flex-wrap items-center justify-between gap-5 p-5">
         <div className="flex min-w-0 items-start gap-3">
-          <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${mentionRate > 0 ? "bg-[color:var(--rb-green)]/10 text-[color:var(--rb-green)]" : "bg-[color:var(--rb-amber)]/10 text-[color:var(--rb-amber)]"}`}>
+          <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${mentionRate > 0 ? "bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)]" : "bg-[color:var(--arc-amber)]/10 text-[color:var(--arc-amber)]"}`}>
             {mentionRate > 0 ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
           </span>
           <div>
@@ -211,7 +211,7 @@ export default async function WebsiteReportSummary({
       </section>
 
       {/* One stat band, hairline-divided - the quiet Vercel row. */}
-      <div className="rb-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
+      <div className="arc-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
         {[
           {
             label: "AI visibility",
@@ -242,13 +242,13 @@ export default async function WebsiteReportSummary({
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               {item.label}
             </p>
-            <p className="rb-tabular mt-1.5 truncate text-2xl font-semibold tracking-tight">
+            <p className="arc-tabular mt-1.5 truncate text-2xl font-semibold tracking-tight">
               {item.value}
               {item.delta ? (
                 <span
                   className={`ml-2 text-sm font-medium ${
                     item.delta > 0
-                      ? "text-[color:var(--rb-green)]"
+                      ? "text-[color:var(--arc-green)]"
                       : "text-destructive"
                   }`}
                 >
@@ -266,7 +266,7 @@ export default async function WebsiteReportSummary({
       {hasMarketAnswers ? (
         <Link
           href={routes.brandSection(brand.id, "markets")}
-          className="rb-panel flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
+          className="arc-panel flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
         >
           <span className="flex min-w-0 items-center gap-2.5 text-sm">
             <Globe className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -285,7 +285,7 @@ export default async function WebsiteReportSummary({
       <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Vercel card pattern: the header lives inside the card, separated
             by a hairline; content rows divide the rest. */}
-        <section className="rb-panel overflow-hidden">
+        <section className="arc-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
             <h2 className="text-sm font-medium">Who AI recommends instead</h2>
             {isPaid ? (
@@ -306,7 +306,7 @@ export default async function WebsiteReportSummary({
           </div>
         </section>
 
-        <section className="rb-panel overflow-hidden">
+        <section className="arc-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
             <h2 className="text-sm font-medium">Top website improvements</h2>
             <Link
@@ -328,7 +328,7 @@ export default async function WebsiteReportSummary({
                   href={routes.brandSection(brand.id, "actions")}
                   className="flex gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40"
                 >
-                  <span className="rb-tabular mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
+                  <span className="arc-tabular mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
@@ -346,14 +346,14 @@ export default async function WebsiteReportSummary({
       </div>
 
       {!isPaid ? (
-        <div className="rb-panel-soft flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div className="arc-panel-soft flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div>
             <p className="text-sm font-medium">Free audit complete</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Upgrade for multi-provider comparison, full competitor evidence, sources, and history.
             </p>
           </div>
-          <Button asChild size="sm"><Link href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brand.id) })}>Continue with Pro</Link></Button>
+          <Button asChild size="sm"><Link href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brand.id) })}>Continue with Plus</Link></Button>
         </div>
       ) : null}
     </div>

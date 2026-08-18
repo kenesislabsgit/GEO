@@ -62,7 +62,7 @@ export default async function BrandsPage() {
       </div>
 
       {brands.length === 0 ? (
-        <div className="rb-empty p-10 text-center">
+        <div className="arc-empty p-10 text-center">
           <p className="font-medium">No websites yet</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             Add your company website and run your first AI visibility audit.
@@ -72,12 +72,12 @@ export default async function BrandsPage() {
           </Button>
         </div>
       ) : (
-        <div className="rb-list">
+        <div className="arc-list">
           <div className="divide-y divide-border">
             {brands.map((brand) => (
               <Link
                 key={brand.id}
-                href={`/dashboard/brands/${brand.id}`}
+                href={routes.brand(brand.id)}
                 className="flex items-center justify-between gap-4 bg-card px-5 py-4 transition-colors hover:bg-muted/50"
               >
                 <div className="min-w-0">
@@ -103,11 +103,11 @@ export default async function BrandsPage() {
           The Free plan tracks one website.{" "}
           <Link
             href={routes.billing()}
-            className="font-medium text-[color:var(--rb-accent)] hover:underline"
+            className="font-medium text-[color:var(--arc-accent)] hover:underline"
           >
             Upgrade
           </Link>{" "}
-          to monitor up to {PLAN_CONFIG.growth.features.brands} with Pro+.
+          to monitor up to {PLAN_CONFIG.agency.features.brands} with Pro.
         </p>
       ) : null}
     </div>

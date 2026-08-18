@@ -19,7 +19,7 @@ export type AuditAuthorization =
       mode: "free" | "pro";
       assistants: ProviderId[];
       limitPerAssistant: number;
-      /** Pro+ and up: localize a slice of questions to the company's home
+      /** Pro only: localize a slice of questions to the company's home
        * market and pin their web search there. */
       geoMarket: boolean;
       /** The plan the checks ran against, for the scan's input snapshot. */

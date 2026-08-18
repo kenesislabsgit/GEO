@@ -71,9 +71,10 @@ const OFFERED_PROVIDERS: ProviderId[] = [
   "qwen",
 ];
 
-/** The cheapest plan whose provider list includes this provider. */
+/** The cheapest plan whose provider list includes this provider. "growth" is
+ * grandfathered and no longer sold, so it's deliberately not offered here. */
 function planThatUnlocks(provider: ProviderId): PlanId | null {
-  for (const planId of ["founder", "growth", "agency"] as const) {
+  for (const planId of ["founder", "agency"] as const) {
     if (PLAN_CONFIG[planId].features.providers.includes(provider)) {
       return planId;
     }
@@ -194,7 +195,7 @@ export function NewScanForm({
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-2xl">
-        <section className="rb-panel p-6">
+        <section className="arc-panel p-6">
           <AuditProgress
             progress={scanProgress}
             step={scanStep}
@@ -225,7 +226,7 @@ export function NewScanForm({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-6">
         {/* Brand selection */}
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="border-b border-border px-5 py-3.5">
             <h2 className="text-sm font-semibold">1. Select website</h2>
           </div>
@@ -275,7 +276,7 @@ export function NewScanForm({
         </section>
 
         {/* Questions */}
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
             <h2 className="text-sm font-semibold">
               2. Questions from your last audit
@@ -315,7 +316,7 @@ export function NewScanForm({
         </section>
 
         {/* Providers + locale */}
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="border-b border-border px-5 py-3.5">
             <h2 className="text-sm font-semibold">3. Audit settings</h2>
           </div>
@@ -380,7 +381,7 @@ export function NewScanForm({
                         <ProviderLogo provider={id} className="size-4 opacity-60" />
                         {providerDisplayName(id)}
                         {unlockPlan ? (
-                          <span className="rb-chip ml-auto">
+                          <span className="arc-chip ml-auto">
                             {PLAN_CONFIG[unlockPlan].name}
                           </span>
                         ) : null}
@@ -393,7 +394,7 @@ export function NewScanForm({
                         plan: unlockCtaPlan,
                         returnTo: routes.newScan(brandId),
                       })}
-                      className="block border-t border-dashed border-border px-3.5 py-2.5 text-xs font-medium text-[color:var(--rb-accent)] transition-colors hover:bg-muted/40"
+                      className="block border-t border-dashed border-border px-3.5 py-2.5 text-xs font-medium text-[color:var(--arc-accent)] transition-colors hover:bg-muted/40"
                     >
                       Unlock with {PLAN_CONFIG[unlockCtaPlan].name} →
                     </Link>
@@ -428,10 +429,10 @@ export function NewScanForm({
                 Geographic market simulation - asking as a buyer in your home
                 market - is available on{" "}
                 <Link
-                  href={routes.billing({ plan: "growth", returnTo: routes.newScan(brandId) })}
-                  className="text-[color:var(--rb-accent)] hover:underline"
+                  href={routes.billing({ plan: "agency", returnTo: routes.newScan(brandId) })}
+                  className="text-[color:var(--arc-accent)] hover:underline"
                 >
-                  Pro+
+                  Pro
                 </Link>
                 .
               </p>
@@ -493,7 +494,7 @@ export function NewScanForm({
 
       {/* Summary sidebar */}
       <aside className="h-fit space-y-4 lg:sticky lg:top-20">
-        <div className="rb-panel p-5">
+        <div className="arc-panel p-5">
           <h2 className="text-sm font-semibold">Audit summary</h2>
           <dl className="mt-4 space-y-2.5 text-sm">
             <div className="flex justify-between gap-4">
@@ -579,7 +580,7 @@ export function NewScanForm({
           </p>
         </div>
         {!plan.isPaid && brand.recentlyScanned ? (
-          <div className="rb-warn rounded-2xl p-4 text-sm">
+          <div className="arc-warn rounded-2xl p-4 text-sm">
             <p className="font-medium">Recently audited</p>
             <p className="mt-1 text-muted-foreground">
               This website was last audited{" "}

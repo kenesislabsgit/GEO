@@ -1,4 +1,4 @@
-# RankedByAI
+# Arcanoris
 
 Measures whether AI answer engines recommend a company when buyers ask
 commercial questions, and what to do about it.

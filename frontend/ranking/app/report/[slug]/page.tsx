@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
+import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareControls } from "@/components/report/share-controls";
@@ -28,6 +29,8 @@ import { toPublicReportDTO, type PublicReportDTO } from "@/lib/reports/public-dt
 import { APP_NAME, providerDisplayName } from "@/lib/constants";
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 function ordinal(position: number): string {
   const suffix =
@@ -85,6 +88,7 @@ export async function generateMetadata({
   return {
     title: `${report.brand.name} AI Visibility Report`,
     description: `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`,
+    alternates: { canonical: routes.publicReport(slug) },
     openGraph: {
       title: `${report.brand.name} · Score ${report.score.overall}`,
       description: `Mention rate ${report.score.mentionRate}% · ${APP_NAME}`,
@@ -141,18 +145,94 @@ export default async function ReportPage({
       ? hasFeature((await getAccountEntitlements(user.id)).plan, "pdfCsvExport")
       : false;
 
+  // Structured data only for genuinely public reports, mirroring
+  // generateMetadata's own indexing rule above - a private report stays
+  // invisible to crawlers even when its owner is the one rendering this page.
+  const reportUrl = `${appUrl}${routes.publicReport(slug)}`;
+
   return (
     <>
+      {brand.visibility === "public" ? (
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                  { "@type": "ListItem", position: 1, name: "Home", item: appUrl },
+                  {
+                    "@type": "ListItem",
+                    position: 2,
+                    name: `${report.brand.name} Report`,
+                    item: reportUrl,
+                  },
+                ],
+              },
+              {
+                "@type": "Dataset",
+                "@id": `${reportUrl}#dataset`,
+                name: `${report.brand.name} AI Visibility Report`,
+                description: `AI visibility measurement for ${report.brand.name}: overall score ${report.score.overall}, mention rate ${report.score.mentionRate}%, sampled across ${report.scan.providerIds.length} AI provider${report.scan.providerIds.length === 1 ? "" : "s"}.`,
+                url: reportUrl,
+                dateCreated: report.scan.createdAt,
+                dateModified: report.scan.completedAt ?? report.scan.createdAt,
+                creator: { "@id": `${appUrl}/#organization` },
+                publisher: { "@id": `${appUrl}/#organization` },
+                about: {
+                  "@type": "Organization",
+                  name: report.brand.name,
+                  url: `https://${report.brand.domain}`,
+                },
+                variableMeasured: [
+                  {
+                    "@type": "PropertyValue",
+                    name: "AI visibility score",
+                    value: report.score.overall,
+                  },
+                  {
+                    "@type": "PropertyValue",
+                    name: "Mention rate",
+                    value: `${report.score.mentionRate}%`,
+                  },
+                  {
+                    "@type": "PropertyValue",
+                    name: "Share of voice",
+                    value: `${report.score.shareOfVoice}%`,
+                  },
+                ],
+              },
+              ...(report.promptMatrix.length > 0
+                ? [
+                    {
+                      "@type": "FAQPage",
+                      mainEntity: report.promptMatrix.slice(0, 10).map((row) => ({
+                        "@type": "Question",
+                        name: row.prompt,
+                        acceptedAnswer: {
+                          "@type": "Answer",
+                          text: row.mentioned
+                            ? `Yes - ${report.brand.name} was recommended${row.position ? ` (position ${ordinal(row.position)})` : ""} when asked "${row.prompt}".`
+                            : `No - ${report.brand.name} was not mentioned when asked "${row.prompt}".${row.beatenBy.length ? ` ${row.beatenBy.join(", ")} were recommended instead.` : ""}`,
+                        },
+                      })),
+                    },
+                  ]
+                : []),
+            ],
+          }}
+        />
+      ) : null}
       <div className="print:hidden">
         <SiteHeader />
       </div>
       <main className="flex-1">
         {/* Score header */}
-        <section className="relative overflow-hidden border-b border-border bg-[color:var(--rb-ink)]">
-          <div className="rb-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_70%_80%_at_50%_0%,black,transparent)]" />
+        <section className="relative overflow-hidden border-b border-border bg-[color:var(--arc-ink)]">
+          <div className="arc-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_70%_80%_at_50%_0%,black,transparent)]" />
           <div className="relative mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full bg-[color:var(--rb-accent)] text-white hover:bg-[color:var(--rb-accent)]">
+              <Badge className="rounded-full bg-[color:var(--arc-accent)] text-white hover:bg-[color:var(--arc-accent)]">
                 {brand.visibility === "private"
                   ? "Private report"
                   : "Public report"}
@@ -160,7 +240,7 @@ export default async function ReportPage({
               {report.scan.demoMode ? (
                 <Badge
                   variant="outline"
-                  className="rounded-full border-[color:var(--rb-amber)]/40 text-[color:var(--rb-amber)]"
+                  className="rounded-full border-[color:var(--arc-amber)]/40 text-[color:var(--arc-amber)]"
                 >
                   Demo fixtures
                 </Badge>
@@ -168,7 +248,7 @@ export default async function ReportPage({
               {report.scan.confidence === "low" ? (
                 <Badge
                   variant="outline"
-                  className="rounded-full border-[color:var(--rb-amber)]/40 text-[color:var(--rb-amber)]"
+                  className="rounded-full border-[color:var(--arc-amber)]/40 text-[color:var(--arc-amber)]"
                 >
                   Limited evidence
                 </Badge>
@@ -268,7 +348,7 @@ export default async function ReportPage({
                     ) : null}
                   </div>
                   {row.mentioned ? (
-                    <Badge className="shrink-0 rounded-full bg-[color:var(--rb-green)]/10 text-[color:var(--rb-green)] hover:bg-[color:var(--rb-green)]/10">
+                    <Badge className="shrink-0 rounded-full bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)] hover:bg-[color:var(--arc-green)]/10">
                       {row.position
                         ? `Recommended ${ordinal(row.position)}`
                         : "Mentioned"}
@@ -341,7 +421,7 @@ export default async function ReportPage({
 
         {/* The one competitor whose website we read */}
         {report.investigatedCompetitor ? (
-          <section className="border-y border-border bg-[color:var(--rb-mist)]">
+          <section className="border-y border-border bg-[color:var(--arc-mist)]">
             <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
               <h2 className="text-xl font-semibold tracking-tight">
                 The competitor we looked into
@@ -353,7 +433,7 @@ export default async function ReportPage({
               </p>
 
               <div className="mt-6 grid gap-6 md:grid-cols-2">
-                <div className="rb-panel p-6">
+                <div className="arc-panel p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="font-semibold tracking-tight">
                       {report.investigatedCompetitor.name}
@@ -368,7 +448,7 @@ export default async function ReportPage({
                       href={report.investigatedCompetitor.website}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-[color:var(--rb-accent)] hover:underline"
+                      className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-[color:var(--arc-accent)] hover:underline"
                     >
                       <ExternalLink className="size-3.5 shrink-0" />
                       {report.investigatedCompetitor.website}
@@ -376,7 +456,7 @@ export default async function ReportPage({
                   ) : null}
                 </div>
 
-                <div className="rb-panel p-6">
+                <div className="arc-panel p-6">
                   <h3 className="font-semibold tracking-tight">
                     What their pages say
                   </h3>
@@ -387,7 +467,7 @@ export default async function ReportPage({
                           {page.label}
                         </p>
                         {page.excerpt ? (
-                          <p className="mt-1 border-l-2 border-[color:var(--rb-accent)] pl-3 text-sm leading-relaxed text-foreground/80">
+                          <p className="mt-1 border-l-2 border-[color:var(--arc-accent)] pl-3 text-sm leading-relaxed text-foreground/80">
                             {page.excerpt}
                           </p>
                         ) : null}
@@ -396,7 +476,7 @@ export default async function ReportPage({
                             href={page.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-[color:var(--rb-accent)] hover:underline"
+                            className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-[color:var(--arc-accent)] hover:underline"
                           >
                             <ExternalLink className="size-3 shrink-0" />
                             <span className="truncate">{page.url}</span>
@@ -421,7 +501,7 @@ export default async function ReportPage({
               </h2>
             </div>
             {report.recommendation ? (
-              <div className="rb-panel mt-6 p-6">
+              <div className="arc-panel mt-6 p-6">
                 <h3 className="font-semibold tracking-tight">
                   {report.recommendation.title}
                 </h3>
@@ -481,7 +561,7 @@ export default async function ReportPage({
                           href={source.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-mono text-xs text-[color:var(--rb-accent)] hover:underline"
+                          className="font-mono text-xs text-[color:var(--arc-accent)] hover:underline"
                         >
                           {source.domain}
                         </a>
@@ -502,7 +582,7 @@ export default async function ReportPage({
                             Doesn&apos;t mention you
                           </Badge>
                         ) : source.mentionsBrand ? (
-                          <Badge className="rounded-full bg-[color:var(--rb-green)]/10 text-[color:var(--rb-green)] hover:bg-[color:var(--rb-green)]/10">
+                          <Badge className="rounded-full bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)] hover:bg-[color:var(--arc-green)]/10">
                             Mentions you
                           </Badge>
                         ) : null}
@@ -545,7 +625,7 @@ export default async function ReportPage({
               ) : (
                 <>
                   <Button asChild>
-                    <Link href={`/claim/${report.brand.slug}`}>
+                    <Link href={routes.claim(report.brand.slug)}>
                       Claim this website
                       <ArrowRight data-icon="inline-end" />
                     </Link>

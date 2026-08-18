@@ -12,11 +12,11 @@ export function MarketingShell({
   narrow?: boolean;
 }) {
   return (
-    <div className="rb-atmosphere relative flex min-h-screen flex-col overflow-hidden">
-      <div aria-hidden className="rb-mesh pointer-events-none absolute inset-0 opacity-70" />
+    <div className="arc-atmosphere relative flex min-h-screen flex-col overflow-hidden">
+      <div aria-hidden className="arc-mesh pointer-events-none absolute inset-0 opacity-70" />
       <div
         aria-hidden
-        className="rb-grid pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_70%_50%_at_50%_0%,black,transparent)]"
+        className="arc-grid pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_70%_50%_at_50%_0%,black,transparent)]"
       />
       <SiteHeader />
       <main

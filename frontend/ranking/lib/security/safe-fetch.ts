@@ -64,7 +64,7 @@ export async function safeFetchText(url: string): Promise<string> {
     const response = await fetch(parsed.toString(), {
       redirect: "manual",
       signal: controller.signal,
-      headers: { "user-agent": "RankedByAI-Verification/1.0" },
+      headers: { "user-agent": "Arcanoris-Verification/1.0" },
     });
     if (response.status >= 300 && response.status < 400) {
       throw new SafeFetchError(

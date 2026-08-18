@@ -131,7 +131,7 @@ export default async function AIAnswersPage({
       />
 
       {results.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No AI answers yet. Run an audit to collect prompt-level evidence.
           </p>
@@ -149,7 +149,7 @@ export default async function AIAnswersPage({
                 each provider said, with {brand.name} highlighted.
               </p>
             </div>
-            <span className="rb-chip text-muted-foreground">
+            <span className="arc-chip text-muted-foreground">
               <ProviderStack providers={auditProviders} max={8} />
               <span className="ml-1">Asked in this audit</span>
             </span>
@@ -161,7 +161,7 @@ export default async function AIAnswersPage({
       )}
 
       {isPaid ? (
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight">
               Buyer question library

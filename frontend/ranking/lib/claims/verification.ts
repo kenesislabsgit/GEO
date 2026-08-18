@@ -12,8 +12,8 @@ import type { Brand } from "@/types/database";
  * or a well-known file, and only a verified proof transfers ownership.
  */
 
-export const TXT_PREFIX = "rankedbyai-verify=";
-export const WELL_KNOWN_PATH = "/.well-known/rankedbyai-verify.txt";
+export const TXT_PREFIX = "arcanoris-verify=";
+export const WELL_KNOWN_PATH = "/.well-known/arcanoris-verify.txt";
 const EXPIRY_HOURS = 48;
 const MAX_ATTEMPTS = 20;
 

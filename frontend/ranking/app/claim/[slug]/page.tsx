@@ -30,7 +30,7 @@ export default async function ClaimPage({
 
   return (
     <MarketingShell narrow>
-      <p className="rb-eyebrow">Claim report</p>
+      <p className="arc-eyebrow">Claim report</p>
       <h1 className="font-heading mt-3 text-3xl font-semibold tracking-tight">
         Prove you control {brand.canonical_domain}
       </h1>

@@ -138,7 +138,7 @@ export function PromptsManager({
 
   if (!isPaid) {
     return (
-      <div className="rb-empty p-8 text-center">
+      <div className="arc-empty p-8 text-center">
         <p className="text-sm text-muted-foreground">
           Upgrade to add, edit, and manage custom buyer questions.
         </p>
@@ -159,7 +159,7 @@ export function PromptsManager({
       </div>
 
       {showAdd ? (
-        <div className="rb-panel p-5">
+        <div className="arc-panel p-5">
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="new-prompt">Buyer question</FieldLabel>
@@ -230,13 +230,13 @@ export function PromptsManager({
       ) : null}
 
       {prompts.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No prompts yet. Run a scan to generate them or add a custom question.
           </p>
         </div>
       ) : (
-        <div className="rb-list">
+        <div className="arc-list">
           <div className="divide-y divide-border">
             {prompts.map((prompt) => (
               <div

@@ -53,7 +53,7 @@ export function AuditProgress({
             style={{ width: 40, height: 40 }}
           />
           <div className="min-w-0">
-            <p className="rb-shimmer w-fit text-sm font-medium">
+            <p className="arc-shimmer w-fit text-sm font-medium">
               Audit in progress
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">

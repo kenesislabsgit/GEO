@@ -90,7 +90,7 @@ export function CompetitorsManager({
 
   if (!isPaid) {
     return (
-      <div className="rb-empty p-8 text-center">
+      <div className="arc-empty p-8 text-center">
         <p className="text-sm text-muted-foreground">
           Upgrade to add, remove, and compare competitors across scans.
         </p>
@@ -116,14 +116,14 @@ export function CompetitorsManager({
       </div>
 
       {competitors.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No competitors yet. Add competitors you want to track, or run a scan
             to discover who AI recommends in your category.
           </p>
         </div>
       ) : (
-        <div className="rb-list">
+        <div className="arc-list">
           <div className="divide-y divide-border">
             {competitors.map((c) => (
               <div

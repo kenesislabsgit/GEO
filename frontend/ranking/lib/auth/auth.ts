@@ -81,6 +81,30 @@ export const auth = betterAuth({
       });
     },
   },
+  user: {
+    changeEmail: {
+      enabled: true,
+      // Mirrors requireEmailVerification above: an unverified account can
+      // just swap addresses outright - the new one then needs verifying
+      // like any fresh signup, via sendVerificationEmail already above.
+      updateEmailWithoutVerification: true,
+      // A verified account has to confirm the change from its CURRENT
+      // inbox first. Without this, a hijacked session could quietly move
+      // the account to an address the real owner doesn't control.
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+        await sendAlertEmail({
+          to: user.email,
+          subject: "Confirm your email change",
+          body:
+            `Someone asked to change the sign-in address on this account ` +
+            `from ${user.email} to ${newEmail}. If it was you, confirm ` +
+            `within the hour:\n\n${url}\n\nIf it was not you, ignore this ` +
+            `email - nothing changes without the link, and your password ` +
+            `still works.`,
+        });
+      },
+    },
+  },
   // Auth endpoints are a favourite for abuse; the built-in limiter covers
   // sign-in attempts, reset requests and verification resends.
   rateLimit: {

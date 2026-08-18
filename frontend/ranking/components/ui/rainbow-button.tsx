@@ -18,7 +18,7 @@ export function RainbowButton({
   return (
     <Comp
       className={cn(
-        "rb-rainbow-btn group relative inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 py-2 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "arc-rainbow-btn group relative inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-6 py-2 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

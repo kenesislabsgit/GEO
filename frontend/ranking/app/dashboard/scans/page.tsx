@@ -19,11 +19,11 @@ import type { ScanStatus } from "@/types/database";
 export const metadata = { title: "Audit history" };
 
 const STATUS_STYLES: Record<ScanStatus, string> = {
-  completed: "bg-[color:var(--rb-green)]/10 text-[color:var(--rb-green)]",
-  partial: "bg-[color:var(--rb-amber)]/15 text-[color:var(--rb-amber)]",
+  completed: "bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)]",
+  partial: "bg-[color:var(--arc-amber)]/15 text-[color:var(--arc-amber)]",
   failed: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground",
-  running: "bg-[color:var(--rb-accent-soft)] text-[color:var(--rb-accent)]",
+  running: "bg-[color:var(--arc-accent-soft)] text-[color:var(--arc-accent)]",
   queued: "bg-muted text-muted-foreground",
   cancel_requested: "bg-muted text-muted-foreground",
   timed_out: "bg-destructive/10 text-destructive",
@@ -85,7 +85,7 @@ export default async function ScansPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rb-empty p-10 text-center">
+        <div className="arc-empty p-10 text-center">
           <p className="font-medium">No audits yet</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             Run your first audit to start measuring your website&apos;s AI visibility.
@@ -98,7 +98,7 @@ export default async function ScansPage() {
           </Button>
         </div>
       ) : (
-        <div className="rb-list overflow-x-auto">
+        <div className="arc-list overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -156,7 +156,7 @@ export default async function ScansPage() {
                             <span
                               className={`ml-1.5 text-xs font-medium ${
                                 delta > 0
-                                  ? "text-[color:var(--rb-green)]"
+                                  ? "text-[color:var(--arc-green)]"
                                   : "text-destructive"
                               }`}
                             >
@@ -174,7 +174,7 @@ export default async function ScansPage() {
                       scan.status === "partial" ? (
                         <Link
                           href={routes.brand(brand.id)}
-                          className="text-[color:var(--rb-accent)] hover:underline"
+                          className="text-[color:var(--arc-accent)] hover:underline"
                         >
                           Report
                         </Link>
@@ -182,7 +182,7 @@ export default async function ScansPage() {
                         scan.status === "running" ? (
                         <Link
                           href={routes.scanProgress(scan.id)}
-                          className="text-[color:var(--rb-accent)] hover:underline"
+                          className="text-[color:var(--arc-accent)] hover:underline"
                         >
                           Progress
                         </Link>

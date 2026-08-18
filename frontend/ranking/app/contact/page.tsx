@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Contact & support" };
+export const metadata = {
+  title: "Contact & support",
+  description:
+    "Reach Arcanoris support for questions about scans, billing, brand claims, or methodology - typical response within one business day.",
+  alternates: { canonical: routes.contact },
+};
 
 export default function ContactPage() {
-  const supportEmail =
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@rankedbyai.com";
-
   return (
     <MarketingShell narrow>
       <h1 className="font-heading text-4xl font-semibold tracking-tight">
@@ -17,10 +20,10 @@ export default function ContactPage() {
         <p>
           Questions about scans, billing, brand claims, or methodology? Email{" "}
           <a
-            href={`mailto:${supportEmail}`}
+            href={`mailto:${SUPPORT_EMAIL}`}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            {supportEmail}
+            {SUPPORT_EMAIL}
           </a>
           . We typically respond within one business day.
         </p>

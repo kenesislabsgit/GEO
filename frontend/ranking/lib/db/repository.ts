@@ -68,6 +68,22 @@ export async function getBrandBySlug(slug: string): Promise<Brand | null> {
   return one<Brand>(`select * from brands where slug = $1`, [slug]);
 }
 
+/** Every public report's slug and last-scored date, for the sitemap. Robots.ts
+ * already allow-lists /report/ for crawlers - this is what makes those pages
+ * actually discoverable instead of reachable only by a direct link. */
+export async function getPublicReportSitemapEntries(): Promise<
+  Array<{ slug: string; updatedAt: string }>
+> {
+  return q<{ slug: string; updatedAt: string }>(
+    `select distinct on (b.id) b.slug, coalesce(s.completed_at, s.created_at) as "updatedAt"
+     from brands b
+     join scan_runs s on s.brand_id = b.id
+     where b.visibility = 'public' and s.status = 'completed'
+     order by b.id, s.completed_at desc nulls last, s.created_at desc`,
+    [],
+  );
+}
+
 export async function getBrandById(id: string): Promise<Brand | null> {
   return one<Brand>(`select * from brands where id = $1`, [id]);
 }

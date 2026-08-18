@@ -59,15 +59,15 @@
   /* Brand tokens — near-black ink, one blue, restrained everything else.
      The look is borders-first: 1px neutral lines carry the structure,
      shadows barely exist, and color appears only when it means something. */
-  --rb-ink: #0a0a0a;
-  --rb-accent: #0068d6;
-  --rb-accent-soft: #eaf3fe;
-  --rb-green: #147d3e;
-  --rb-amber: #a35200;
-  --rb-mist: #f5f5f5;
-  --rb-slate: #666666;
+  --arc-ink: #0a0a0a;
+  --arc-accent: #0068d6;
+  --arc-accent-soft: #eaf3fe;
+  --arc-green: #147d3e;
+  --arc-amber: #a35200;
+  --arc-mist: #f5f5f5;
+  --arc-slate: #666666;
 
-  --background: #fafafa;
+  --background: #fcfcfc;
   --foreground: #0a0a0a;
   --card: #ffffff;
   --card-foreground: #0a0a0a;
@@ -91,7 +91,7 @@
   --chart-4: #147d3e;
   --chart-5: #cb2a2f;
   --radius: 0.5rem;
-  --sidebar: #fafafa;
+  --sidebar: #fcfcfc;
   --sidebar-foreground: #0a0a0a;
   --sidebar-primary: #0a0a0a;
   --sidebar-primary-foreground: #fafafa;
@@ -104,15 +104,15 @@
 /* Dark theme, toggled by next-themes putting .dark on <html>. Same design
    language as light: borders carry structure, color means something. */
 .dark {
-  /* --rb-ink is deliberately NOT flipped: it names the dark brand surface
+  /* --arc-ink is deliberately NOT flipped: it names the dark brand surface
      (report headers, the landing mockup, the final CTA), which stays dark in
      both themes. Adaptive black-on-light elements use bg-foreground. */
-  --rb-accent: #52a8ff;
-  --rb-accent-soft: #0d2440;
-  --rb-green: #3ecf7a;
-  --rb-amber: #e8a33d;
-  --rb-mist: #171717;
-  --rb-slate: #a1a1a1;
+  --arc-accent: #52a8ff;
+  --arc-accent-soft: #0d2440;
+  --arc-green: #3ecf7a;
+  --arc-amber: #e8a33d;
+  --arc-mist: #171717;
+  --arc-slate: #a1a1a1;
 
   --background: #0a0a0a;
   --foreground: #fafafa;
@@ -171,21 +171,21 @@
 }
 
 @layer utilities {
-  .rb-grid {
+  .arc-grid {
     background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  .dark .rb-grid {
+  .dark .arc-grid {
     background-image: radial-gradient(circle, #2a2a2a 1px, transparent 1px);
   }
-  .rb-grid-dark {
+  .arc-grid-dark {
     background-image: radial-gradient(circle, #262626 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
   /* Page canvas: flat, with the faintest cool wash at the very top.
      No blobs, no drifting gradients. */
-  .rb-atmosphere {
+  .arc-atmosphere {
     background:
       radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0, 104, 214, 0.06), transparent 60%),
       var(--background);
@@ -193,45 +193,45 @@
 
   /* Kept for compatibility; the old animated blur made every page feel
      like a template. It is now a no-op surface. */
-  .rb-mesh {
+  .arc-mesh {
     background: transparent;
   }
 
-  .rb-card-hover {
+  .arc-card-hover {
     transition:
       border-color 0.15s ease,
       box-shadow 0.15s ease;
   }
-  .rb-card-hover:hover {
+  .arc-card-hover:hover {
     border-color: #d4d4d4;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
-  .rb-fade-up {
-    animation: rb-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  .arc-fade-up {
+    animation: arc-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  .rb-fade-up-delay-1 {
+  .arc-fade-up-delay-1 {
     animation-delay: 0.08s;
   }
-  .rb-fade-up-delay-2 {
+  .arc-fade-up-delay-2 {
     animation-delay: 0.16s;
   }
-  .rb-fade-up-delay-3 {
+  .arc-fade-up-delay-3 {
     animation-delay: 0.24s;
   }
 
-  .rb-float {
+  .arc-float {
     animation: none;
   }
 
-  .rb-scanline {
+  .arc-scanline {
     background: none;
   }
 
   /* Shared product surfaces. Structure comes from the 1px line; depth comes
      from a hairline top-light and a soft, tight shadow — the two-layer
      recipe every crafted SaaS surface uses. */
-  .rb-panel {
+  .arc-panel {
     border: 1px solid var(--border);
     background: var(--card);
     border-radius: calc(var(--radius) * 1.4);
@@ -240,19 +240,19 @@
       0 1px 2px rgba(0, 0, 0, 0.04),
       0 8px 24px -16px rgba(0, 0, 0, 0.1);
   }
-  .dark .rb-panel {
+  .dark .arc-panel {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 1px 2px rgba(0, 0, 0, 0.4);
   }
 
-  .rb-panel-soft {
+  .arc-panel-soft {
     border: 1px solid var(--border);
-    background: var(--rb-mist);
+    background: var(--arc-mist);
     border-radius: calc(var(--radius) * 1.4);
   }
 
-  .rb-glass {
+  .arc-glass {
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--card) 85%, transparent);
     backdrop-filter: blur(12px);
@@ -260,19 +260,19 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   }
 
-  .rb-warn {
-    border: 1px solid color-mix(in srgb, var(--rb-amber) 30%, var(--background));
-    background: color-mix(in srgb, var(--rb-amber) 8%, var(--background));
-    color: color-mix(in srgb, var(--rb-amber) 75%, var(--foreground));
+  .arc-warn {
+    border: 1px solid color-mix(in srgb, var(--arc-amber) 30%, var(--background));
+    background: color-mix(in srgb, var(--arc-amber) 8%, var(--background));
+    color: color-mix(in srgb, var(--arc-amber) 75%, var(--foreground));
   }
 
-  .rb-empty {
+  .arc-empty {
     border: 1px dashed var(--border);
     background: transparent;
     border-radius: calc(var(--radius) * 1.4);
   }
 
-  .rb-list {
+  .arc-list {
     overflow: hidden;
     border: 1px solid var(--border);
     background: var(--card);
@@ -282,7 +282,7 @@
       0 1px 2px rgba(0, 0, 0, 0.04),
       0 8px 24px -16px rgba(0, 0, 0, 0.1);
   }
-  .dark .rb-list {
+  .dark .arc-list {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 1px 2px rgba(0, 0, 0, 0.4);
@@ -290,7 +290,7 @@
 
   /* Display text: ink fading down to smoke. The signature look of every
      crafted landing page since Linear's. */
-  .rb-gradient-text {
+  .arc-gradient-text {
     background: linear-gradient(
       180deg,
       var(--foreground) 40%,
@@ -302,10 +302,10 @@
   }
 
   /* Soft brand glow to sit behind a hero or a screenshot. */
-  .rb-glow {
+  .arc-glow {
     background: radial-gradient(
       ellipse 55% 50% at 50% 45%,
-      color-mix(in srgb, var(--rb-accent) 22%, transparent),
+      color-mix(in srgb, var(--arc-accent) 22%, transparent),
       transparent 70%
     );
     filter: blur(24px);
@@ -313,28 +313,28 @@
 
   /* Film grain over dark surfaces so large fills read as material, not
      dead pixels. */
-  .rb-noise {
+  .arc-noise {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
     background-size: 120px 120px;
   }
 
-  .rb-tabular {
+  .arc-tabular {
     font-variant-numeric: tabular-nums;
   }
 
   /* Scrollable rows that must not show a scrollbar (tab navs). Windows
      paints permanent scrollbars on overflow-x-auto, which reads as a bug. */
-  .rb-scrollbar-none {
+  .arc-scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  .rb-scrollbar-none::-webkit-scrollbar {
+  .arc-scrollbar-none::-webkit-scrollbar {
     display: none;
   }
 
   /* Reasoning-state label: a light sweep across the text while a stage is
      actively working — the "thinking" signal without a spinner. */
-  .rb-shimmer {
+  .arc-shimmer {
     background: linear-gradient(
       90deg,
       var(--muted-foreground) 35%,
@@ -345,10 +345,10 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: rb-shimmer 1.8s linear infinite;
+    animation: arc-shimmer 1.8s linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
-    .rb-shimmer {
+    .arc-shimmer {
       animation: none;
       color: var(--foreground);
       background: none;
@@ -357,14 +357,14 @@
 
   /* ------------------------------------------------------------------ */
   /* Dashboard canvas — flat, borders-first, Vercel-quiet. Cards keep the
-     shared rb-panel recipe; nothing rounder than the marketing site. */
-  .rb-dash {
+     shared arc-panel recipe; nothing rounder than the marketing site. */
+  .arc-dash {
     background: var(--background);
   }
 
   /* Small status/filter chip. Color comes from the modifier text class
      next to it; this only sets the shape. */
-  .rb-chip {
+  .arc-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
@@ -378,7 +378,7 @@
 
   /* Blueprint details for the landing hero: diagonal hatch strips and a
      halftone dot field. Both draw from theme tokens so they hold up in dark. */
-  .rb-hatch {
+  .arc-hatch {
     background-image: repeating-linear-gradient(
       -45deg,
       var(--border) 0,
@@ -387,7 +387,7 @@
       transparent 9px
     );
   }
-  .rb-halftone {
+  .arc-halftone {
     background-image: radial-gradient(circle, currentColor 1.2px, transparent 1.2px);
     background-size: 12px 12px;
   }
@@ -395,12 +395,12 @@
   /* The tall azure panel the "What you get" mockups float on. Light azure
      with a white bloom in light mode; sinks toward the ink surface in dark
      so the white cards keep reading as the bright layer. */
-  .rb-feature-tile {
+  .arc-feature-tile {
     background:
       radial-gradient(ellipse 110% 70% at 75% 12%, rgba(255, 255, 255, 0.9), transparent 62%),
       linear-gradient(150deg, #aacff8 0%, #cde3fb 48%, #e9f3fe 100%);
   }
-  .dark .rb-feature-tile {
+  .dark .arc-feature-tile {
     background:
       radial-gradient(ellipse 110% 70% at 75% 12%, rgba(82, 168, 255, 0.14), transparent 62%),
       linear-gradient(150deg, #0d2440 0%, #101a28 55%, #111111 100%);
@@ -408,7 +408,7 @@
 
   /* The small-caps mono label that starts a section. Extracted because it
      was hand-typed in a dozen places. */
-  .rb-eyebrow {
+  .arc-eyebrow {
     font-family: var(--font-mono), monospace;
     font-size: 11px;
     letter-spacing: 0.14em;
@@ -419,83 +419,83 @@
   /* ------------------------------------------------------------------ */
   /* Scroll-driven motion. The <Reveal> component adds .is-visible when a
      block enters the viewport; descendants opt in with the classes below
-     and stagger through --rb-delay. Guards at the end of this file keep
+     and stagger through --arc-delay. Guards at the end of this file keep
      everything visible without scripting and still with reduced motion. */
-  .rb-reveal {
+  .arc-reveal {
     opacity: 0;
     transition:
       opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
       transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: var(--rb-reveal-delay, 0ms);
+    transition-delay: var(--arc-reveal-delay, 0ms);
   }
-  .rb-reveal-up {
+  .arc-reveal-up {
     transform: translateY(20px);
   }
-  .rb-reveal-left {
+  .arc-reveal-left {
     transform: translateX(-24px);
   }
-  .rb-reveal-right {
+  .arc-reveal-right {
     transform: translateX(24px);
   }
-  .rb-reveal.is-visible {
+  .arc-reveal.is-visible {
     opacity: 1;
     transform: none;
   }
 
-  .rb-rise {
+  .arc-rise {
     opacity: 0;
     transform: translateY(12px);
     transition:
       opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
       transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: var(--rb-delay, 0ms);
+    transition-delay: var(--arc-delay, 0ms);
   }
-  .is-visible .rb-rise {
+  .is-visible .arc-rise {
     opacity: 1;
     transform: none;
   }
 
   /* Bars that grow into place. */
-  .rb-grow-x {
+  .arc-grow-x {
     transform: scaleX(0);
     transform-origin: left center;
     transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: var(--rb-delay, 0ms);
+    transition-delay: var(--arc-delay, 0ms);
   }
-  .is-visible .rb-grow-x {
+  .is-visible .arc-grow-x {
     transform: scaleX(1);
   }
-  .rb-grow-y {
+  .arc-grow-y {
     transform: scaleY(0);
     transform-origin: center bottom;
     transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: var(--rb-delay, 0ms);
+    transition-delay: var(--arc-delay, 0ms);
   }
-  .is-visible .rb-grow-y {
+  .is-visible .arc-grow-y {
     transform: scaleY(1);
   }
 
-  /* SVG line that draws itself; pair with pathLength={1} on the path. */
-  .rb-draw {
-    stroke-dasharray: 1 1;
-    stroke-dashoffset: 1;
-    transition: stroke-dashoffset 1.6s ease-out;
-    transition-delay: var(--rb-delay, 0ms);
+  /* Bars that light up left to right, like a score/progress meter filling. */
+  .arc-light-up {
+    opacity: 0.15;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--arc-delay, 0ms);
   }
-  .is-visible .rb-draw {
-    stroke-dashoffset: 0;
+  .is-visible .arc-light-up {
+    opacity: 1;
   }
-  .rb-fade-late {
+
+  .arc-fade-late {
     opacity: 0;
     transition: opacity 0.9s ease;
-    transition-delay: var(--rb-delay, 500ms);
+    transition-delay: var(--arc-delay, 500ms);
   }
-  .is-visible .rb-fade-late {
+  .is-visible .arc-fade-late {
     opacity: 1;
   }
 
   /* Highlighter sweep across an inline mention. */
-  .rb-highlight-sweep {
+  .arc-highlight-sweep {
     background-image: linear-gradient(
       color-mix(in srgb, #3ecf7a 16%, transparent),
       color-mix(in srgb, #3ecf7a 16%, transparent)
@@ -504,22 +504,22 @@
     background-size: 0% 100%;
     transition: background-size 0.8s ease 0.5s;
   }
-  .is-visible .rb-highlight-sweep {
+  .is-visible .arc-highlight-sweep {
     background-size: 100% 100%;
   }
 
   /* The hero flow diagram: a slow-turning dashed ring around the hub. The
-     dots that travel its paths are SMIL circles tagged .rb-motion-dot so
+     dots that travel its paths are SMIL circles tagged .arc-motion-dot so
      reduced-motion can hide them. */
-  .rb-spin-slow {
-    animation: rb-spin 32s linear infinite;
+  .arc-spin-slow {
+    animation: arc-spin 32s linear infinite;
   }
 
   /* MagicUI rainbow button (components/ui/rainbow-button.tsx): a pill over
      an animated rainbow border gradient, with a blurred underglow. The
      layered background lives here because Tailwind arbitrary values choke
      on multi-gradient stacks. */
-  .rb-rainbow-btn {
+  .arc-rainbow-btn {
     border: 0.08rem solid transparent;
     background-image:
       linear-gradient(#121213, #121213),
@@ -537,7 +537,7 @@
     background-origin: border-box;
     animation: rainbow 2s infinite linear;
   }
-  .dark .rb-rainbow-btn {
+  .dark .arc-rainbow-btn {
     background-image:
       linear-gradient(#ffffff, #ffffff),
       linear-gradient(#ffffff 50%, rgba(255, 255, 255, 0.6) 80%, rgba(255, 255, 255, 0)),
@@ -550,7 +550,7 @@
         var(--rainbow-2)
       );
   }
-  .rb-rainbow-btn::before {
+  .arc-rainbow-btn::before {
     content: "";
     position: absolute;
     bottom: -20%;
@@ -574,32 +574,73 @@
 
   /* The provider radar: a sweeping beam that circles the dial, showing the
      scan touching every model. Sits in a rounded-full parent. */
-  .rb-radar-sweep {
+  .arc-radar-sweep {
     border-radius: 9999px;
     background: conic-gradient(
       from 0deg,
-      color-mix(in srgb, var(--rb-accent) 35%, transparent),
-      color-mix(in srgb, var(--rb-accent) 8%, transparent) 55deg,
+      color-mix(in srgb, var(--arc-accent) 35%, transparent),
+      color-mix(in srgb, var(--arc-accent) 8%, transparent) 55deg,
       transparent 85deg
     );
-    animation: rb-spin 7s linear infinite;
+    animation: arc-spin 7s linear infinite;
   }
 
   /* Ambient motion: floating chips, glowing dots, a breathing badge. */
-  .rb-drift {
-    animation: rb-drift 7s ease-in-out infinite;
-    animation-delay: var(--rb-delay, 0ms);
+  .arc-drift {
+    animation: arc-drift 7s ease-in-out infinite;
+    animation-delay: var(--arc-delay, 0ms);
   }
-  .rb-pulse-dot {
-    animation: rb-pulse-dot 3s ease-in-out infinite;
-    animation-delay: var(--rb-delay, 0ms);
+  .arc-pulse-dot {
+    animation: arc-pulse-dot 3s ease-in-out infinite;
+    animation-delay: var(--arc-delay, 0ms);
   }
-  .rb-pulse-soft {
-    animation: rb-pulse-soft 2.6s ease-in-out infinite;
+  .arc-pulse-soft {
+    animation: arc-pulse-soft 2.6s ease-in-out infinite;
   }
+
+  /* A row of chips that scrolls sideways forever. Content is duplicated once
+     by the caller, so a 50% translate is exactly one full loop with no seam. */
+  .arc-marquee-mask {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+  }
+  .arc-marquee,
+  .arc-marquee--reverse {
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  .arc-marquee {
+    animation-name: arc-marquee-left;
+    animation-duration: 26s;
+  }
+  /* A dedicated reverse-travelling keyframe, not animation-direction on the
+     same rule - two rows at a hair different speed too, so they don't read
+     as one mechanical unit moving in sync. */
+  .arc-marquee--reverse {
+    animation-name: arc-marquee-right;
+    animation-duration: 32s;
+  }
+  .arc-marquee:hover,
+  .arc-marquee--reverse:hover {
+    animation-play-state: paused;
+  }
+
 }
 
-@keyframes rb-shimmer {
+@keyframes arc-shimmer {
   from {
     background-position: 200% 0;
   }
@@ -608,7 +649,7 @@
   }
 }
 
-@keyframes rb-fade-up {
+@keyframes arc-fade-up {
   from {
     opacity: 0;
     transform: translateY(10px);
@@ -619,7 +660,7 @@
   }
 }
 
-@keyframes rb-spin {
+@keyframes arc-spin {
   to {
     transform: rotate(360deg);
   }
@@ -634,7 +675,25 @@
   }
 }
 
-@keyframes rb-drift {
+@keyframes arc-marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes arc-marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes arc-drift {
   0%,
   100% {
     transform: translateY(0);
@@ -644,7 +703,7 @@
   }
 }
 
-@keyframes rb-pulse-dot {
+@keyframes arc-pulse-dot {
   0%,
   100% {
     opacity: 0.55;
@@ -656,7 +715,7 @@
   }
 }
 
-@keyframes rb-pulse-soft {
+@keyframes arc-pulse-soft {
   0%,
   100% {
     opacity: 1;
@@ -668,53 +727,50 @@
 
 /* Without scripting, <Reveal> never fires: everything stays visible. */
 @media (scripting: none) {
-  .rb-reveal,
-  .rb-rise,
-  .rb-grow-x,
-  .rb-grow-y,
-  .rb-fade-late {
+  .arc-reveal,
+  .arc-rise,
+  .arc-grow-x,
+  .arc-grow-y,
+  .arc-light-up,
+  .arc-fade-late {
     opacity: 1;
     transform: none;
   }
-  .rb-draw {
-    stroke-dashoffset: 0;
-  }
-  .rb-highlight-sweep {
+  .arc-highlight-sweep {
     background-size: 100% 100%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rb-fade-up {
+  .arc-fade-up {
     animation: none !important;
   }
-  .rb-reveal,
-  .rb-rise,
-  .rb-grow-x,
-  .rb-grow-y,
-  .rb-fade-late {
+  .arc-reveal,
+  .arc-rise,
+  .arc-grow-x,
+  .arc-grow-y,
+  .arc-light-up,
+  .arc-fade-late {
     opacity: 1 !important;
     transform: none !important;
     transition: none !important;
   }
-  .rb-draw {
-    stroke-dashoffset: 0 !important;
-    transition: none !important;
-  }
-  .rb-highlight-sweep {
+  .arc-highlight-sweep {
     background-size: 100% 100% !important;
     transition: none !important;
   }
-  .rb-drift,
-  .rb-pulse-dot,
-  .rb-pulse-soft,
-  .rb-spin-slow,
-  .rb-radar-sweep,
-  .rb-rainbow-btn,
-  .rb-rainbow-btn::before {
+  .arc-drift,
+  .arc-pulse-dot,
+  .arc-pulse-soft,
+  .arc-spin-slow,
+  .arc-radar-sweep,
+  .arc-rainbow-btn,
+  .arc-rainbow-btn::before,
+  .arc-marquee,
+  .arc-marquee--reverse {
     animation: none !important;
   }
-  .rb-motion-dot {
+  .arc-motion-dot {
     display: none !important;
   }
 }
@@ -722,5 +778,38 @@
 @media print {
   body {
     background: #ffffff;
+  }
+}
+
+/* Dashboard tab switches: components/dashboard/nav-link.tsx wraps the route
+   change in document.startViewTransition. Left at browser defaults, the
+   whole page (including the sidebar, which never visually changes between
+   tabs) would crossfade as one group - name just the content region so only
+   it animates, and zero out the root group so unrelated chrome swaps
+   instantly instead of ghosting. */
+::view-transition-group(root) {
+  animation-duration: 0s;
+}
+::view-transition-old(dash-main) {
+  animation: 120ms ease-out both arc-view-out;
+}
+::view-transition-new(dash-main) {
+  animation: 180ms ease-in both arc-view-in;
+}
+@keyframes arc-view-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes arc-view-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

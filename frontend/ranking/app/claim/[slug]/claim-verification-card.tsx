@@ -77,7 +77,7 @@ export function ClaimVerificationCard({
 
   if (!started) {
     return (
-      <div className="rb-panel p-6">
+      <div className="arc-panel p-6">
         <p className="text-sm text-muted-foreground">
           You&apos;ll get a token to publish either as a DNS TXT record on{" "}
           <span className="font-mono">{domain}</span> or as a small file on the
@@ -97,7 +97,7 @@ export function ClaimVerificationCard({
 
   return (
     <div className="space-y-4">
-      <div className="rb-panel p-6">
+      <div className="arc-panel p-6">
         <p className="text-sm font-medium">Option A - DNS TXT record</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Add this TXT record to <span className="font-mono">{domain}</span> at
@@ -117,7 +117,7 @@ export function ClaimVerificationCard({
           </Button>
         </div>
       </div>
-      <div className="rb-panel p-6">
+      <div className="arc-panel p-6">
         <p className="text-sm font-medium">Option B - verification file</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Serve a plain-text file at{" "}

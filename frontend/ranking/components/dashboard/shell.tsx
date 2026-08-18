@@ -8,16 +8,26 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CreditCard,
+  Gauge,
   Globe,
   History,
   LayoutDashboard,
+  Link2,
   LogOut,
+  MapPin,
+  MessageSquare,
+  Radar,
   Settings,
   Shield,
+  TrendingUp,
+  Users,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { Logo } from "@/components/site/logo";
+import { Emblem, Logo, Wordmark } from "@/components/site/logo";
+import { NavLink } from "@/components/dashboard/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +41,12 @@ import { cn } from "@/lib/utils";
 type NavItem = {
   href: string;
   label: string;
-  icon?: LucideIcon;
+  // Required, not optional: the icon rail is the *only* navigation once the
+  // labeled column is collapsed, so an item without one doesn't just look
+  // bare there - it silently disappears from the app. Making this required
+  // means the compiler catches that the moment a new item is added, instead
+  // of a user discovering it's stranded behind the collapse toggle.
+  icon: LucideIcon;
   exact?: boolean;
 };
 
@@ -40,15 +55,20 @@ type NavGroup = { label: string | null; items: NavItem[] };
 export type ShellBrand = { id: string; name: string };
 
 /** The per-website analysis sections - the heart of the product's nav. */
-const BRAND_SECTIONS: Array<{ path: string; label: string; exact?: boolean }> = [
-  { path: "", label: "Summary", exact: true },
-  { path: "/competitors", label: "Competitors" },
-  { path: "/citations", label: "Sources" },
-  { path: "/markets", label: "Markets" },
-  { path: "/actions", label: "Website improvements" },
-  { path: "/prompts", label: "Audit details" },
-  { path: "/history", label: "History" },
-  { path: "/settings", label: "Monitoring" },
+const BRAND_SECTIONS: Array<{
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+}> = [
+  { path: "", label: "Summary", icon: Gauge, exact: true },
+  { path: "/competitors", label: "Competitors", icon: Users },
+  { path: "/citations", label: "Sources", icon: Link2 },
+  { path: "/markets", label: "Markets", icon: MapPin },
+  { path: "/actions", label: "Website improvements", icon: Wrench },
+  { path: "/prompts", label: "Audit details", icon: MessageSquare },
+  { path: "/history", label: "History", icon: TrendingUp },
+  { path: "/settings", label: "Monitoring", icon: Radar },
 ];
 
 function buildNav(
@@ -70,6 +90,7 @@ function buildNav(
       items: BRAND_SECTIONS.map((section) => ({
         href: `${routes.brand(activeBrand.id)}${section.path}`,
         label: section.label,
+        icon: section.icon,
         exact: section.exact,
       })),
     });
@@ -92,7 +113,7 @@ function buildNav(
   );
   if (isAdmin) {
     groups[groups.length - 1].items.push({
-      href: "/admin",
+      href: routes.admin,
       label: "Admin",
       icon: Shield,
     });
@@ -148,13 +169,13 @@ export function DashboardShell({
 
   const alertBadge =
     unreadAlerts > 0 ? (
-      <span className="ml-auto rounded-full bg-[color:var(--rb-accent)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+      <span className="ml-auto rounded-full bg-[color:var(--arc-accent)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
         {unreadAlerts > 9 ? "9+" : unreadAlerts}
       </span>
     ) : null;
 
   return (
-    <div className="rb-dash flex min-h-screen flex-col">
+    <div className="arc-dash flex min-h-screen flex-col">
       {/* ── Mobile top bar (below lg) ─────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background lg:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
@@ -178,13 +199,13 @@ export function DashboardShell({
             </form>
           </div>
         </div>
-        <nav className="rb-scrollbar-none flex gap-1 overflow-x-auto border-t border-border px-2">
+        <nav className="arc-scrollbar-none flex gap-1 overflow-x-auto border-t border-border px-2">
           {groups
             .flatMap((group) => group.items)
             .map((item) => {
               const active = isActive(pathname, item);
               return (
-                <Link
+                <NavLink
                   key={item.href}
                   href={item.href}
                   className={cn(
@@ -196,7 +217,7 @@ export function DashboardShell({
                 >
                   {item.label}
                   {item.href === routes.alerts ? alertBadge : null}
-                </Link>
+                </NavLink>
               );
             })}
         </nav>
@@ -207,46 +228,67 @@ export function DashboardShell({
         {/* Both columns pin to the viewport: navigation never scrolls away,
             and the account block sits at the bottom of the screen, not the
             bottom of the page. */}
-        <aside className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col items-center border-r border-border py-4 lg:flex">
+        <aside className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col items-center border-r border-border lg:flex">
+          {/* Fixed to the same h-14 as the labeled column's header row, so
+              every row below starts from the same y-offset in both columns. */}
           <Link
             href={routes.dashboard}
-            title="RankedByAI"
-            className="flex size-9 items-center justify-center rounded-lg bg-foreground text-sm font-bold text-background"
+            title={APP_NAME}
+            className="flex h-14 w-full shrink-0 items-center justify-center"
           >
-            R
+            <Emblem className="size-7" />
+            <span className="sr-only">{APP_NAME}</span>
           </Link>
-          <div className="mt-6 flex flex-col items-center gap-1.5">
-            {groups
-              .flatMap((group) => group.items)
-              .filter(
-                (item): item is NavItem & { icon: LucideIcon } =>
-                  Boolean(item.icon),
-              )
-              .map((item) => {
-                const active = isActive(pathname, item);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    title={item.label}
-                    className={cn(
-                      "relative flex size-9 items-center justify-center rounded-lg transition-colors",
-                      active
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    )}
+          {/* Every item in every group renders here - this rail is the only
+              navigation once the labeled column is collapsed, so it has to
+              carry full parity with it, not just the top-level shortcuts.
+              Scrolls independently when the list outgrows the viewport,
+              same as the labeled column does. Row height (size-9), row gap
+              (gap-1) and group gap (gap-4) all match the labeled column's
+              link/space-y-1/space-y-4 exactly, and the h-6 divider spacer
+              matches its h-6 group label, so every icon lines up with its
+              text row instead of drifting group by group. */}
+          <div className="arc-scrollbar-none flex w-full flex-1 flex-col items-center gap-4 overflow-y-auto px-1 pb-4">
+            {groups.map((group, index) => (
+              <div
+                key={group.label ?? index}
+                className="flex w-full flex-col items-center gap-1"
+              >
+                {index > 0 ? (
+                  <div
+                    aria-hidden
+                    className="flex h-6 w-full shrink-0 items-center justify-center"
                   >
-                    <Icon className="size-[17px]" />
-                    {item.href === routes.alerts && unreadAlerts > 0 ? (
-                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[color:var(--rb-accent)]" />
-                    ) : null}
-                    <span className="sr-only">{item.label}</span>
-                  </Link>
-                );
-              })}
+                    <div className="h-px w-6 bg-border" />
+                  </div>
+                ) : null}
+                {group.items.map((item) => {
+                  const active = isActive(pathname, item);
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.href}
+                      href={item.href}
+                      title={item.label}
+                      className={cn(
+                        "relative flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        active
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="size-[15px]" />
+                      {item.href === routes.alerts && unreadAlerts > 0 ? (
+                        <span className="absolute top-1 right-1 size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
+                      ) : null}
+                      <span className="sr-only">{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-          <div className="mt-auto flex flex-col items-center gap-1.5">
+          <div className="mt-auto flex flex-col items-center gap-1.5 pb-4">
             <span
               title={email}
               className="flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold uppercase"
@@ -268,92 +310,122 @@ export function DashboardShell({
         </aside>
 
         {/* ── Nav column ─────────────────────────────────────────────── */}
+        {/* Width and border-color both transition (never toggled with a
+            hard class swap), and overflow-hidden stays on permanently so
+            the fixed-width content below gets clipped smoothly as the
+            column shrinks instead of reflowing/wrapping mid-animation. */}
         <aside
           className={cn(
-            "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border lg:flex",
-            collapsed ? "w-0 overflow-hidden border-r-0" : "w-60",
+            "sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r transition-[width,border-color] duration-300 ease-in-out lg:flex",
+            collapsed ? "w-0 border-transparent" : "w-60 border-border",
           )}
         >
-          <div className="flex h-14 shrink-0 items-center justify-between px-5">
-            <span className="text-[15px] font-semibold tracking-tight">
-              RankedByAI
-            </span>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              title="Collapse navigation"
-              className="flex size-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ChevronsLeft className="size-3.5" />
-            </button>
-          </div>
-          {/* Long section lists scroll inside the column; the account block
-              below stays pinned to the bottom of the viewport. */}
-          <nav className="rb-scrollbar-none flex-1 space-y-4 overflow-y-auto px-3 pb-4">
-            {groups.map((group, index) => (
-              <div key={group.label ?? index}>
-                {group.label ? (
-                  <p className="truncate px-2.5 pb-1.5 font-mono text-[11px] tracking-[0.12em] text-muted-foreground/70 lowercase">
-                    {group.label}
-                  </p>
-                ) : null}
-                <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const active = isActive(pathname, item);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] transition-colors",
-                          active
-                            ? "border border-border bg-muted/60 font-medium text-foreground"
-                            : "border border-transparent text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {item.label}
-                        {item.href === routes.alerts ? alertBadge : null}
-                      </Link>
-                    );
-                  })}
+          {/* Locked to the expanded width so text never squeezes into a
+              vertical sliver while the column above it is animating - it
+              just fades out a little faster than the column collapses. */}
+          <div
+            className={cn(
+              "flex h-full w-60 shrink-0 flex-col transition-opacity duration-150 ease-in-out",
+              collapsed ? "pointer-events-none opacity-0" : "opacity-100",
+            )}
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between px-5">
+              <Wordmark className="h-4 w-auto text-foreground" />
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title="Collapse navigation"
+                tabIndex={collapsed ? -1 : 0}
+                className="flex size-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ChevronsLeft className="size-3.5" />
+              </button>
+            </div>
+            {/* Long section lists scroll inside the column; the account block
+                below stays pinned to the bottom of the viewport. Row height
+                (h-9), row gap (space-y-1), group gap (space-y-4) and the h-6
+                label row all match the icon rail's own row/gap/divider sizing,
+                so every link lines up with its icon next door. */}
+            <nav className="arc-scrollbar-none flex-1 space-y-4 overflow-y-auto px-3 pb-4">
+              {groups.map((group, index) => (
+                <div key={group.label ?? index} className="flex flex-col gap-1">
+                  {group.label ? (
+                    <p className="flex h-6 items-center truncate px-2.5 font-mono text-[11px] tracking-[0.12em] text-muted-foreground/70 lowercase">
+                      {group.label}
+                    </p>
+                  ) : null}
+                  <div className="space-y-1">
+                    {group.items.map((item) => {
+                      const active = isActive(pathname, item);
+                      return (
+                        <NavLink
+                          key={item.href}
+                          href={item.href}
+                          tabIndex={collapsed ? -1 : 0}
+                          className={cn(
+                            "flex h-9 items-center gap-2 rounded-lg px-2.5 text-[13.5px] transition-colors",
+                            active
+                              ? "border border-border bg-muted/60 font-medium text-foreground"
+                              : "border border-transparent text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {item.label}
+                          {item.href === routes.alerts ? alertBadge : null}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
                 </div>
+              ))}
+            </nav>
+            <div className="border-t border-border px-5 py-3">
+              <p className="truncate text-xs text-muted-foreground" title={email}>
+                {email}
+              </p>
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {planName}
+                </span>
+                {!paid ? (
+                  <Link
+                    href={routes.billing()}
+                    tabIndex={collapsed ? -1 : 0}
+                    className="text-[12px] font-medium text-[color:var(--arc-accent)] hover:underline"
+                  >
+                    Upgrade
+                  </Link>
+                ) : null}
               </div>
-            ))}
-          </nav>
-          <div className="border-t border-border px-5 py-3">
-            <p className="truncate text-xs text-muted-foreground" title={email}>
-              {email}
-            </p>
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {planName}
-              </span>
-              {!paid ? (
-                <Link
-                  href={routes.billing()}
-                  className="text-[12px] font-medium text-[color:var(--rb-accent)] hover:underline"
-                >
-                  Upgrade
-                </Link>
-              ) : null}
             </div>
           </div>
         </aside>
 
-        {/* Expand handle when the nav column is collapsed. */}
-        {collapsed ? (
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            title="Expand navigation"
-            className="sticky top-0 hidden h-14 items-start self-start border-border px-2 pt-4 text-muted-foreground transition-colors hover:text-foreground lg:flex"
-          >
-            <ChevronsRight className="size-3.5" />
-          </button>
-        ) : null}
+        {/* Expand handle, always mounted so it can fade in as soon as the
+            column starts collapsing rather than popping in once width
+            animation finishes - inert (no hit target, no tab stop) while
+            the column is expanded instead of unmounted. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title="Expand navigation"
+          aria-hidden={!collapsed}
+          tabIndex={collapsed ? 0 : -1}
+          className={cn(
+            "sticky top-0 hidden h-14 items-start self-start border-border px-2 pt-4 text-muted-foreground transition-[opacity,color] duration-200 ease-in-out hover:text-foreground lg:flex",
+            collapsed
+              ? "pointer-events-auto opacity-100 delay-150"
+              : "pointer-events-none w-0 px-0 opacity-0",
+          )}
+        >
+          <ChevronsRight className="size-3.5" />
+        </button>
 
         {/* ── Content ────────────────────────────────────────────────── */}
-        <main className="min-w-0 flex-1">
+        {/* Named so the View Transition (triggered by NavLink) only
+            cross-fades this region - without a name here the browser's
+            default transition captures the whole viewport, sidebar
+            included, which flashes chrome that never actually changed. */}
+        <main className="min-w-0 flex-1 [view-transition-name:dash-main]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
             {children}
           </div>

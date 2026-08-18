@@ -1,5 +1,12 @@
 import { ImageResponse } from "next/og";
 import { getBrandBySlug, getLatestScanForBrand } from "@/lib/db/repository";
+import {
+  EMBLEM_SEA,
+  EMBLEM_SUN,
+  EMBLEM_VIEW_BOX,
+  SEA,
+  SUN,
+} from "@/lib/brand";
 import { APP_NAME } from "@/lib/constants";
 import { roundForDisplay } from "@/lib/scores/format";
 
@@ -53,22 +60,10 @@ export default async function OgImage({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                background: "#fafafa",
-                color: "#0a0a0a",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 26,
-                fontWeight: 700,
-              }}
-            >
-              R
-            </div>
+            <svg width={44} height={44} viewBox={EMBLEM_VIEW_BOX}>
+              <path fill={SUN} d={EMBLEM_SUN} />
+              <path fill={SEA} d={EMBLEM_SEA} />
+            </svg>
             <div style={{ fontSize: 34, fontWeight: 600 }}>{APP_NAME}</div>
           </div>
           <div style={{ fontSize: 24, color: "#737373" }}>{date}</div>

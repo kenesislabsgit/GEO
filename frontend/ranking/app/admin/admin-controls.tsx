@@ -53,14 +53,14 @@ export function AdminControls() {
 
   if (!loaded) {
     return (
-      <div className="rb-panel mt-10 flex items-center gap-2 p-5 text-sm text-muted-foreground">
+      <div className="arc-panel mt-10 flex items-center gap-2 p-5 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Loading controls…
       </div>
     );
   }
 
   return (
-    <div className="rb-panel mt-10 space-y-5 p-6">
+    <div className="arc-panel mt-10 space-y-5 p-6">
       <h2 className="font-semibold tracking-tight">Operational controls</h2>
 
       <div className="flex items-center justify-between gap-4">

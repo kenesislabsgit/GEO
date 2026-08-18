@@ -31,7 +31,7 @@ export default async function BillingPage({
   return (
     <div className="space-y-8">
       {params.status === "cancelled" ? (
-        <div className="rounded-lg border border-border bg-[color:var(--rb-mist)] px-4 py-3 text-sm">
+        <div className="rounded-lg border border-border bg-[color:var(--arc-mist)] px-4 py-3 text-sm">
           <p className="font-medium">Checkout was cancelled</p>
           <p className="mt-0.5 text-muted-foreground">
             No subscription was activated and nothing was charged. Pick a plan
@@ -49,7 +49,7 @@ export default async function BillingPage({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rb-panel p-5">
+        <div className="arc-panel p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Current plan
           </p>
@@ -72,7 +72,7 @@ export default async function BillingPage({
             </p>
           )}
         </div>
-        <div className="rb-panel p-5">
+        <div className="arc-panel p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Provider checks this month
           </p>

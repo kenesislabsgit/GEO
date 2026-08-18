@@ -55,7 +55,7 @@ export default async function HistoryPage({
           brandId={brand.id}
         />
       ) : scores.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No scored scans yet. Run a scan to start your history.
           </p>
@@ -64,16 +64,16 @@ export default async function HistoryPage({
         <>
           <BrandExportLinks brandId={brand.id} />
           {mixedVersions ? (
-            <div className="rounded-lg border border-[color:var(--rb-amber)]/40 bg-[color:var(--rb-amber)]/10 px-4 py-3 text-sm">
+            <div className="rounded-lg border border-[color:var(--arc-amber)]/40 bg-[color:var(--arc-amber)]/10 px-4 py-3 text-sm">
               This history spans methodology versions ({versions.join(", ")}).
               Scores are comparable within a version; treat changes across the
               boundary as a new baseline, not a movement.
             </div>
           ) : null}
-          <div className="rb-panel p-5">
+          <div className="arc-panel p-5">
             <ScoreHistoryChart data={chartData} />
           </div>
-          <div className="rb-list">
+          <div className="arc-list">
             <div className="divide-y divide-border">
               {scores.map((s) => (
                 <div

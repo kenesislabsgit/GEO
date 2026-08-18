@@ -1,6 +1,12 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Privacy" };
+export const metadata = {
+  title: "Privacy",
+  description:
+    "What Arcanoris stores, how it's protected, how long it's kept, and the export and deletion controls available from Settings.",
+  alternates: { canonical: routes.privacy },
+};
 
 const sections = [
   {

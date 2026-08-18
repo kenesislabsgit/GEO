@@ -31,7 +31,7 @@ class BlockedUrlError(ValueError):
 
 MAX_REDIRECTS = 5
 DEFAULT_MAX_BYTES = 3 * 1024 * 1024
-USER_AGENT = "RankedByAI-Audit/1.0"
+USER_AGENT = "Arcanoris-Audit/1.0"
 
 
 def _is_public_address(value: str) -> bool:

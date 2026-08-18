@@ -100,7 +100,7 @@ export function ReasoningTimeline({
                 )}
               >
                 {active ? (
-                  <span className="rb-shimmer">{stageLabel(stage, providers)}</span>
+                  <span className="arc-shimmer">{stageLabel(stage, providers)}</span>
                 ) : (
                   stageLabel(stage, providers)
                 )}
@@ -144,7 +144,7 @@ function ReasoningFeed({ events }: { events: AuditFeedEvent[] }) {
           className={cn(
             "flex items-start gap-1.5 text-xs leading-relaxed",
             index === recent.length - 1
-              ? "rb-fade-up text-foreground"
+              ? "arc-fade-up text-foreground"
               : "text-muted-foreground",
           )}
         >
@@ -154,7 +154,7 @@ function ReasoningFeed({ events }: { events: AuditFeedEvent[] }) {
           <span className="min-w-0 break-words">{line.text}</span>
         </p>
       ))}
-      <p className="rb-shimmer w-fit text-xs font-medium">Thinking…</p>
+      <p className="arc-shimmer w-fit text-xs font-medium">Thinking…</p>
     </div>
   );
 }

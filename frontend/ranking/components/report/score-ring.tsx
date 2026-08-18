@@ -20,7 +20,7 @@ export function ScoreRing({ score }: { score: number }) {
           cy="100"
           r={radius}
           fill="none"
-          stroke="var(--rb-accent)"
+          stroke="var(--arc-accent)"
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={`${filled} ${circumference - filled}`}

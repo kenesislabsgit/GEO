@@ -82,7 +82,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
         isPaid={isPaid}
       />
       {masterPrompt ? (
-        <section className="rb-panel flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+        <section className="arc-panel flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <p className="text-sm font-medium">
               Hand this plan to your AI coding tool
@@ -97,7 +97,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
         </section>
       ) : null}
       {topCompetitor?.name ? (
-        <section className="rb-panel px-5 py-5 sm:px-6">
+        <section className="arc-panel px-5 py-5 sm:px-6">
           <p className="text-[11px] font-semibold uppercase text-muted-foreground">
             Top competitor signal
           </p>
@@ -121,11 +121,11 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
         </section>
       ) : null}
       {visibleActions.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">No improvements yet. Run an audit to generate an action plan.</p>
         </div>
       ) : (
-        <div className="rb-list">
+        <div className="arc-list">
           <div className="divide-y divide-border">
             {visibleActions.map((action, index) => {
               const evidence = parseEvidence(action.evidence);
@@ -134,7 +134,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
               return (
                 <div key={action.id} className="bg-card px-5 py-6 sm:px-6">
                   <div className="flex flex-wrap items-start gap-4">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--rb-accent-soft)] text-sm font-semibold text-[color:var(--rb-accent)]">{index + 1}</span>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--arc-accent-soft)] text-sm font-semibold text-[color:var(--arc-accent)]">{index + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {/* action_type is "content" on every row the audit
@@ -171,7 +171,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                             {evidence.affectedPrompts.slice(0, 3).map((item, itemIndex) => (
                               <li
                                 key={`${item.loss_id ?? item.prompt}-${itemIndex}`}
-                                className="border-l-2 border-[color:var(--rb-amber)]/40 pl-3"
+                                className="border-l-2 border-[color:var(--arc-amber)]/40 pl-3"
                               >
                                 <p className="text-xs font-medium leading-relaxed">
                                   {item.prompt}
@@ -203,8 +203,8 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </div>
                       ) : null}
 
-                      <div className="mt-4 bg-[color:var(--rb-accent-soft)]/45 px-4 py-3">
-                        <p className="text-[11px] font-semibold uppercase text-[color:var(--rb-accent)]">
+                      <div className="mt-4 bg-[color:var(--arc-accent-soft)]/45 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase text-[color:var(--arc-accent)]">
                           Action needed
                         </p>
                         <p className="mt-1.5 text-sm font-medium leading-relaxed">{action.explanation}</p>
@@ -227,7 +227,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                           {meaningfulGaps(evidence.competitorGaps).map((gap, gapIndex) => (
                             <span
                               key={`${gap.pattern}-${gapIndex}`}
-                              className="rb-panel-soft px-3 py-1.5 text-[11px] leading-relaxed"
+                              className="arc-panel-soft px-3 py-1.5 text-[11px] leading-relaxed"
                             >
                               <span className="font-semibold">
                                 {gap.competitors_with_pattern} of {gap.competitors_checked}
@@ -242,7 +242,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                         </div>
                       ) : null}
                       {evidence.summary ? (
-                        <div className="mt-3 border-l-2 border-[color:var(--rb-accent)]/30 pl-3">
+                        <div className="mt-3 border-l-2 border-[color:var(--arc-accent)]/30 pl-3">
                           <p className="text-[11px] font-medium uppercase text-muted-foreground">Observed evidence</p>
                           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{evidence.summary}</p>
                         </div>
@@ -267,7 +267,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                                     href={source.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--rb-accent)] hover:underline"
+                                    className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--arc-accent)] hover:underline"
                                   >
                                     Open supporting page <ExternalLink className="size-3" />
                                   </a>
@@ -290,7 +290,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
                                 <span
                                   className={
                                     delta >= 0
-                                      ? "text-[color:var(--rb-green)]"
+                                      ? "text-[color:var(--arc-green)]"
                                       : "text-destructive"
                                   }
                                 >
@@ -311,7 +311,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
         </div>
       )}
       {!isPaid && sorted.length > visibleActions.length ? (
-        <div className="rb-panel-soft flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div className="arc-panel-soft flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div className="flex items-start gap-3">
             <Lock className="mt-0.5 size-4 text-muted-foreground" />
             <div>

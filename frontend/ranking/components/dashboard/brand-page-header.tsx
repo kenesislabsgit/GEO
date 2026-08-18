@@ -16,7 +16,7 @@ export function BrandPageHeader({
 }) {
   return (
     <div>
-      <p className="rb-eyebrow">{brandName}</p>
+      <p className="arc-eyebrow">{brandName}</p>
       <h1 className="font-heading mt-1 text-2xl font-semibold tracking-tight">
         {title}
       </h1>

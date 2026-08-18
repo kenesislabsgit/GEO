@@ -3,15 +3,21 @@ import Link from "next/link";
 import { Check, Minus } from "lucide-react";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProviderStack } from "@/components/providers/provider-logo";
+import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import { getSessionUser } from "@/lib/auth/session";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+// "growth" (the old Pro+ tier) is grandfathered in PLAN_CONFIG for its one
+// existing subscriber but deliberately excluded here - it's no longer sold.
+const PLAN_IDS: PlanId[] = ["free", "founder", "agency"];
 
 export const metadata = {
   title: "Pricing",
-  description:
-    "Free, Pro, Pro+ and Agency plans for AI visibility monitoring.",
+  description: "Free, Plus and Pro plans for AI visibility monitoring.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -21,8 +27,7 @@ function formatChecks(count: number): string {
     : String(count);
 }
 
-const CONTACT_HREF =
-  "mailto:kenesislabs@gmail.com?subject=RankedByAI%20Agency%20plan";
+const CONTACT_HREF = `mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`;
 
 /**
  * The short sell per card. Every line here corresponds to something the app
@@ -31,7 +36,10 @@ const CONTACT_HREF =
  */
 type CardFeature = { text: string; providers?: readonly string[] };
 
-const CARD_FEATURES: Record<PlanId, CardFeature[]> = {
+// Keyed by PlanId (not just the 3 sold plans) so PLAN_CONFIG.growth stays
+// type-checkable if it's ever read here - PLAN_IDS is what actually decides
+// what renders, and it skips growth entirely.
+const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
   free: [
     { text: "1 website, 1 free audit every 30 days" },
     { text: "5 real buyer questions" },
@@ -55,24 +63,16 @@ const CARD_FEATURES: Record<PlanId, CardFeature[]> = {
     { text: "Weekly monitoring, score alerts, history" },
     { text: "Private or public report link" },
   ],
-  growth: [
-    { text: "Everything in Pro" },
+  agency: [
+    { text: "Everything in Plus" },
     {
-      text: `${PLAN_CONFIG.growth.features.providers.length} AI providers - run any ${PLAN_CONFIG.growth.features.providersPerScan} per audit`,
-      providers: PLAN_CONFIG.growth.features.providers,
+      text: `${PLAN_CONFIG.agency.features.providers.length} AI providers - run any ${PLAN_CONFIG.agency.features.providersPerScan} per audit`,
+      providers: PLAN_CONFIG.agency.features.providers,
     },
-    { text: "5 websites, 100 tracked questions each" },
+    { text: "20 websites, 500 tracked questions" },
     { text: "Daily monitoring that rotates through your questions" },
     { text: "CSV exports + PDF reports" },
     { text: "Impact tracking on completed fixes" },
-  ],
-  agency: [
-    { text: "Everything in Pro+, at agency scale" },
-    { text: "20 websites, 500 tracked questions" },
-    {
-      text: `10k provider checks a month`,
-      providers: PLAN_CONFIG.agency.features.providers,
-    },
     { text: "Priority support - talk to us before you buy" },
   ],
 };
@@ -82,22 +82,23 @@ type Cell =
   | boolean
   | { label: string; providers: readonly string[] };
 
-/** The exhaustive comparison. One row per real capability. */
+/** The exhaustive comparison. One row per real capability, one column per
+ * PLAN_IDS entry (free, founder/Plus, agency/Pro - in that order). */
 const COMPARISON: Array<{
   section: string;
-  rows: Array<{ label: string; cells: [Cell, Cell, Cell, Cell] }>;
+  rows: Array<{ label: string; cells: [Cell, Cell, Cell] }>;
 }> = [
   {
     section: "Audit",
     rows: [
-      { label: "Websites", cells: ["1", "1", "5", "20"] },
+      { label: "Websites", cells: ["1", "1", "20"] },
       {
         label: "Tracked buyer questions per website",
-        cells: ["5", "20", "100", "500"],
+        cells: ["5", "20", "500"],
       },
       {
         label: "Questions asked per audit run",
-        cells: ["5", "20", "20", "20"],
+        cells: ["5", "20", "20"],
       },
       {
         label: "AI providers compared",
@@ -111,10 +112,6 @@ const COMPARISON: Array<{
             providers: PLAN_CONFIG.founder.features.providers,
           },
           {
-            label: `any ${PLAN_CONFIG.growth.features.providersPerScan} of ${PLAN_CONFIG.growth.features.providers.length}`,
-            providers: PLAN_CONFIG.growth.features.providers,
-          },
-          {
             label: `any ${PLAN_CONFIG.agency.features.providersPerScan} of ${PLAN_CONFIG.agency.features.providers.length}`,
             providers: PLAN_CONFIG.agency.features.providers,
           },
@@ -125,27 +122,26 @@ const COMPARISON: Array<{
         cells: [
           formatChecks(PLAN_CONFIG.free.features.providerChecksPerMonth),
           formatChecks(PLAN_CONFIG.founder.features.providerChecksPerMonth),
-          formatChecks(PLAN_CONFIG.growth.features.providerChecksPerMonth),
           formatChecks(PLAN_CONFIG.agency.features.providerChecksPerMonth),
         ],
       },
       {
         label: "Competitors tracked per website",
-        cells: ["1", "5", "10", "20"],
+        cells: ["1", "5", "20"],
       },
     ],
   },
   {
     section: "Evidence",
     rows: [
-      { label: "Visibility score & breakdown", cells: [true, true, true, true] },
-      { label: "Full AI answers", cells: [false, true, true, true] },
+      { label: "Visibility score & breakdown", cells: [true, true, true] },
+      { label: "Full AI answers", cells: [false, true, true] },
       {
         label: "Sources & verified web mentions",
-        cells: [false, true, true, true],
+        cells: [false, true, true],
       },
-      { label: "Citation gaps", cells: [false, true, true, true] },
-      { label: "Score history", cells: [false, true, true, true] },
+      { label: "Citation gaps", cells: [false, true, true] },
+      { label: "Score history", cells: [false, true, true] },
     ],
   },
   {
@@ -153,15 +149,15 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Website improvement plan",
-        cells: ["First fix only", "Full plan", "Full plan", "Full plan"],
+        cells: ["First fix only", "Full plan", "Full plan"],
       },
       {
         label: "Copy-paste prompt for your AI coding tool",
-        cells: [true, true, true, true],
+        cells: [true, true, true],
       },
       {
         label: "Impact tracking on completed fixes",
-        cells: [false, false, true, true],
+        cells: [false, false, true],
       },
     ],
   },
@@ -170,18 +166,18 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Scheduled re-scans",
-        cells: [false, "Weekly", "Daily", "Daily"],
+        cells: [false, "Weekly", "Daily"],
       },
-      { label: "Score alerts by email", cells: [false, true, true, true] },
+      { label: "Score alerts by email", cells: [false, true, true] },
     ],
   },
   {
     section: "Sharing",
     rows: [
-      { label: "Shareable report link", cells: [true, true, true, true] },
-      { label: "Private reports", cells: [false, true, true, true] },
-      { label: "CSV export", cells: [false, false, true, true] },
-      { label: "PDF report", cells: [false, false, true, true] },
+      { label: "Shareable report link", cells: [true, true, true] },
+      { label: "Private reports", cells: [false, true, true] },
+      { label: "CSV export", cells: [false, false, true] },
+      { label: "PDF report", cells: [false, false, true] },
     ],
   },
 ];
@@ -189,15 +185,15 @@ const COMPARISON: Array<{
 const FAQS = [
   {
     q: "What counts as a provider check?",
-    a: "One question asked to one AI provider. A 20-question Pro audit across 4 providers uses 80 checks. Monthly limits reset on the 1st.",
+    a: "One question asked to one AI provider. A 20-question Plus audit across 4 providers uses 80 checks. Monthly limits reset on the 1st.",
   },
   {
-    q: "How do 100 tracked questions fit into audits of 20?",
-    a: "You curate up to 100 (Pro+) or 500 (Agency) tracked questions per website. Each audit run asks up to 20 of them; scheduled monitoring rotates deterministically through the rest, sized so a month of runs fits inside your provider-check allowance. Your dashboard shows which questions the latest run checked.",
+    q: "How do 500 tracked questions fit into audits of 20?",
+    a: "On Pro, you curate up to 500 tracked questions per website. Each audit run asks 20 of them; scheduled monitoring rotates deterministically through the rest, sized so a month of runs fits inside your provider-check allowance. Your dashboard shows which questions the latest run checked.",
   },
   {
-    q: "How do the Pro+ providers work?",
-    a: "Pro+ and Agency offer 14 AI providers - ChatGPT (with live web search), Claude, Gemini, Perplexity, Grok, DeepSeek, Llama, Mistral, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen. Each audit runs up to 10 at a time; a default ten is pre-selected and you can swap any of them in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
+    q: "How do the AI providers work on each plan?",
+    a: "Plus checks ChatGPT (with live web search), Claude, Gemini, and Mistral on every audit. Pro unlocks all 14 AI providers - also Perplexity, Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
   },
   {
     q: "What does the free audit include?",
@@ -208,8 +204,8 @@ const FAQS = [
     a: "Yes. Manage or cancel from the billing portal in one click. Your data stays exportable while your account exists.",
   },
   {
-    q: "How does the 7-day Pro trial work?",
-    a: "Full Pro features with the same usage limits as the paid plan. No charge until the trial ends; cancel before then and you pay nothing.",
+    q: "How does the 7-day Plus trial work?",
+    a: "Full Plus features with the same usage limits as the paid plan. No charge until the trial ends; cancel before then and you pay nothing.",
   },
   {
     q: "Do you guarantee better AI rankings?",
@@ -219,7 +215,7 @@ const FAQS = [
 
 function CellValue({ value }: { value: Cell }) {
   if (value === true) {
-    return <Check className="mx-auto size-4 text-[color:var(--rb-green)]" aria-label="Included" />;
+    return <Check className="mx-auto size-4 text-[color:var(--arc-green)]" aria-label="Included" />;
   }
   if (value === false) {
     return <Minus className="mx-auto size-4 text-border" aria-label="Not included" />;
@@ -237,7 +233,7 @@ function CellValue({ value }: { value: Cell }) {
 
 export default async function PricingPage() {
   const user = await getSessionUser();
-  const planIds: PlanId[] = ["free", "founder", "growth", "agency"];
+  const planIds = PLAN_IDS;
 
   const ctaFor = (planId: PlanId) => {
     if (planId === "free") {
@@ -250,8 +246,46 @@ export default async function PricingPage() {
 
   return (
     <MarketingShell className="py-10 md:py-16">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: `${APP_NAME} AI visibility monitoring`,
+          description:
+            "AI visibility monitoring: measures whether AI answer engines like ChatGPT, Claude, and Gemini mention and recommend your brand.",
+          brand: { "@type": "Organization", name: APP_NAME, url: appUrl },
+          offers: {
+            "@type": "AggregateOffer",
+            priceCurrency: "USD",
+            lowPrice: "0",
+            highPrice: String(PLAN_CONFIG.agency.monthlyPriceUsd),
+            offerCount: PLAN_IDS.length,
+            offers: PLAN_IDS.map((planId) => {
+              const plan = PLAN_CONFIG[planId];
+              return {
+                "@type": "Offer",
+                name: `${plan.name} plan`,
+                description: plan.description,
+                price: String(plan.monthlyPriceUsd),
+                priceCurrency: "USD",
+                url: `${appUrl}${routes.pricing}`,
+                ...(plan.monthlyPriceUsd > 0
+                  ? {
+                      priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: String(plan.monthlyPriceUsd),
+                        priceCurrency: "USD",
+                        billingDuration: "P1M",
+                      },
+                    }
+                  : {}),
+              };
+            }),
+          },
+        }}
+      />
       <div className="mx-auto max-w-2xl text-center">
-        <p className="rb-eyebrow">Pricing</p>
+        <p className="arc-eyebrow">Pricing</p>
         <h1 className="font-heading mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
           Start free. Scale when it matters.
         </h1>
@@ -261,7 +295,7 @@ export default async function PricingPage() {
         </p>
       </div>
 
-      <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-14 grid gap-4 md:grid-cols-3">
         {planIds.map((planId) => {
           const plan = PLAN_CONFIG[planId];
           const popular = planId === "founder";
@@ -293,12 +327,12 @@ export default async function PricingPage() {
                 {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
               </p>
               <ul className="mt-5 flex-1 space-y-2.5">
-                {CARD_FEATURES[planId].map((feature) => (
+                {(CARD_FEATURES[planId] ?? []).map((feature) => (
                   <li
                     key={feature.text}
                     className="flex items-start gap-2 text-sm"
                   >
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-[color:var(--rb-green)]" />
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-[color:var(--arc-green)]" />
                     <span className="text-foreground/80">
                       {feature.text}
                       {feature.providers ? (
@@ -361,8 +395,8 @@ export default async function PricingPage() {
                 <Fragment key={group.section}>
                   <tr className="border-b border-border bg-muted/40">
                     <td
-                      colSpan={5}
-                      className="rb-eyebrow py-2.5 pr-4 pl-1"
+                      colSpan={4}
+                      className="arc-eyebrow py-2.5 pr-4 pl-1"
                     >
                       {group.section}
                     </td>

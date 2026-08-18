@@ -125,7 +125,7 @@ export async function GET() {
   );
 
   const payload = {
-    schema: "rankedbyai.account_export.v2",
+    schema: "arcanoris.account_export.v2",
     exportedAt: new Date().toISOString(),
     rowCapPerSection: ROW_CAP,
     user: profile,
@@ -148,7 +148,7 @@ export async function GET() {
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="rankedbyai-export-${new Date().toISOString().slice(0, 10)}.json"`,
+      "Content-Disposition": `attachment; filename="arcanoris-export-${new Date().toISOString().slice(0, 10)}.json"`,
     },
   });
 }

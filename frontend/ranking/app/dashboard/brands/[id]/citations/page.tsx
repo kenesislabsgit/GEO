@@ -218,7 +218,7 @@ export default async function SourcesPage({
           brandId={brand.id}
         />
       ) : citations.length === 0 && verifiedMentions.length === 0 ? (
-        <div className="rb-empty p-8 text-center">
+        <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
             No grounded citations or verified web mentions are available for this
             audit.
@@ -227,7 +227,7 @@ export default async function SourcesPage({
       ) : (
         <div className="space-y-8">
           {/* The whole page in four numbers - the lists below are receipts. */}
-          <section className="rb-panel grid grid-cols-2 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+          <section className="arc-panel grid grid-cols-2 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
             {(
               [
                 [citations.length, "Pages AI read"],
@@ -237,7 +237,7 @@ export default async function SourcesPage({
               ] as const
             ).map(([value, label]) => (
               <div key={label} className="px-5 py-4">
-                <p className="rb-tabular font-heading text-2xl font-semibold tracking-tight">
+                <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight">
                   {value}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
@@ -255,11 +255,11 @@ export default async function SourcesPage({
               </p>
             </div>
             {citationGroups.length === 0 ? (
-              <div className="rb-empty p-5 text-sm text-muted-foreground">
+              <div className="arc-empty p-5 text-sm text-muted-foreground">
                 The selected models returned no native citations.
               </div>
             ) : (
-              <div className="rb-list divide-y divide-border">
+              <div className="arc-list divide-y divide-border">
                 {citationGroups.map((group) => (
                   <details key={group.domain} className="group bg-card">
                     <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3.5 select-none hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
@@ -349,11 +349,11 @@ export default async function SourcesPage({
               </p>
             </div>
             {verifiedMentions.length === 0 ? (
-              <div className="rb-empty p-5 text-sm text-muted-foreground">
+              <div className="arc-empty p-5 text-sm text-muted-foreground">
                 No independently verified mentions were collected.
               </div>
             ) : (
-              <div className="rb-list divide-y divide-border">
+              <div className="arc-list divide-y divide-border">
                 {mentionGroups.map((group) => (
                   <details
                     key={group.company}
@@ -450,7 +450,7 @@ function SourceLink({ url, label }: { url: string; label: string }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-[color:var(--rb-accent)] hover:underline"
+      className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-[color:var(--arc-accent)] hover:underline"
     >
       <ExternalLink className="size-3.5 shrink-0" />
       <span className="truncate">{label}</span>

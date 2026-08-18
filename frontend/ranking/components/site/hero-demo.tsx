@@ -60,25 +60,25 @@ const STATS = [
 function ResultChip({ result }: { result: Result }) {
   if (result.kind === "miss") {
     return (
-      <span className="rounded-full bg-[#ff6166]/15 px-2.5 py-0.5 text-[11px] font-medium text-[#ff8a8d]">
+      <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-[11px] font-medium text-destructive">
         Not mentioned
       </span>
     );
   }
   if (result.kind === "more") {
-    return <span className="text-xs text-white/45">{result.text}</span>;
+    return <span className="text-xs text-muted-foreground">{result.text}</span>;
   }
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="rounded-full bg-[#3ecf7a]/15 px-2.5 py-0.5 text-[11px] font-medium text-[#7fe3a8]">
+      <span className="rounded-full bg-[color:var(--arc-green)]/10 px-2.5 py-0.5 text-[11px] font-medium text-[color:var(--arc-green)]">
         Mentioned
       </span>
       {result.kind === "pos" ? (
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
           {result.pos}
         </span>
       ) : (
-        <span className="rounded-full bg-[#52a8ff]/15 px-2 py-0.5 text-[11px] font-medium text-[#8cc5ff]">
+        <span className="rounded-full bg-[color:var(--arc-accent)]/10 px-2 py-0.5 text-[11px] font-medium text-[color:var(--arc-accent)]">
           cited
         </span>
       )}
@@ -92,7 +92,7 @@ function QueryingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="size-1 animate-pulse rounded-full bg-white/45"
+          className="size-1 animate-pulse rounded-full bg-muted-foreground/60"
           style={{ animationDelay: `${i * 160}ms` }}
         />
       ))}
@@ -168,26 +168,31 @@ export function HeroDemo() {
   const complete = resolvedCount >= ROWS.length;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--rb-ink)] text-white shadow-[0_48px_96px_-48px_rgba(0,0,0,0.65)]">
-      <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.06]" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-[0_48px_96px_-48px_rgba(10,10,10,0.3)] dark:shadow-[0_48px_96px_-48px_rgba(0,0,0,0.65)]">
+      <div
+        aria-hidden
+        className="arc-noise pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
+      />
 
-      <div className="relative flex items-center gap-2 border-b border-white/10 px-4 py-3">
-        <span aria-hidden className="size-2 rounded-full bg-[#3ecf7a]" />
-        <span className="text-xs font-medium text-white/70">Answer scan</span>
-        <span className="ml-auto font-mono text-[10px] tracking-[0.14em] text-white/30 uppercase">
+      <div className="relative flex items-center gap-2 border-b border-border px-4 py-3">
+        <span aria-hidden className="size-2 rounded-full bg-[color:var(--arc-green)]" />
+        <span className="text-xs font-medium text-muted-foreground">Answer scan</span>
+        <span className="ml-auto font-mono text-[10px] tracking-[0.14em] text-muted-foreground/70 uppercase">
           Product preview
         </span>
       </div>
 
       <div className="relative space-y-3 p-4 sm:p-5">
         {/* The buyer question. */}
-        <p className="flex min-h-10 items-start gap-2 text-sm leading-relaxed text-white/85">
-          <span aria-hidden className="mt-px font-mono text-[#52a8ff]">›</span>
+        <p className="flex min-h-10 items-start gap-2 text-sm leading-relaxed text-foreground">
+          <span aria-hidden className="mt-px font-mono text-[color:var(--arc-accent)]">
+            ›
+          </span>
           <span>
             {question.text.slice(0, typed)}
             <span
               aria-hidden
-              className={`ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 bg-white/80 ${
+              className={`ml-0.5 inline-block h-4 w-0.5 translate-y-0.5 bg-foreground/80 ${
                 typing ? "animate-pulse" : "opacity-0"
               }`}
             />
@@ -195,20 +200,20 @@ export function HeroDemo() {
         </p>
 
         {/* Scan status - never blank: ready, scanning, or combined. */}
-        <p className="flex items-center gap-2 text-xs text-white/45">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
           {scanning ? (
             <>
-              <span className="rb-pulse-dot size-1.5 rounded-full bg-[#52a8ff]" />
+              <span className="arc-pulse-dot size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
               Asking 10 providers at once&hellip;
             </>
           ) : complete ? (
             <>
-              <span className="size-1.5 rounded-full bg-[#3ecf7a]" />
+              <span className="size-1.5 rounded-full bg-[color:var(--arc-green)]" />
               Scan complete - combined into your score below
             </>
           ) : (
             <>
-              <span className="size-1.5 rounded-full bg-white/30" />
+              <span className="size-1.5 rounded-full bg-muted-foreground/40" />
               Sending to 10 providers&hellip;
             </>
           )}
@@ -222,20 +227,23 @@ export function HeroDemo() {
             return (
               <div
                 key={row.id}
-                className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 transition-colors duration-300 ${
-                  pending
-                    ? "border-white/10 bg-white/[0.02]"
-                    : "border-white/10 bg-white/[0.05]"
+                className={`flex min-h-11 items-center gap-3 rounded-lg border border-border px-3 py-2 transition-colors duration-300 ${
+                  pending ? "bg-muted/30" : "bg-muted/60"
                 }`}
               >
                 {isMore ? (
-                  <span aria-hidden className="flex size-4 items-center justify-center">
-                    <span className="size-1 rounded-full bg-white/40 shadow-[5px_0_0_rgba(255,255,255,0.4),-5px_0_0_rgba(255,255,255,0.4)]" />
+                  <span
+                    aria-hidden
+                    className="flex size-4 items-center justify-center text-muted-foreground/60"
+                  >
+                    <span className="size-1 rounded-full bg-current shadow-[5px_0_0_currentColor,-5px_0_0_currentColor]" />
                   </span>
                 ) : (
                   <ProviderLogo provider={row.id} className="size-4" />
                 )}
-                <span className={`text-sm font-medium ${isMore ? "text-white/55" : ""}`}>
+                <span
+                  className={`text-sm font-medium ${isMore ? "text-muted-foreground" : ""}`}
+                >
                   {row.name}
                 </span>
                 <span className="ml-auto">
@@ -248,8 +256,8 @@ export function HeroDemo() {
       </div>
 
       {/* The combination: what the product actually measures. */}
-      <div className="relative border-t border-white/10">
-        <div className="grid grid-cols-4 divide-x divide-white/10">
+      <div className="relative border-t border-border">
+        <div className="grid grid-cols-4 divide-x divide-border">
           {STATS.map(([label, value], i) => (
             <div
               key={label}
@@ -258,10 +266,10 @@ export function HeroDemo() {
               }`}
               style={{ transitionDelay: complete ? `${i * 90}ms` : "0ms" }}
             >
-              <p className="rb-tabular font-heading text-base font-semibold sm:text-lg">
+              <p className="arc-tabular font-heading text-base font-semibold sm:text-lg">
                 {value}
               </p>
-              <p className="mt-0.5 font-mono text-[9px] tracking-[0.12em] text-white/35 uppercase sm:text-[10px]">
+              <p className="mt-0.5 font-mono text-[9px] tracking-[0.12em] text-muted-foreground uppercase sm:text-[10px]">
                 {label}
               </p>
             </div>

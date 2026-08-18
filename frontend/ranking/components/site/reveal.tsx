@@ -52,10 +52,10 @@ export function Reveal({
   return (
     <div
       ref={ref}
-      className={`rb-reveal rb-reveal-${direction}${className ? ` ${className}` : ""}`}
+      className={`arc-reveal arc-reveal-${direction}${className ? ` ${className}` : ""}`}
       style={
         delay
-          ? ({ "--rb-reveal-delay": `${delay}ms` } as CSSProperties)
+          ? ({ "--arc-reveal-delay": `${delay}ms` } as CSSProperties)
           : undefined
       }
     >

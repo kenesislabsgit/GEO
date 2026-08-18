@@ -336,7 +336,7 @@ export function OnboardingWizard({
           {state.competitors.map((competitor, index) => (
             <div
               key={`competitor-${index}`}
-              className="grid gap-3 rb-panel p-4 sm:grid-cols-[1fr_1fr_auto]"
+              className="grid gap-3 arc-panel p-4 sm:grid-cols-[1fr_1fr_auto]"
             >
               <Input
                 placeholder="Competitor name"
@@ -367,7 +367,7 @@ export function OnboardingWizard({
       ) : null}
 
       {step === 3 ? (
-        <div className="rb-list">
+        <div className="arc-list">
           <div className="divide-y divide-border">
             {prompts.map((prompt) => {
               const active = state.activePromptIds.includes(prompt.id);
@@ -533,7 +533,7 @@ export function OnboardingWizard({
           ).map(([key, label]) => (
             <label
               key={key}
-              className="flex items-center gap-3 rb-panel px-5 py-3.5"
+              className="flex items-center gap-3 arc-panel px-5 py-3.5"
             >
               <Checkbox
                 checked={state.alerts[key]}
@@ -555,7 +555,7 @@ export function OnboardingWizard({
       ) : null}
 
       {step === 8 ? (
-        <div className="rb-panel p-6">
+        <div className="arc-panel p-6">
           <p className="text-sm text-muted-foreground">
             We&apos;ll apply your company details, competitors, active questions,
             providers ({state.providers.map(providerDisplayName).join(", ")}),

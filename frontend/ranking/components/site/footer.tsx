@@ -62,7 +62,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-12 border-t border-border pt-6">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} RankedByAI. Results are sampled from
+            © {new Date().getFullYear()} Arcanoris. Results are sampled from
             provider APIs and may differ from consumer AI interfaces.
           </p>
         </div>

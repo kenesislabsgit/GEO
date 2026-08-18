@@ -22,6 +22,7 @@ export const routes = {
   },
 
   publicReport: (slug: string) => `/report/${slug}`,
+  claim: (slug: string) => `/claim/${slug}`,
 
   dashboard: "/dashboard",
   addWebsite: "/dashboard/brands/new",
@@ -90,4 +91,24 @@ export function safeReturnTo(value: string | null | undefined): string | null {
     return null;
   }
   return value;
+}
+
+/**
+ * The homepage's "audit my site" field submits as a plain GET form, so the
+ * domain arrives as its own `domain` param rather than baked into `returnTo`
+ * - a GET form drops any query string already on its own `action` and
+ * replaces it with the form's fields. Both /login (the already-signed-in
+ * redirect) and LoginForm (the post-signup redirect) need to land on the
+ * exact same destination, so the domain -> returnTo resolution lives here
+ * once instead of being duplicated in both places.
+ */
+export function resolveReturnTo(params: {
+  returnTo?: string | null;
+  domain?: string | null;
+}): string | null {
+  const explicit = safeReturnTo(params.returnTo);
+  if (explicit) return explicit;
+  const domain = params.domain?.trim();
+  if (!domain) return null;
+  return `${routes.newScan()}?domain=${encodeURIComponent(domain)}`;
 }

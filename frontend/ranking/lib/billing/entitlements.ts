@@ -16,7 +16,7 @@ export type PlanFeatures = {
   providerChecksPerMonth: number;
   weeklyMonitoring: boolean;
   dailyMonitoring: boolean;
-  /** Pro+ and up: a slice of audit questions asked as a buyer in the
+  /** Pro only: a slice of audit questions asked as a buyer in the
    * company's home market would, with web search pinned to that country. */
   geoMarketSearch: boolean;
   fullAnswers: boolean;
@@ -86,17 +86,17 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   },
   founder: {
     id: "founder",
-    name: "Pro",
+    name: "Plus",
     description: "One website, multi-provider monitoring, and full evidence.",
-    monthlyPriceUsd: 29,
-    yearlyPriceUsd: 290,
+    monthlyPriceUsd: 49,
+    yearlyPriceUsd: 490,
     trialDays: 7,
     monthlyProductEnv: "DODO_FOUNDER_MONTHLY_PRODUCT_ID",
     yearlyProductEnv: "DODO_FOUNDER_YEARLY_PRODUCT_ID",
     features: {
       brands: 1,
       activePrompts: 20,
-      providers: ["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral"],
+      providers: ["openai_search", "bedrock_claude", "gemini", "bedrock_mistral"],
       providersPerScan: 4,
       competitorsPerBrand: 5,
       countries: 1,
@@ -118,6 +118,10 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       pdfCsvExport: false,
     },
   },
+  // Grandfathered: no longer sold. The pricing page and every "upgrade to"
+  // CTA skip this id now - it stays here only so the one existing "growth"
+  // subscriber's entitlements keep resolving instead of crashing on a
+  // missing plan lookup. Do not remove until that subscriber is migrated.
   growth: {
     id: "growth",
     name: "Pro+",
@@ -173,8 +177,8 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   },
   agency: {
     id: "agency",
-    name: "Agency",
-    description: "Pro+ at agency scale: 20 websites and a 10k check allowance.",
+    name: "Pro",
+    description: "Everything in Plus, at higher limits: 20 websites and a 10k check allowance.",
     monthlyPriceUsd: 199,
     yearlyPriceUsd: 1990,
     trialDays: 0,
@@ -369,7 +373,7 @@ export function assertCanAddCompetitor(
 export function assertCanExport(ctx: EntitlementContext): void {
   if (!PLAN_CONFIG[ctx.plan].features.pdfCsvExport) {
     throw new EntitlementError(
-      "CSV and PDF exports require the Pro+ or Agency plan.",
+      "CSV and PDF exports require the Pro plan.",
     );
   }
 }

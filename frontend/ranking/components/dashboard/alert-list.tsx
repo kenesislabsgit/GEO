@@ -46,7 +46,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
 
   if (alerts.length === 0) {
     return (
-      <div className="rb-empty p-10 text-center">
+      <div className="arc-empty p-10 text-center">
         <Bell className="mx-auto size-5 text-muted-foreground" />
         <p className="mt-3 font-medium">No alerts yet</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
           </Button>
         </div>
       ) : null}
-      <div className="rb-list">
+      <div className="arc-list">
         <div className="divide-y divide-border">
           {alerts.map((alert) => {
             const Icon = alertIcon(alert.type);
@@ -78,7 +78,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                 key={alert.id}
                 className={cn(
                   "flex gap-4 px-5 py-4",
-                  isRead ? "bg-card" : "bg-[color:var(--rb-accent-soft)]/40",
+                  isRead ? "bg-card" : "bg-[color:var(--arc-accent-soft)]/40",
                 )}
               >
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -96,7 +96,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                     {!isRead ? (
                       <span
                         aria-label="Unread"
-                        className="size-2 rounded-full bg-[color:var(--rb-accent)]"
+                        className="size-2 rounded-full bg-[color:var(--arc-accent)]"
                       />
                     ) : null}
                   </div>

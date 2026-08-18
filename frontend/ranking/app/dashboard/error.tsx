@@ -7,7 +7,7 @@ import { routes } from "@/lib/routes";
 export default function DashboardError({ reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="rb-panel max-w-md p-8 text-center">
+      <div className="arc-panel max-w-md p-8 text-center">
         <h1 className="font-heading text-xl font-semibold tracking-tight">
           This page hit a problem
         </h1>

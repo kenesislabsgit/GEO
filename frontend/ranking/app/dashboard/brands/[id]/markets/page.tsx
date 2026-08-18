@@ -140,17 +140,17 @@ export default async function MarketsPage({
       />
 
       {!geoEnabled ? (
-        <div className="rb-panel flex flex-wrap items-center justify-between gap-4 p-6">
+        <div className="arc-panel flex flex-wrap items-center justify-between gap-4 p-6">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
               <Lock className="size-4 text-muted-foreground" aria-hidden />
             </span>
             <div>
               <h2 className="text-sm font-semibold">
-                Geographic market search is a Pro+ feature
+                Geographic market search is a Pro feature
               </h2>
               <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-                Pro+ audits ask up to half their questions the way buyers in
+                Pro audits ask up to half their questions the way buyers in
                 India, the US, Europe and other markets would - with web search
                 located in each country - and map where you get recommended.
               </p>
@@ -159,16 +159,16 @@ export default async function MarketsPage({
           <Button asChild size="sm">
             <Link
               href={routes.billing({
-                plan: "growth",
+                plan: "agency",
                 returnTo: routes.brandSection(brand.id, "markets"),
               })}
             >
-              Upgrade to Pro+
+              Upgrade to Pro
             </Link>
           </Button>
         </div>
       ) : countries.length === 0 ? (
-        <div className="rb-empty p-10 text-center">
+        <div className="arc-empty p-10 text-center">
           <Globe className="mx-auto size-5 text-muted-foreground" aria-hidden />
           <p className="mt-3 font-medium">No market answers yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
@@ -183,9 +183,9 @@ export default async function MarketsPage({
       ) : (
         <>
           {/* One hairline band: the headline market facts. */}
-          <section className="rb-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
+          <section className="arc-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
             <div className="lg:pr-5">
-              <p className="rb-eyebrow">Recommended most in</p>
+              <p className="arc-eyebrow">Recommended most in</p>
               <p className="mt-1.5 truncate text-2xl font-semibold tracking-tight">
                 {best ? `${flagOf(best.code)} ${best.name}` : " -  nowhere yet"}
               </p>
@@ -196,8 +196,8 @@ export default async function MarketsPage({
               </p>
             </div>
             <div className="lg:px-5">
-              <p className="rb-eyebrow">Markets tested</p>
-              <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+              <p className="arc-eyebrow">Markets tested</p>
+              <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
                 {countries.length}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -205,8 +205,8 @@ export default async function MarketsPage({
               </p>
             </div>
             <div className="lg:px-5">
-              <p className="rb-eyebrow">Market answers</p>
-              <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+              <p className="arc-eyebrow">Market answers</p>
+              <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
                 {countries.reduce((sum, entry) => sum + entry.total, 0)}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -214,8 +214,8 @@ export default async function MarketsPage({
               </p>
             </div>
             <div className="lg:pl-5">
-              <p className="rb-eyebrow">Global mention rate</p>
-              <p className="rb-tabular mt-1.5 text-2xl font-semibold tracking-tight">
+              <p className="arc-eyebrow">Global mention rate</p>
+              <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
                 {globalRate}%
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -226,7 +226,7 @@ export default async function MarketsPage({
 
           <div className="grid items-start gap-4 lg:grid-cols-[0.9fr_1.1fr]">
             {/* Continent radar */}
-            <section className="rb-panel overflow-hidden">
+            <section className="arc-panel overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <h2 className="text-sm font-medium">Visibility by continent</h2>
                 <p className="font-mono text-[11px] text-muted-foreground">
@@ -239,7 +239,7 @@ export default async function MarketsPage({
             </section>
 
             {/* Country leaderboard */}
-            <section className="rb-panel overflow-hidden">
+            <section className="arc-panel overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <h2 className="text-sm font-medium">By country</h2>
                 <p className="text-xs text-muted-foreground">
@@ -254,7 +254,7 @@ export default async function MarketsPage({
                         <span aria-hidden>{flagOf(entry.code)}</span>
                         <span className="truncate">{entry.name}</span>
                       </p>
-                      <p className="rb-tabular shrink-0 font-mono text-xs text-muted-foreground">
+                      <p className="arc-tabular shrink-0 font-mono text-xs text-muted-foreground">
                         {entry.mentioned}/{entry.total} ·{" "}
                         <span
                           className={
@@ -269,7 +269,7 @@ export default async function MarketsPage({
                     </div>
                     <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full rounded-full bg-[color:var(--rb-accent)]"
+                        className="h-full rounded-full bg-[color:var(--arc-accent)]"
                         style={{ width: `${Math.max(entry.rate, 2)}%` }}
                       />
                     </div>
@@ -280,7 +280,7 @@ export default async function MarketsPage({
           </div>
 
           {/* The exact questions each market was asked. */}
-          <section className="rb-panel overflow-hidden">
+          <section className="arc-panel overflow-hidden">
             <div className="border-b border-border px-5 py-3">
               <h2 className="text-sm font-medium">Market questions</h2>
             </div>
@@ -302,9 +302,9 @@ export default async function MarketsPage({
                       {prompt.prompt}
                     </p>
                     <span
-                      className={`rb-chip shrink-0 ${
+                      className={`arc-chip shrink-0 ${
                         mentioned > 0
-                          ? "text-[color:var(--rb-green)]"
+                          ? "text-[color:var(--arc-green)]"
                           : "text-muted-foreground"
                       }`}
                     >

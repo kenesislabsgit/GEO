@@ -1,4 +1,4 @@
--- RankedByAI schema — plain PostgreSQL.
+-- Arcanoris schema — plain PostgreSQL.
 --
 -- This replaces the files in supabase/migrations. What changed when we left
 -- Supabase:

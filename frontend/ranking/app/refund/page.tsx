@@ -1,6 +1,12 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Refund policy" };
+export const metadata = {
+  title: "Refund policy",
+  description:
+    "How cancellations, refunds, and downgrades work on Arcanoris subscriptions - what's refundable, what isn't, and how to request one.",
+  alternates: { canonical: routes.refund },
+};
 
 export default function RefundPage() {
   return (
@@ -10,7 +16,7 @@ export default function RefundPage() {
       </h1>
       <div className="mt-8 space-y-6 text-muted-foreground leading-relaxed">
         <p>
-          RankedByAI subscriptions renew automatically each billing period.
+          Arcanoris subscriptions renew automatically each billing period.
           You may cancel at any time from Billing; access continues until the
           end of the paid period.
         </p>

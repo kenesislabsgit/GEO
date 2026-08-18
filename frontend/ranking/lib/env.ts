@@ -19,8 +19,11 @@ const REQUIRED_IN_PRODUCTION: Requirement[] = [
   { name: "IP_HASH_SALT", why: "hashing IPs in abuse records" },
   { name: "DODO_PAYMENTS_API_KEY", why: "real checkout (no simulation exists)" },
   { name: "DODO_PAYMENTS_WEBHOOK_KEY", why: "verifying billing webhooks" },
-  { name: "DODO_FOUNDER_MONTHLY_PRODUCT_ID", why: "the Pro plan product" },
-  { name: "DODO_GROWTH_MONTHLY_PRODUCT_ID", why: "the Pro+ plan product" },
+  { name: "DODO_FOUNDER_MONTHLY_PRODUCT_ID", why: "the Plus plan product" },
+  {
+    name: "DODO_GROWTH_MONTHLY_PRODUCT_ID",
+    why: "the legacy Pro+ plan product - grandfathered, no longer sold, but still resolved for its one existing subscriber",
+  },
   { name: "RESEND_API_KEY", why: "verification and alert email" },
   { name: "EMAIL_FROM", why: "the sending address" },
 ];

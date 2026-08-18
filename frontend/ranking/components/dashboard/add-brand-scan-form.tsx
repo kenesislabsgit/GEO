@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Globe, Loader2 } from "lucide-react";
@@ -15,6 +15,8 @@ import {
 } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import type { ProviderId } from "@/types/database";
+
+const STORAGE_KEY = "rbai_audit_add_brand";
 
 export function AddBrandScanForm({
   isPaid,
@@ -31,7 +33,7 @@ export function AddBrandScanForm({
   const router = useRouter();
   const [domain, setDomain] = useState(initialDomain ?? "");
   const { loading, error, progress, step, events, start } = useDetachedAudit({
-    storageKey: "rbai_audit_add_brand",
+    storageKey: STORAGE_KEY,
     onDone: (brandId) => router.push(`${routes.brand(brandId)}?completed=1`),
   });
 
@@ -46,15 +48,35 @@ export function AddBrandScanForm({
     });
   }
 
+  // A domain that arrived from the homepage's pre-signup form means someone
+  // already typed it and clicked "see where your brand comes up" once - the
+  // whole point of carrying it through sign-up is that they never have to
+  // enter it again, so the audit starts itself instead of waiting on a
+  // second click at a form they never meant to see.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (autoStarted.current) return;
+    autoStarted.current = true;
+    if (brandLimitReached || loading || !initialDomain?.trim()) return;
+    // A stale run from an earlier visit takes priority - the hook's own
+    // mount effect already resumes it, so starting a second one here would
+    // race it into two concurrent audits.
+    if (localStorage.getItem(STORAGE_KEY)) return;
+    void startAudit();
+    // Mount-only: startAudit reads `domain`, which useState already seeded
+    // from initialDomain, so this reflects the value this effect cares about.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (brandLimitReached) {
     return (
-      <div className="rb-panel p-6">
+      <div className="arc-panel p-6">
         <h2 className="text-lg font-semibold">Website limit reached</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Upgrade your plan to monitor another website.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button asChild size="sm"><Link href={routes.billing({ plan: "growth" })}>Upgrade</Link></Button>
+          <Button asChild size="sm"><Link href={routes.billing({ plan: "agency" })}>Upgrade</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={routes.brands}>View websites</Link></Button>
         </div>
       </div>
@@ -62,7 +84,7 @@ export function AddBrandScanForm({
   }
 
   return (
-    <div className="rb-panel p-6">
+    <div className="arc-panel p-6">
       <h2 className="text-lg font-semibold">Audit a website</h2>
       {/* Pro moved from five questions to twenty; this line kept promising
           five to the people paying for the deeper run. */}

@@ -3,24 +3,17 @@ import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
 import { googleConfigured } from "@/lib/auth/auth";
 import { getSessionUser } from "@/lib/auth/session";
+import { resolveReturnTo } from "@/lib/routes";
 import { LoginForm } from "./login-form";
 
 export const metadata = {
   title: "Sign in",
 };
 
-function safePath(value: string | undefined): string | null {
-  if (!value) return null;
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-    return null;
-  }
-  return value;
-}
-
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ claim?: string; returnTo?: string }>;
+  searchParams: Promise<{ claim?: string; returnTo?: string; domain?: string }>;
 }) {
   // A genuinely signed-in person skips the form. This is the real session
   // check, not the cookie-presence guess the middleware makes - a stale
@@ -29,20 +22,20 @@ export default async function LoginPage({
   if (user) {
     const params = await searchParams;
     if (params.claim) redirect(`/claim/${encodeURIComponent(params.claim)}`);
-    redirect(safePath(params.returnTo) ?? "/dashboard");
+    redirect(resolveReturnTo(params) ?? "/dashboard");
   }
   return (
-    <main className="rb-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
-      <div aria-hidden className="rb-mesh pointer-events-none absolute inset-0 opacity-70" />
+    <main className="arc-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
+      <div aria-hidden className="arc-mesh pointer-events-none absolute inset-0 opacity-70" />
       <div
         aria-hidden
-        className="rb-grid pointer-events-none absolute inset-0 opacity-35 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_40%,black,transparent)]"
+        className="arc-grid pointer-events-none absolute inset-0 opacity-35 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_40%,black,transparent)]"
       />
       <div className="relative w-full max-w-sm">
         <div className="flex justify-center">
           <Logo />
         </div>
-        <div className="rb-glass mt-8 p-6 sm:p-8">
+        <div className="arc-glass mt-8 p-6 sm:p-8">
           <Suspense
             fallback={
               <p className="text-center text-sm text-muted-foreground">

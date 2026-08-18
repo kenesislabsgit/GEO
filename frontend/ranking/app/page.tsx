@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { HeroDemo } from "@/components/site/hero-demo";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
+import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
   APP_NAME,
   APP_TAGLINE,
   DEFAULT_SCAN_PROVIDERS,
+  SUPPORT_EMAIL,
   providerDisplayName,
 } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -46,20 +48,20 @@ const faqs = [
 
 /** Inline stagger for children inside a <Reveal>. */
 function delayStyle(ms: number): CSSProperties {
-  return { "--rb-delay": `${ms}ms` } as CSSProperties;
+  return { "--arc-delay": `${ms}ms` } as CSSProperties;
 }
 
 /* ------------------------------------------------ the shift: AI answer -- */
 
 /**
- * A stylized AI answer: the buyer's question, the two or three products the
- * model names, and the row that hurts - your brand, absent. Illustrative,
- * clearly labelled as an example.
+ * A real AI answer for Kenesis (an on-prem industrial safety video analytics
+ * company that piloted this tool): the buyer's question, the products the
+ * model named, and the row that hurts - Kenesis, absent.
  */
 function AnswerCard() {
   return (
     <div className="relative mx-auto w-full max-w-md">
-      <div aria-hidden className="rb-glow absolute -inset-x-12 inset-y-0" />
+      <div aria-hidden className="arc-glow absolute -inset-x-12 inset-y-0" />
       <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_24px_64px_-32px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="inline-flex items-center gap-2 text-sm font-medium">
@@ -72,23 +74,24 @@ function AnswerCard() {
         </div>
         <div className="space-y-4 p-4 md:p-5">
           <div
-            className="rb-rise ml-auto w-fit max-w-[85%] rounded-lg rounded-br-sm bg-card px-3.5 py-2.5 text-sm"
+            className="arc-rise ml-auto w-fit max-w-[85%] rounded-lg rounded-br-sm bg-card px-3.5 py-2.5 text-sm"
             style={delayStyle(150)}
           >
-            What&rsquo;s the best analytics tool for an early-stage startup?
+            Which on-premise AI video analytics solutions detect unauthorized
+            access to restricted zones in industrial facilities?
           </div>
           <div className="space-y-2">
             {[
-              { name: "Northstar", note: "recommended first" },
-              { name: "Beacon", note: "runner up" },
-              { name: "Metricly", note: "budget pick" },
+              { name: "Witvix", note: "recommended first" },
+              { name: "viAct", note: "runner up" },
+              { name: "Triya", note: "also recommended" },
             ].map((item, index) => (
               <div
                 key={item.name}
-                className="rb-rise flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5"
+                className="arc-rise flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5"
                 style={delayStyle(300 + index * 90)}
               >
-                <span className="rb-tabular flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-[10px] font-semibold">
+                <span className="arc-tabular flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-[10px] font-semibold">
                   {index + 1}
                 </span>
                 <span className="text-sm font-medium">{item.name}</span>
@@ -98,28 +101,28 @@ function AnswerCard() {
               </div>
             ))}
             <div
-              className="rb-rise flex items-center gap-3 rounded-lg border border-dashed border-foreground/25 px-3.5 py-2.5"
+              className="arc-rise flex items-center gap-3 rounded-lg border border-dashed border-foreground/25 px-3.5 py-2.5"
               style={delayStyle(620)}
             >
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-foreground/25 text-[10px] font-semibold text-muted-foreground">
                 ?
               </span>
               <span className="text-sm font-medium text-muted-foreground">
-                Your brand
+                Kenesis
               </span>
-              <span className="rb-pulse-soft ml-auto rounded-full bg-[#ff6166]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#d6453f]">
+              <span className="arc-pulse-soft ml-auto rounded-full bg-[#ff6166]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#d6453f]">
                 Not mentioned
               </span>
             </div>
           </div>
           <div
-            className="rb-rise flex flex-wrap items-center gap-2 border-t border-border pt-3"
+            className="arc-rise flex flex-wrap items-center gap-2 border-t border-border pt-3"
             style={delayStyle(760)}
           >
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
               Cited
             </span>
-            {["northstar.com", "g2.com", "reddit.com"].map((source) => (
+            {["triya.ai", "witvix.com", "cobaltai.com"].map((source) => (
               <span
                 key={source}
                 className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground"
@@ -181,7 +184,7 @@ function CheckItem({
   delay?: number;
 }) {
   return (
-    <li className="rb-rise flex items-start gap-3" style={delayStyle(delay)}>
+    <li className="arc-rise flex items-start gap-3" style={delayStyle(delay)}>
       <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#3ecf7a]">
         <Check className="size-3 text-white" strokeWidth={3} aria-hidden />
       </span>
@@ -193,7 +196,7 @@ function CheckItem({
 /** Tall azure panel the feature mockups float on. */
 function VisualTile({ children }: { children: ReactNode }) {
   return (
-    <div className="rb-feature-tile relative flex items-center justify-center overflow-hidden rounded-3xl border border-black/[0.04] px-5 py-12 sm:px-10 md:min-h-[540px] md:py-16 dark:border-white/10">
+    <div className="arc-feature-tile relative flex items-center justify-center overflow-hidden rounded-3xl border border-black/[0.04] px-5 py-12 sm:px-10 md:min-h-[540px] md:py-16 dark:border-white/10">
       <div className="relative w-full max-w-md">{children}</div>
     </div>
   );
@@ -209,7 +212,7 @@ function FloatChip({
 }) {
   return (
     <span
-      className={`rb-float absolute z-10 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-card px-3 py-1.5 text-xs font-medium shadow-[0_12px_32px_-12px_rgba(23,58,110,0.45)] dark:border-white/10 ${className}`}
+      className={`arc-float absolute z-10 inline-flex items-center gap-1.5 rounded-full border border-black/[0.05] bg-card px-3 py-1.5 text-xs font-medium shadow-[0_12px_32px_-12px_rgba(23,58,110,0.45)] dark:border-white/10 ${className}`}
     >
       {children}
     </span>
@@ -219,16 +222,16 @@ function FloatChip({
 /** Share of voice: who wins the answers in your category. */
 function ShareOfVoicePanel() {
   const rows = [
-    { name: "Northstar", value: 46, tone: "bg-[#52a8ff]" },
-    { name: "You", value: 34, tone: "bg-[color:var(--rb-accent)]", you: true },
-    { name: "Beacon", value: 12, tone: "bg-[#ff6ea9]" },
+    { name: "Avigilon", value: 46, tone: "bg-[#52a8ff]" },
+    { name: "Kenesis", value: 34, tone: "bg-[color:var(--arc-accent)]", you: true },
+    { name: "Triya", value: 12, tone: "bg-[#ff6ea9]" },
     { name: "Everyone else", value: 8, tone: "bg-foreground/20" },
   ];
   return (
     <div className="relative">
       <FloatChip className="-top-4 -right-2 sm:-right-6">
         <span aria-hidden className="size-1.5 rounded-full bg-[#3ecf7a]" />
-        You, up 6 pts
+        Kenesis, up 6 pts
       </FloatChip>
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
@@ -241,16 +244,16 @@ function ShareOfVoicePanel() {
       </div>
       <div className="mt-5 space-y-4">
         {rows.map((row, index) => (
-          <div key={row.name} className="rb-rise" style={delayStyle(index * 90)}>
+          <div key={row.name} className="arc-rise" style={delayStyle(index * 90)}>
             <div className="flex items-baseline justify-between text-sm">
               <span className={row.you ? "font-semibold" : "text-muted-foreground"}>
                 {row.name}
               </span>
-              <span className="rb-tabular font-medium">{row.value}%</span>
+              <span className="arc-tabular font-medium">{row.value}%</span>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-foreground/[0.06]">
               <div
-                className={`rb-grow-x h-full rounded-full ${row.tone}`}
+                className={`arc-grow-x h-full rounded-full ${row.tone}`}
                 style={{
                   width: `${row.value}%`,
                   ...delayStyle(200 + index * 120),
@@ -272,7 +275,7 @@ function ShareOfVoicePanel() {
 function ActionListPanel() {
   const actions = [
     {
-      title: "Publish a comparison page vs Northstar",
+      title: "Publish a comparison page vs Avigilon",
       why: "Named in 8 answers you lost",
       priority: "High",
     },
@@ -304,7 +307,7 @@ function ActionListPanel() {
         {actions.map((action, index) => (
           <div
             key={action.title}
-            className="rb-rise flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3"
+            className="arc-rise flex items-start gap-3 rounded-lg border border-border bg-card px-3.5 py-3"
             style={delayStyle(150 + index * 130)}
           >
             <span
@@ -340,7 +343,7 @@ function EvidencePanel() {
   return (
     <div className="relative">
       <FloatChip className="-top-4 -right-2 sm:-right-6">
-        <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-accent)]" />
+        <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
         Saved word for word
       </FloatChip>
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
@@ -354,22 +357,22 @@ function EvidencePanel() {
       </div>
       <div className="mt-5 rounded-lg border border-border bg-card p-4">
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ProviderLogo provider="claude" className="size-3.5" />
-          Claude · &ldquo;Affordable product analytics options?&rdquo;
+          <ProviderLogo provider="openai" className="size-3.5" />
+          ChatGPT · &ldquo;Real-time alerts for PPE compliance?&rdquo;
         </p>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          &ldquo;For smaller teams,{" "}
-          <mark className="rb-highlight-sweep rounded bg-transparent px-1 py-0.5 font-medium text-foreground">
-            your brand
+          &ldquo;Recommended:{" "}
+          <mark className="arc-highlight-sweep rounded bg-transparent px-1 py-0.5 font-medium text-foreground">
+            Kenesis
           </mark>{" "}
-          is a strong option alongside Northstar, with simpler setup and
-          transparent pricing&hellip;&rdquo;
+          — an on-prem edge platform where everything runs on your own
+          hardware, from camera to alert&hellip;&rdquo;
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          {["Mentioned", "Position #2", "2 citations"].map((chip, index) => (
+          {["Mentioned", "Position #1", "1 citation"].map((chip, index) => (
             <span
               key={chip}
-              className="rb-rise rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] text-muted-foreground"
+              className="arc-rise rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] text-muted-foreground"
               style={delayStyle(600 + index * 120)}
             >
               {chip}
@@ -387,7 +390,35 @@ function EvidencePanel() {
 
 // The default ten plus Qwen, so the hero strip reflects the full catalog
 // without changing what an audit pre-selects by default.
-const PROVIDER_STRIP = [...DEFAULT_SCAN_PROVIDERS, "qwen"] as const;
+// The full 14-provider library (matches PLAN_CONFIG.agency.providers) -
+// DEFAULT_SCAN_PROVIDERS is only the 10 pre-selected for a default scan.
+const PROVIDER_STRIP = [
+  ...DEFAULT_SCAN_PROVIDERS,
+  "groq",
+  "minimax",
+  "sarvam",
+  "qwen",
+] as const;
+
+// What a Pro audit actually reports on - real feature names, not
+// filler. Two rows moving opposite ways so they don't read as one mechanical
+// strip; each is doubled at render time so its own loop has no visible seam.
+const STAT_CHIPS_ROW_1 = [
+  "14 providers available",
+  "Cited sources",
+  "Share of voice",
+  "Position tracking",
+  "Competitor benchmarking",
+  "Citation gaps",
+] as const;
+const STAT_CHIPS_ROW_2 = [
+  "Full answer text",
+  "Weekly monitoring",
+  "Action centre",
+  "Email alerts",
+  "Multi-market scans",
+  "PDF & CSV export",
+] as const;
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
@@ -405,36 +436,6 @@ const RADAR_BLIPS = [
   { id: "nova", className: "top-[58%] right-[36%]" },
 ] as const;
 
-// The pages models cite in this category, mapped around your brand. The
-// line coordinates in CITATION_LINES point at each chip's rough center.
-const CITATION_SOURCES = [
-  {
-    domain: "g2.com",
-    count: "×14",
-    dot: "bg-[#52a8ff] shadow-[0_0_14px_3px_rgba(82,168,255,0.45)]",
-    className: "top-[12%] left-[8%]",
-  },
-  {
-    domain: "reddit.com",
-    count: "×9",
-    dot: "bg-[#ff6ea9] shadow-[0_0_14px_3px_rgba(255,110,169,0.4)]",
-    className: "top-[28%] right-[6%]",
-  },
-  {
-    domain: "northstar.com",
-    count: "×11",
-    dot: "bg-[#3ecf7a] shadow-[0_0_14px_3px_rgba(62,207,122,0.4)]",
-    className: "top-[62%] left-[10%]",
-  },
-] as const;
-
-const CITATION_LINES = [
-  [24, 18],
-  [76, 34],
-  [28, 68],
-  [70, 80],
-] as const;
-
 /* ----------------------------------------------------------------- page -- */
 
 export default function HomePage() {
@@ -449,6 +450,7 @@ export default function HomePage() {
               "@id": `${appUrl}/#organization`,
               name: APP_NAME,
               url: appUrl,
+              logo: `${appUrl}/icon.svg`,
               description:
                 "AI visibility monitoring: measures whether AI answer engines like ChatGPT, Claude, and Gemini mention and recommend your brand.",
             },
@@ -490,7 +492,7 @@ export default function HomePage() {
       <main>
         {/* Hero - editorial blueprint */}
         <section className="relative bg-background">
-          <div aria-hidden className="rb-hatch h-8 border-b border-border" />
+          <div aria-hidden className="arc-hatch h-8 border-b border-border" />
           <div className="mx-auto max-w-6xl">
             <div className="relative overflow-hidden border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
               <Cross className="top-0 left-0" />
@@ -500,28 +502,36 @@ export default function HomePage() {
 
               <div
                 aria-hidden
-                className="rb-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_70%_90%_at_30%_45%,black,transparent_75%)]"
+                className="arc-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_70%_90%_at_30%_45%,black,transparent_75%)]"
               />
 
               <div className="relative z-10 grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
                 <div>
-                  <h1 className="rb-fade-up font-heading text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
+                  <h1 className="arc-fade-up font-heading text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
                     Your buyers are asking AI.
                     <span className="block text-muted-foreground">
                       See who comes up.
                     </span>
                   </h1>
 
-                  <p className="rb-fade-up rb-fade-up-delay-1 mt-5 max-w-md text-base text-pretty text-muted-foreground md:text-lg">
+                  <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-md text-base text-pretty text-muted-foreground md:text-lg">
                     One buyer question, asked across ChatGPT, Claude, Gemini
                     and seven more - measured into a score you can act on.
                   </p>
 
+                  {/* A GET form ignores any query string already on `action`
+                      (the browser replaces it with the form's own fields on
+                      submit) - so mode=signup travels as a real field, not
+                      baked into the URL, and the domain rides along with it
+                      to /login. The login page turns that into a returnTo
+                      that lands the same domain back on the audit form after
+                      sign-up, pre-filled and started - see AddBrandScanForm. */}
                   <form
-                    action={routes.freeAuditSignup}
+                    action={routes.login()}
                     method="GET"
-                    className="rb-fade-up rb-fade-up-delay-2 mt-7 flex max-w-md flex-col gap-2.5 sm:flex-row"
+                    className="arc-fade-up arc-fade-up-delay-2 mt-7 flex max-w-md flex-col gap-2.5 sm:flex-row"
                   >
+                    <input type="hidden" name="mode" value="signup" />
                     <input
                       type="text"
                       name="domain"
@@ -535,7 +545,7 @@ export default function HomePage() {
                       <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
                     </RainbowButton>
                   </form>
-                  <p className="rb-fade-up rb-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
+                  <p className="arc-fade-up arc-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
                     Free account · no card · report in ~2 minutes ·{" "}
                     <Link href={routes.methodology} className="underline underline-offset-2 hover:text-foreground">
                       How it&rsquo;s measured
@@ -543,13 +553,13 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="rb-fade-up rb-fade-up-delay-2">
+                <div className="arc-fade-up arc-fade-up-delay-2">
                   <HeroDemo />
                 </div>
               </div>
             </div>
           </div>
-          <div aria-hidden className="rb-hatch h-8 border-y border-border" />
+          <div aria-hidden className="arc-hatch h-8 border-y border-border" />
         </section>
 
         {/* The shift - why AI answers decide who gets found */}
@@ -559,7 +569,7 @@ export default function HomePage() {
           <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-24">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <Reveal direction="left">
-                <p className="rb-eyebrow">The shift</p>
+                <p className="arc-eyebrow">The shift</p>
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                   AI doesn&rsquo;t give ten links. It names two or three products.
                 </h2>
@@ -576,10 +586,10 @@ export default function HomePage() {
                   ].map(([stat, label], index) => (
                     <div
                       key={label}
-                      className="rb-rise px-4 py-4 first:pl-0"
+                      className="arc-rise px-4 py-4 first:pl-0"
                       style={delayStyle(200 + index * 100)}
                     >
-                      <p className="rb-tabular font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+                      <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight md:text-3xl">
                         {stat}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
@@ -596,13 +606,13 @@ export default function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Answers measured across 11 AI models
+              Answers measured across 14 AI models
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {PROVIDER_STRIP.map((id, index) => (
                 <span
                   key={id}
-                  className="rb-rise opacity-55"
+                  className="arc-rise opacity-55"
                   style={delayStyle(index * 60)}
                   title={providerDisplayName(id)}
                 >
@@ -617,7 +627,7 @@ export default function HomePage() {
           <SectionFrame />
           <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <Reveal className="max-w-2xl">
-              <p className="rb-eyebrow">The report</p>
+              <p className="arc-eyebrow">The report</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 Evidence, not vibes
               </h2>
@@ -642,16 +652,16 @@ export default function HomePage() {
                   comparable scan after scan, never a black box.
                 </p>
                 <div className="mt-8 flex items-end justify-between gap-4">
-                  <p className="rb-tabular font-heading text-5xl font-semibold tracking-tight">
+                  <p className="arc-tabular font-heading text-5xl font-semibold tracking-tight">
                     62<span className="text-foreground/35">.4</span>
                   </p>
-                  <p className="text-sm font-medium text-[color:var(--rb-green)]">+6.2 this month</p>
+                  <p className="text-sm font-medium text-[color:var(--arc-green)]">+6.2 this month</p>
                 </div>
                 <div className="mt-4 flex h-20 items-stretch gap-1 md:gap-1.5">
                   {Array.from({ length: 40 }, (_, i) => (
                     <span
                       key={i}
-                      className={`rb-grow-y flex-1 rounded-full ${i < 25 ? "bg-[color:var(--rb-accent)]" : "bg-[color:var(--rb-accent)]/15"}`}
+                      className={`flex-1 rounded-full ${i < 25 ? "arc-light-up bg-[color:var(--arc-accent)]" : "bg-[color:var(--arc-accent)]/15"}`}
                       style={delayStyle(200 + i * 18)}
                     />
                   ))}
@@ -659,67 +669,23 @@ export default function HomePage() {
               </div>
               </Reveal>
 
-              {/* Citations - glowing source map */}
+              {/* Regional growth - interactive globe */}
               <Reveal delay={100} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-                <div className="relative min-h-56 flex-1" aria-hidden>
-                  <div className="rb-grid absolute inset-0 [mask-image:radial-gradient(ellipse_95%_95%_at_55%_40%,black,transparent_78%)]" />
-                  {/* Dashed spokes from your brand out to each cited page. */}
-                  <svg
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                    className="absolute inset-0 h-full w-full text-foreground/20"
-                  >
-                    {CITATION_LINES.map(([x, y]) => (
-                      <line
-                        key={`${x}-${y}`}
-                        x1="50"
-                        y1="44"
-                        x2={x}
-                        y2={y}
-                        stroke="currentColor"
-                        strokeDasharray="2 3"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    ))}
-                  </svg>
-                  <span className="absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <span className="rb-pulse-dot block size-2.5 rounded-full bg-[color:var(--rb-accent)] shadow-[0_0_18px_5px_color-mix(in_srgb,var(--rb-accent)_40%,transparent)]" />
-                  </span>
-                  <span className="absolute top-[52%] left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Your brand
-                  </span>
-                  {CITATION_SOURCES.map((source, i) => (
-                    <span
-                      key={source.domain}
-                      className={`rb-rise absolute inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] text-muted-foreground shadow-sm ${source.className}`}
-                      style={delayStyle(200 + i * 250)}
-                    >
-                      <span className={`size-1.5 rounded-full ${source.dot}`} />
-                      {source.domain}
-                      <span className="text-foreground/70">{source.count}</span>
-                    </span>
-                  ))}
-                  {/* The gap the copy talks about: a source you're absent from. */}
-                  <span
-                    className="rb-rise absolute top-[74%] right-[8%] inline-flex items-center gap-1.5 rounded-full border border-dashed border-foreground/30 px-2.5 py-1 font-mono text-[10px] text-muted-foreground"
-                    style={delayStyle(950)}
-                  >
-                    <span className="size-1.5 rounded-full bg-[#ff6166] shadow-[0_0_14px_3px_rgba(255,97,102,0.4)]" />
-                    yourbrand.com
-                    <span className="text-[#d6453f]">missing</span>
-                  </span>
+                <div className="relative flex min-h-56 flex-1 items-center justify-center" aria-hidden>
+                  <div className="arc-glow absolute inset-0" />
+                  <RegionalGlobe className="relative aspect-square w-full max-w-[380px]" />
                 </div>
                 <div className="p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Citations
+                    Regional growth
                   </p>
                   <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
-                    Trace every citation
+                    Grow across every market
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    The exact pages that taught each model who to recommend -
-                    mapped across the open web, including where you&rsquo;re missing.
+                    Track search performance across countries and discover
+                    where your brand has the most potential.
                   </p>
                 </div>
               </div>
@@ -737,14 +703,14 @@ export default function HomePage() {
                       <div className="absolute inset-[34%] rounded-full border border-border" />
                       <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
                       <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
-                      <div className="rb-radar-sweep absolute inset-0" />
-                      <span className="rb-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--rb-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--rb-accent)_45%,transparent)]" />
+                      <div className="arc-radar-sweep absolute inset-0" />
+                      <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
                     </div>
                   </div>
                   {RADAR_BLIPS.map((blip, index) => (
                     <span
                       key={blip.id}
-                      className={`rb-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-sm ${blip.className}`}
+                      className={`arc-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-sm ${blip.className}`}
                       style={delayStyle(index * 550)}
                     >
                       <ProviderLogo provider={blip.id} className="size-4" />
@@ -768,24 +734,38 @@ export default function HomePage() {
 
               {/* Big stat card */}
               <Reveal delay={100}>
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--rb-accent-soft),var(--card)_65%)] p-6 text-center md:p-8">
-                <p className="rb-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-6 text-center md:p-8">
+                <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
                   200
                 </p>
                 <p className="relative mt-1 text-foreground/70">
-                  provider answers per Pro+ audit - 20 questions × 10 AIs
+                  provider answers per Pro audit - 20 questions × 10 AIs
                 </p>
-                <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
-                  {["14 AI providers", "Cited sources", "Share of voice"].map((chip) => (
-                    <span
-                      key={chip}
-                      className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground"
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                  <span aria-hidden className="h-7 w-16 rounded-full bg-foreground/[0.05]" />
-                  <span aria-hidden className="h-7 w-12 rounded-full bg-foreground/[0.05]" />
+                <div className="mt-6 flex flex-col gap-2">
+                  <div className="arc-marquee-mask relative -mx-6 md:-mx-8">
+                    <div className="arc-marquee flex w-max items-center gap-2 px-6 md:px-8">
+                      {[...STAT_CHIPS_ROW_1, ...STAT_CHIPS_ROW_1].map((chip, i) => (
+                        <span
+                          key={`${chip}-${i}`}
+                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="arc-marquee-mask relative -mx-6 md:-mx-8">
+                    <div className="arc-marquee arc-marquee--reverse flex w-max items-center gap-2 px-6 md:px-8">
+                      {[...STAT_CHIPS_ROW_2, ...STAT_CHIPS_ROW_2].map((chip, i) => (
+                        <span
+                          key={`${chip}-${i}`}
+                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               </Reveal>
@@ -795,14 +775,14 @@ export default function HomePage() {
               <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card">
                 <div className="relative px-2 pt-14">
                   <span
-                    className="rb-fade-late absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
+                    className="arc-fade-late absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
                     style={delayStyle(900)}
                   >
-                    <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--rb-accent)]" />
+                    <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
                     Avg 62.4
                   </span>
                   <span
-                    className="rb-fade-late absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
+                    className="arc-fade-late absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
                     style={delayStyle(1100)}
                   >
                     <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
@@ -810,11 +790,11 @@ export default function HomePage() {
                   </span>
                   <span
                     aria-hidden
-                    className="rb-fade-late absolute top-14 bottom-0 left-[31%] w-px border-l border-dashed border-foreground/20"
+                    className="arc-fade-late absolute top-14 bottom-0 left-[31%] w-px border-l border-dashed border-foreground/20"
                   />
                   <span
                     aria-hidden
-                    className="rb-fade-late absolute top-14 bottom-0 left-[69%] w-px border-l border-dashed border-foreground/20"
+                    className="arc-fade-late absolute top-14 bottom-0 left-[69%] w-px border-l border-dashed border-foreground/20"
                   />
                   <MonitoringChart />
                 </div>
@@ -836,14 +816,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div aria-hidden className="rb-hatch h-8 border-b border-border" />
+        <div aria-hidden className="arc-hatch h-8 border-b border-border" />
 
         {/* What you get - the report turned into moves */}
         <section className="relative bg-background">
           <SectionFrame />
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <Reveal className="max-w-2xl">
-              <p className="rb-eyebrow">What you get</p>
+              <p className="arc-eyebrow">What you get</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 From a score to a plan
               </h2>
@@ -952,7 +932,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div aria-hidden className="rb-hatch h-8 border-y border-border" />
+        <div aria-hidden className="arc-hatch h-8 border-y border-border" />
 
         {/* How it works */}
         <section className="relative bg-background">
@@ -960,7 +940,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
               <Reveal direction="left">
-                <p className="rb-eyebrow">How it works</p>
+                <p className="arc-eyebrow">How it works</p>
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                   Measurement you can defend
                 </h2>
@@ -987,7 +967,7 @@ export default function HomePage() {
                 ].map((step, index) => (
                   <li
                     key={step.title}
-                    className="rb-rise relative"
+                    className="arc-rise relative"
                     style={delayStyle(index * 160)}
                   >
                     <span className="absolute top-0.5 -left-[41px] flex size-5 items-center justify-center rounded-full border border-border bg-card text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -1012,7 +992,7 @@ export default function HomePage() {
           <SectionFrame />
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <Reveal className="mx-auto max-w-2xl text-center">
-              <p className="rb-eyebrow">Pricing</p>
+              <p className="arc-eyebrow">Pricing</p>
               <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                 Start free. Scale when it matters.
               </h2>
@@ -1022,25 +1002,27 @@ export default function HomePage() {
               </p>
             </Reveal>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {Object.values(PLAN_CONFIG).map((plan, index) => {
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
+              {Object.values(PLAN_CONFIG)
+                .filter((plan) => plan.id !== "growth")
+                .map((plan, index) => {
                 const popular = plan.id === "founder";
                 return (
                   <Reveal key={plan.id} delay={index * 90}>
                   <div
-                    className={`rb-card-hover relative flex h-full flex-col rounded-xl border bg-background p-6 ${
+                    className={`arc-card-hover relative flex h-full flex-col rounded-xl border bg-background p-6 ${
                       popular
-                        ? "border-[color:var(--rb-accent)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--rb-accent)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--rb-accent)_45%,transparent)]"
+                        ? "border-[color:var(--arc-accent)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--arc-accent)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]"
                         : "border-border"
                     }`}
                   >
                     {popular ? (
-                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--rb-accent)] px-2.5 py-0.5 text-[11px] font-medium text-white">
+                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--arc-accent)] px-2.5 py-0.5 text-[11px] font-medium text-white">
                         Most popular
                       </span>
                     ) : null}
                     <p className="text-sm font-medium">{plan.name}</p>
-                    <p className="rb-tabular mt-3 font-heading text-3xl font-semibold tracking-tight">
+                    <p className="arc-tabular mt-3 font-heading text-3xl font-semibold tracking-tight">
                       {plan.monthlyPriceUsd === 0 ? "$0" : `$${plan.monthlyPriceUsd}`}
                       {plan.monthlyPriceUsd > 0 ? (
                         <span className="text-sm font-normal text-muted-foreground">
@@ -1058,7 +1040,7 @@ export default function HomePage() {
                       className="mt-5"
                     >
                       {plan.id === "agency" ? (
-                        <a href="mailto:kenesislabs@gmail.com?subject=RankedByAI%20Agency%20plan">
+                        <a href={`mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`}>
                           Contact us
                         </a>
                       ) : (
@@ -1097,7 +1079,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <div className="grid gap-12 lg:grid-cols-[0.9fr_1.3fr]">
               <Reveal direction="left">
-                <p className="rb-eyebrow">FAQ</p>
+                <p className="arc-eyebrow">FAQ</p>
                 <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
                   Honest answers
                 </h2>
@@ -1109,7 +1091,7 @@ export default function HomePage() {
                 {faqs.map((faq, index) => (
                   <div
                     key={faq.q}
-                    className="rb-rise py-6 first:pt-0 last:pb-0"
+                    className="arc-rise py-6 first:pt-0 last:pb-0"
                     style={delayStyle(index * 110)}
                   >
                     <h3 className="font-medium tracking-tight">{faq.q}</h3>
@@ -1123,36 +1105,36 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div aria-hidden className="rb-hatch h-8 border-t border-border" />
+        <div aria-hidden className="arc-hatch h-8 border-t border-border" />
 
         {/* Final CTA */}
-        <section className="relative overflow-hidden bg-[color:var(--rb-ink)]">
+        <section className="relative overflow-hidden bg-[color:var(--arc-ink)]">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--rb-accent)_35%,transparent),transparent_60%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--arc-accent)_35%,transparent),transparent_60%)]"
           />
-          <div aria-hidden className="rb-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
+          <div aria-hidden className="arc-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
           <SectionFrame tone="dark" />
           <Reveal className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
-            <p className="rb-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
-              <Sparkles className="rb-pulse-soft size-3" aria-hidden />
+            <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+              <Sparkles className="arc-pulse-soft size-3" aria-hidden />
               Two minutes to your first report
             </p>
             <h2
-              className="rb-rise font-heading mx-auto mt-6 max-w-2xl text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
+              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
               style={delayStyle(100)}
             >
               Find out before your competitors do.
             </h2>
             <p
-              className="rb-rise mx-auto mt-4 max-w-lg text-white/55"
+              className="arc-rise mx-auto mt-4 max-w-lg text-white/55"
               style={delayStyle(200)}
             >
               Run a free AI visibility audit. No card needed - a shareable
               report in minutes.
             </p>
             <div
-              className="rb-rise mt-9 flex flex-wrap items-center justify-center gap-3"
+              className="arc-rise mt-9 flex flex-wrap items-center justify-center gap-3"
               style={delayStyle(300)}
             >
               <Button

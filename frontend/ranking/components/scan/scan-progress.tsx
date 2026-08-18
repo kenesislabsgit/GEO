@@ -167,7 +167,7 @@ export function ScanProgress({
             />
           ) : null}
           <div className="min-w-0">
-            <p className="rb-eyebrow">
+            <p className="arc-eyebrow">
               {failed
                 ? "Audit stopped"
                 : queued
@@ -184,7 +184,7 @@ export function ScanProgress({
               ) : stopping ? (
                 "Stopping this audit"
               ) : (
-                <span className="rb-shimmer">
+                <span className="arc-shimmer">
                   Running your AI visibility audit
                 </span>
               )}
@@ -197,7 +197,7 @@ export function ScanProgress({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="rb-tabular font-heading text-4xl font-semibold tracking-tight">
+          <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight">
             {Math.round(progress)}
             <span className="text-xl text-muted-foreground">%</span>
           </p>
@@ -221,7 +221,7 @@ export function ScanProgress({
       {!failed && !queued ? (
         <div className="mt-5 grid items-start gap-4 lg:grid-cols-[1fr_240px]">
           {/* The audit as reasoning steps, with the live feed inside. */}
-          <section className="rb-panel p-5">
+          <section className="arc-panel p-5">
             <ReasoningTimeline
               stages={stages}
               activeIndex={activeIdx}
@@ -234,8 +234,8 @@ export function ScanProgress({
           </section>
 
           {/* Who is being asked. */}
-          <aside className="rb-panel p-5">
-            <p className="rb-eyebrow">Asking</p>
+          <aside className="arc-panel p-5">
+            <p className="arc-eyebrow">Asking</p>
             {providers.length > 0 ? (
               <div className="mt-3 space-y-2.5 text-sm">
                 {providers.map((provider) => (

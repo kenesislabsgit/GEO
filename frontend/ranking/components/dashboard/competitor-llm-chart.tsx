@@ -159,7 +159,7 @@ export function CompetitorLLMChart({ competitors, allProviders, dropped = [] }: 
               <span className="truncate text-sm text-muted-foreground">{c.name}</span>
             </div>
             <span className="ml-3 flex shrink-0 items-center gap-2">
-              <span className="rb-chip text-muted-foreground">absent this audit</span>
+              <span className="arc-chip text-muted-foreground">absent this audit</span>
               <span className="font-mono text-xs text-muted-foreground/70">
                 was {c.previousMentions} mention{c.previousMentions !== 1 ? "s" : ""}
               </span>

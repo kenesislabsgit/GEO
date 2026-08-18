@@ -112,7 +112,7 @@ export function BrandMonitoringForm({
 
   if (!isPaid) {
     return (
-      <div className="rb-panel p-6 text-sm text-muted-foreground">
+      <div className="arc-panel p-6 text-sm text-muted-foreground">
         Scheduled monitoring and alerts are part of the paid plans. Your saved
         report stays available on the free plan.
       </div>
@@ -120,7 +120,7 @@ export function BrandMonitoringForm({
   }
   if (!data) {
     return (
-      <div className="rb-panel flex items-center gap-2 p-6 text-sm text-muted-foreground">
+      <div className="arc-panel flex items-center gap-2 p-6 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Loading settings…
       </div>
     );
@@ -142,7 +142,7 @@ export function BrandMonitoringForm({
 
   return (
     <div className="space-y-4">
-      <section className="rb-panel space-y-5 p-6">
+      <section className="arc-panel space-y-5 p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Scheduled monitoring</p>
@@ -222,7 +222,7 @@ export function BrandMonitoringForm({
         </div>
       </section>
 
-      <section className="rb-panel space-y-4 p-6">
+      <section className="arc-panel space-y-4 p-6">
         <div>
           <p className="text-sm font-medium">Market</p>
           <p className="text-xs text-muted-foreground">
@@ -265,7 +265,7 @@ export function BrandMonitoringForm({
         </div>
       </section>
 
-      <section className="rb-panel space-y-4 p-6">
+      <section className="arc-panel space-y-4 p-6">
         <div>
           <p className="text-sm font-medium">
             Providers ({form.providers.length} of {data.plan.providersPerScan})
@@ -293,7 +293,7 @@ export function BrandMonitoringForm({
         </div>
       </section>
 
-      <section className="rb-panel space-y-4 p-6">
+      <section className="arc-panel space-y-4 p-6">
         <div>
           <p className="text-sm font-medium">Alerts</p>
           <p className="text-xs text-muted-foreground">

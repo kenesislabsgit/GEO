@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth/client";
+import { routes } from "@/lib/routes";
+
+const EMAIL_UPDATED_PARAM = "email";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SessionRow = {
   token: string;
@@ -31,9 +35,20 @@ export function SecuritySettings({
   sessions: SessionRow[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const emailJustUpdated = searchParams.get(EMAIL_UPDATED_PARAM) === "updated";
+
   const [displayName, setDisplayName] = useState(name);
   const [savingName, setSavingName] = useState(false);
   const [nameNote, setNameNote] = useState<string | null>(null);
+
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailNote, setEmailNote] = useState<string | null>(null);
+
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendNote, setResendNote] = useState<string | null>(null);
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -49,6 +64,50 @@ export function SecuritySettings({
     setNameNote(res.error ? "Could not save the name." : "Saved.");
     setSavingName(false);
     router.refresh();
+  }
+
+  async function changeEmail() {
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!EMAIL_RE.test(trimmed)) {
+      setEmailNote("Enter a valid email address.");
+      return;
+    }
+    if (trimmed === email.toLowerCase()) {
+      setEmailNote("That's already your email.");
+      return;
+    }
+    setEmailBusy(true);
+    setEmailNote(null);
+    const res = await authClient.changeEmail({
+      newEmail: trimmed,
+      callbackURL: `${routes.settings}?${EMAIL_UPDATED_PARAM}=updated`,
+    });
+    if (res.error) {
+      setEmailNote(res.error.message || "Could not start the change.");
+    } else if (emailVerified) {
+      setEmailNote(
+        `Confirmation link sent to ${email} - click it to move the account to ${trimmed}.`,
+      );
+    } else {
+      setEmailNote(
+        `Address updated. We sent a verification link to ${trimmed} - click it to confirm.`,
+      );
+      router.refresh();
+    }
+    setEmailBusy(false);
+  }
+
+  async function resendVerification() {
+    setResendBusy(true);
+    setResendNote(null);
+    const res = await authClient.sendVerificationEmail({
+      email,
+      callbackURL: `${routes.verifyEmail}?verified=1`,
+    });
+    setResendNote(
+      res.error ? "Could not send it - try again shortly." : "Sent - check your inbox.",
+    );
+    setResendBusy(false);
   }
 
   async function changePassword() {
@@ -90,19 +149,76 @@ export function SecuritySettings({
   return (
     <>
       {/* ── Profile ── */}
-      <div className="rb-panel">
+      <div className="arc-panel">
         <div className="border-b border-border px-5 py-4">
           <p className="text-sm font-semibold">Account</p>
         </div>
         <div className="space-y-4 px-5 py-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium">Email</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{email}</p>
+          {emailJustUpdated ? (
+            <p className="rounded-lg bg-[color:var(--arc-accent-soft)] px-3 py-2 text-sm text-[color:var(--arc-accent)]">
+              Email confirmed.
+            </p>
+          ) : null}
+          <div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">Email</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="w-fit rounded-full">
+                  {emailVerified ? "Verified" : "Not verified"}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowEmailForm((v) => !v);
+                    setEmailNote(null);
+                  }}
+                >
+                  {showEmailForm ? "Cancel" : "Change"}
+                </Button>
+              </div>
             </div>
-            <Badge variant="secondary" className="w-fit rounded-full">
-              {emailVerified ? "Verified" : "Not verified"}
-            </Badge>
+            {!emailVerified ? (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => void resendVerification()}
+                  disabled={resendBusy}
+                  className="font-medium text-[color:var(--arc-accent)] hover:underline disabled:opacity-60"
+                >
+                  {resendBusy ? "Sending…" : "Resend verification email"}
+                </button>
+                {resendNote ? ` - ${resendNote}` : null}
+              </p>
+            ) : null}
+            {showEmailForm ? (
+              <form
+                className="mt-3 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void changeEmail();
+                }}
+              >
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="new@address.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="max-w-xs"
+                  required
+                />
+                <Button type="submit" variant="outline" disabled={emailBusy || !newEmail}>
+                  {emailBusy ? <Loader2 className="animate-spin" /> : "Send confirmation"}
+                </Button>
+              </form>
+            ) : null}
+            {emailNote ? (
+              <p className="mt-1.5 text-xs text-muted-foreground">{emailNote}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="display-name" className="text-sm font-medium">
@@ -148,7 +264,7 @@ export function SecuritySettings({
 
       {/* ── Password ── */}
       {hasPassword ? (
-        <div className="rb-panel">
+        <div className="arc-panel">
           <div className="border-b border-border px-5 py-4">
             <p className="text-sm font-semibold">Change password</p>
           </div>
@@ -205,7 +321,7 @@ export function SecuritySettings({
           </form>
         </div>
       ) : (
-        <div className="rb-panel px-5 py-4">
+        <div className="arc-panel px-5 py-4">
           <p className="text-sm font-medium">Password</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
             This account signs in with Google only, so there is no password to
@@ -216,7 +332,7 @@ export function SecuritySettings({
       )}
 
       {/* ── Sessions ── */}
-      <div className="rb-panel">
+      <div className="arc-panel">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <p className="text-sm font-semibold">Active sessions</p>
           {sessions.length > 1 ? (

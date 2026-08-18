@@ -43,7 +43,7 @@ export default async function DashboardLayout({
       {setupPending ? (
         <Link
           href={routes.onboarding}
-          className="mb-6 flex items-center justify-between rounded-full border border-transparent bg-[color:var(--rb-accent-soft)] px-5 py-3 text-sm transition-colors hover:border-[color:var(--rb-accent)]/40"
+          className="mb-6 flex items-center justify-between rounded-full border border-transparent bg-[color:var(--arc-accent-soft)] px-5 py-3 text-sm transition-colors hover:border-[color:var(--arc-accent)]/40"
         >
           <span>
             <span className="font-medium">Finish setting up your plan</span>
@@ -51,7 +51,7 @@ export default async function DashboardLayout({
               Competitors, questions and monitoring - a few minutes.
             </span>
           </span>
-          <span className="font-medium text-[color:var(--rb-accent)]">
+          <span className="font-medium text-[color:var(--arc-accent)]">
             Continue setup
           </span>
         </Link>

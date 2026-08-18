@@ -5,7 +5,7 @@ import { METHODOLOGY_VERSION, SCORE_WEIGHTS } from "@/lib/constants";
 export const metadata = {
   title: "Methodology",
   description:
-    "How RankedByAI measures AI visibility: provider sampling, unbiased prompts, scoring weights, and known limitations.",
+    "How Arcanoris measures AI visibility: provider sampling, unbiased prompts, scoring weights, and known limitations.",
   alternates: { canonical: "/methodology" },
 };
 
@@ -66,7 +66,7 @@ export default function MethodologyPage() {
           Methodology
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-          RankedByAI measures whether AI answer engines recommend a brand
+          Arcanoris measures whether AI answer engines recommend a brand
           when buyers ask commercial questions. Every report embeds the
           methodology version, timestamp, models, and sample size used.
         </p>
@@ -82,7 +82,7 @@ export default function MethodologyPage() {
           individual user sees in a consumer chat interface, and we
           label every result accordingly.
         </p>
-        <div className="rb-list mt-6 divide-y divide-border">
+        <div className="arc-list mt-6 divide-y divide-border">
           {providers.map((provider) => (
             <div key={provider.name} className="bg-card p-5">
               <p className="font-medium">{provider.name}</p>
@@ -120,7 +120,7 @@ export default function MethodologyPage() {
           {weights.map((w) => (
             <div
               key={w.name}
-              className="rb-panel p-5"
+              className="arc-panel p-5"
             >
               <div className="flex items-center justify-between">
                 <p className="font-medium">{w.name}</p>

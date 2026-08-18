@@ -1,6 +1,12 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Data handling" };
+export const metadata = {
+  title: "Data handling",
+  description:
+    "What Arcanoris collects from AI provider scans, how public and premium scan data are scoped, and its retention and deletion rules.",
+  alternates: { canonical: routes.dataHandling },
+};
 
 const sections = [
   {
@@ -17,7 +23,7 @@ const sections = [
   },
   {
     title: "Provider relationships",
-    body: "RankedByAI is not affiliated with OpenAI, Google, or Perplexity. Answers are sampled via their APIs and may differ from consumer chat interfaces.",
+    body: "Arcanoris is not affiliated with OpenAI, Google, or Perplexity. Answers are sampled via their APIs and may differ from consumer chat interfaces.",
   },
   {
     title: "Retention & deletion",

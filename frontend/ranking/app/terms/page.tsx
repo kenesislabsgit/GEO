@@ -1,11 +1,17 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
+import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Terms" };
+export const metadata = {
+  title: "Terms",
+  description:
+    "Arcanoris's terms of service: what the AI visibility measurement service covers, why it carries no ranking guarantees, and how billing works.",
+  alternates: { canonical: routes.terms },
+};
 
 const sections = [
   {
     title: "Service",
-    body: "RankedByAI provides directional AI visibility measurement based on official provider API samples. Results may differ from consumer AI interfaces and can vary between runs.",
+    body: "Arcanoris provides directional AI visibility measurement based on official provider API samples. Results may differ from consumer AI interfaces and can vary between runs.",
   },
   {
     title: "No ranking guarantees",

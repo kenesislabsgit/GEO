@@ -18,7 +18,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
   if (verified) {
     return (
       <div className="text-center">
-        <CheckCircle2 className="mx-auto size-8 text-[color:var(--rb-accent)]" aria-hidden />
+        <CheckCircle2 className="mx-auto size-8 text-[color:var(--arc-accent)]" aria-hidden />
         <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
           Email confirmed
         </h1>
@@ -64,7 +64,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
 
   return (
     <div className="text-center">
-      <MailCheck className="mx-auto size-8 text-[color:var(--rb-accent)]" aria-hidden />
+      <MailCheck className="mx-auto size-8 text-[color:var(--arc-accent)]" aria-hidden />
       <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
         Check your inbox
       </h1>

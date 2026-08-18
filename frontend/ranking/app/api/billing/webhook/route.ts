@@ -178,5 +178,5 @@ export async function POST(request: Request) {
 }
 
 function createFallbackId(raw: string): string {
-  return createHmac("sha256", "rankedbyai").update(raw).digest("hex").slice(0, 32);
+  return createHmac("sha256", "arcanoris").update(raw).digest("hex").slice(0, 32);
 }

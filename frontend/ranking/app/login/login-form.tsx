@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { routes } from "@/lib/routes";
+import { resolveReturnTo, routes } from "@/lib/routes";
 import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 
@@ -16,7 +16,14 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const router = useRouter();
   const params = useSearchParams();
   const claim = params.get("claim");
-  const returnTo = params.get("returnTo");
+  // The hero's "audit my site" field arrives as its own `domain` param, not
+  // baked into returnTo (a GET form drops any query string on its own
+  // action) - resolveReturnTo turns that into the same destination
+  // /login's server-side already-signed-in redirect would land on.
+  const returnTo = resolveReturnTo({
+    returnTo: params.get("returnTo"),
+    domain: params.get("domain"),
+  });
   const mode = params.get("mode") === "signup" ? "signup" : "signin";
   const authError = params.get("error");
   const [email, setEmail] = useState("");
@@ -96,7 +103,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       </div>
 
       {claim ? (
-        <div className="mt-4 rounded-lg border border-[color:var(--rb-accent)]/30 bg-[color:var(--rb-accent-soft)] px-3.5 py-2.5 text-sm">
+        <div className="mt-4 rounded-lg border border-[color:var(--arc-accent)]/30 bg-[color:var(--arc-accent-soft)] px-3.5 py-2.5 text-sm">
           You&apos;re claiming the report for{" "}
           <span className="font-medium">{claim}</span>. It will be attached to
           your new account.

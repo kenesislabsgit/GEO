@@ -13,7 +13,7 @@ function salt(): string {
       "IP_HASH_SALT is not set. Generate one (openssl rand -hex 32) and set it.",
     );
   }
-  return "rankedbyai-dev-only";
+  return "arcanoris-dev-only";
 }
 
 export function hashIp(ip: string): string {

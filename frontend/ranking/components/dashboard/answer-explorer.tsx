@@ -68,7 +68,7 @@ function QuestionCard({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rb-panel">
+    <div className="arc-panel">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -88,7 +88,7 @@ function QuestionCard({
                 key={answer.id}
                 className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
                   answer.mentioned
-                    ? "border-[color:var(--rb-green)]/30 bg-[color:var(--rb-green)]/5"
+                    ? "border-[color:var(--arc-green)]/30 bg-[color:var(--arc-green)]/5"
                     : "border-border bg-muted opacity-70"
                 }`}
               >
@@ -100,7 +100,7 @@ function QuestionCard({
                 <span
                   className={
                     answer.mentioned
-                      ? "text-[color:var(--rb-green)]"
+                      ? "text-[color:var(--arc-green)]"
                       : "text-muted-foreground"
                   }
                 >
@@ -149,7 +149,7 @@ function AnswerBlock({
             {answer.assistantName}
           </p>
           <span
-            className={`text-xs ${answer.mentioned ? "text-[color:var(--rb-green)]" : "text-muted-foreground"}`}
+            className={`text-xs ${answer.mentioned ? "text-[color:var(--arc-green)]" : "text-muted-foreground"}`}
           >
             {answer.mentioned
               ? `Mentions ${brandName}${answer.position ? ` at #${answer.position}` : ""}`
@@ -163,7 +163,7 @@ function AnswerBlock({
 
       <div className="space-y-5">
         <div>
-          <p className="rb-eyebrow">Recommended</p>
+          <p className="arc-eyebrow">Recommended</p>
           {answer.recommended.length ? (
             <ol className="mt-2 space-y-1.5">
               {answer.recommended.map((company, index) => {
@@ -192,7 +192,7 @@ function AnswerBlock({
         </div>
 
         <div>
-          <p className="rb-eyebrow">Sources</p>
+          <p className="arc-eyebrow">Sources</p>
           {answer.citations.length ? (
             <div className="mt-2 space-y-1.5">
               {answer.citations.map((citation, index) => (
@@ -201,7 +201,7 @@ function AnswerBlock({
                   href={citation.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-start gap-1.5 text-xs text-[color:var(--rb-accent)] hover:underline"
+                  className="flex items-start gap-1.5 text-xs text-[color:var(--arc-accent)] hover:underline"
                 >
                   <ExternalLink aria-hidden className="mt-0.5 size-3 shrink-0" />
                   <span className="break-all">{citation.label}</span>
@@ -229,7 +229,7 @@ function highlightBrand(text: string, brandName: string) {
     part.toLowerCase() === key ? (
       <mark
         key={index}
-        className="rounded bg-[color:var(--rb-accent-soft)] px-0.5 font-medium text-inherit"
+        className="rounded bg-[color:var(--arc-accent-soft)] px-0.5 font-medium text-inherit"
       >
         {part}
       </mark>

@@ -14,7 +14,7 @@ export default function BrandLoading() {
           <Skeleton className="h-8 w-24" />
         </div>
       </div>
-      <div className="rb-panel flex items-center gap-4 p-5">
+      <div className="arc-panel flex items-center gap-4 p-5">
         <Skeleton className="size-9 rounded-full" />
         <div className="space-y-2">
           <Skeleton className="h-3 w-28" />
@@ -23,7 +23,7 @@ export default function BrandLoading() {
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="rb-panel space-y-3 p-5">
+          <div key={index} className="arc-panel space-y-3 p-5">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-16" />
             <Skeleton className="h-3 w-24" />

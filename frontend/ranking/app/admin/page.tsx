@@ -59,14 +59,14 @@ export default async function AdminPage() {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(([label, value]) => (
-          <div key={label} className="rb-panel p-5">
+          <div key={label} className="arc-panel p-5">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {label}
             </p>
             <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
           </div>
         ))}
-        <div className="rb-panel p-5">
+        <div className="arc-panel p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Provider usage
           </p>
@@ -93,7 +93,7 @@ export default async function AdminPage() {
         {queueCards.map(([label, value, alarm]) => (
           <div
             key={label}
-            className={`rb-panel p-4 ${alarm ? "border-destructive" : ""}`}
+            className={`arc-panel p-4 ${alarm ? "border-destructive" : ""}`}
           >
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               {label}
@@ -106,7 +106,7 @@ export default async function AdminPage() {
       <AdminControls />
 
       <h2 className="mt-10 font-semibold tracking-tight">Recent scans</h2>
-      <div className="rb-panel mt-3 overflow-x-auto">
+      <div className="arc-panel mt-3 overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
@@ -145,7 +145,7 @@ export default async function AdminPage() {
       {stats.webhookFailures.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">None recorded.</p>
       ) : (
-        <div className="rb-panel mt-3 divide-y divide-border/70">
+        <div className="arc-panel mt-3 divide-y divide-border/70">
           {stats.webhookFailures.map((event) => (
             <div key={event.event_id} className="px-4 py-3 text-sm">
               <span className="font-mono text-xs">{event.event_type}</span>
@@ -159,7 +159,7 @@ export default async function AdminPage() {
       {stats.recentAdminActions.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">No actions yet.</p>
       ) : (
-        <div className="rb-panel mt-3 divide-y divide-border/70">
+        <div className="arc-panel mt-3 divide-y divide-border/70">
           {stats.recentAdminActions.map((entry, index) => (
             <div key={index} className="flex justify-between px-4 py-2.5 text-sm">
               <span>

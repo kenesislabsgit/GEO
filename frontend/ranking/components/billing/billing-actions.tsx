@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 
 export function BillingActions({
   highlightedPlan,
@@ -65,8 +66,8 @@ export function BillingActions({
         <h2 className="text-lg font-semibold tracking-tight">
           {hasSubscription ? "Change plan" : "Upgrade"}
         </h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {(["founder", "growth"] as PlanId[]).map((planId) => {
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {(["founder"] as PlanId[]).map((planId) => {
             const plan = PLAN_CONFIG[planId];
             const highlight = highlightedPlan === planId;
             return (
@@ -151,7 +152,7 @@ export function BillingActions({
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <Button asChild size="sm" variant="outline">
-                <a href="mailto:kenesislabs@gmail.com?subject=RankedByAI%20Agency%20plan">
+                <a href={`mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`}>
                   Contact us
                 </a>
               </Button>

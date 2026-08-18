@@ -41,9 +41,9 @@ import {
  */
 
 const SCAN_STATUS_COLOR: Record<string, string> = {
-  completed: "text-[color:var(--rb-green)]",
-  partial: "text-[color:var(--rb-amber)]",
-  running: "text-[color:var(--rb-accent)]",
+  completed: "text-[color:var(--arc-green)]",
+  partial: "text-[color:var(--arc-amber)]",
+  running: "text-[color:var(--arc-accent)]",
   queued: "text-muted-foreground",
   cancel_requested: "text-muted-foreground",
   timed_out: "text-destructive",
@@ -77,7 +77,7 @@ function Delta({
   return (
     <p className="mt-3 text-[13px] text-muted-foreground">
       <span
-        className={good ? "text-[color:var(--rb-green)]" : "text-destructive"}
+        className={good ? "text-[color:var(--arc-green)]" : "text-destructive"}
       >
         {value > 0 ? "+" : ""}
         {value}
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
             className={
               usagePct >= 90
                 ? "text-destructive"
-                : "text-[color:var(--rb-green)]"
+                : "text-[color:var(--arc-green)]"
             }
           >
             {usagePct}%
@@ -278,14 +278,14 @@ export default async function DashboardPage() {
           Dashboard
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rb-chip text-muted-foreground">
+          <span className="arc-chip text-muted-foreground">
             <Layers className="size-3.5" />
             Plan:{" "}
             <span className="font-medium text-foreground">
               {entitlements.planName}
             </span>
           </span>
-          <span className="rb-chip text-muted-foreground">
+          <span className="arc-chip text-muted-foreground">
             <Calendar className="size-3.5" />
             Checks:{" "}
             <span className="font-medium text-foreground">
@@ -303,17 +303,17 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── KPI band: hairline-divided cells with icon bubbles ─────────── */}
-      <div className="rb-panel grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+      <div className="arc-panel grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {kpis.map(({ icon: Icon, label, value, delta, href }) => {
           const body = (
             <>
               <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-full bg-[color:var(--rb-accent)] text-white">
+                <span className="flex size-10 items-center justify-center rounded-full bg-[color:var(--arc-accent)] text-white">
                   <Icon className="size-4.5" />
                 </span>
                 <div>
                   <p className="text-[13px] text-muted-foreground">{label}</p>
-                  <p className="rb-tabular text-2xl font-semibold tracking-tight">
+                  <p className="arc-tabular text-2xl font-semibold tracking-tight">
                     {value}
                   </p>
                 </div>
@@ -338,14 +338,14 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Main chart: answers per audit, stacked by provider ─────────── */}
-      <section className="rb-panel">
+      <section className="arc-panel">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
           <h2 className="text-[15px] font-semibold tracking-tight">
             Provider answers
           </h2>
           <div className="flex flex-wrap items-center gap-4">
             <ProviderAnswersLegend />
-            <span className="rb-chip text-muted-foreground">
+            <span className="arc-chip text-muted-foreground">
               <Calendar className="size-3.5" />
               Range:{" "}
               <span className="font-medium text-foreground">
@@ -361,13 +361,13 @@ export default async function DashboardPage() {
 
       {/* ── Two trend panels ───────────────────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight">
               Visibility score
             </h2>
             {scoreAvg !== null ? (
-              <span className="rb-chip text-muted-foreground">
+              <span className="arc-chip text-muted-foreground">
                 Avg{" "}
                 <span className="font-medium text-foreground">{scoreAvg}</span>
               </span>
@@ -377,13 +377,13 @@ export default async function DashboardPage() {
             <TrendChart data={scoreTrend} label="Score" average={scoreAvg} />
           </div>
         </section>
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight">
               Mention rate
             </h2>
             {mentionAvg !== null ? (
-              <span className="rb-chip text-muted-foreground">
+              <span className="arc-chip text-muted-foreground">
                 Avg{" "}
                 <span className="font-medium text-foreground">
                   {mentionAvg}%
@@ -404,7 +404,7 @@ export default async function DashboardPage() {
 
       {/* ── Websites and recent audits ─────────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight">
               Websites
@@ -453,7 +453,7 @@ export default async function DashboardPage() {
                       <span
                         className={`text-[13px] ${
                           delta > 0
-                            ? "text-[color:var(--rb-green)]"
+                            ? "text-[color:var(--arc-green)]"
                             : "text-destructive"
                         }`}
                       >
@@ -461,7 +461,7 @@ export default async function DashboardPage() {
                         {delta}
                       </span>
                     ) : null}
-                    <span className="rb-tabular text-xl font-semibold tracking-tight">
+                    <span className="arc-tabular text-xl font-semibold tracking-tight">
                       {current ?? " - "}
                     </span>
                   </div>
@@ -471,7 +471,7 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <section className="rb-panel">
+        <section className="arc-panel">
           <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight">
               Recent audits
@@ -507,7 +507,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <span
-                    className={`rb-chip capitalize ${SCAN_STATUS_COLOR[scan.status] ?? "text-muted-foreground"}`}
+                    className={`arc-chip capitalize ${SCAN_STATUS_COLOR[scan.status] ?? "text-muted-foreground"}`}
                   >
                     {scan.status.replaceAll("_", " ")}
                   </span>

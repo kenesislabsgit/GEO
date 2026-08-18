@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import { routes } from "@/lib/routes";
 
 type BillingStatus = {
@@ -88,7 +89,7 @@ export function ConfirmSubscription({
 
   return (
     <div className="mx-auto max-w-md">
-      <div className="rb-panel p-8 text-center">
+      <div className="arc-panel p-8 text-center">
         {state === "pending" ? (
           <>
             <Loader2 className="mx-auto size-8 animate-spin text-muted-foreground" aria-hidden />
@@ -105,9 +106,10 @@ export function ConfirmSubscription({
 
         {state === "confirmed" && confirmed ? (
           <>
-            <CheckCircle2 className="mx-auto size-8 text-[color:var(--rb-accent)]" aria-hidden />
+            <CheckCircle2 className="mx-auto size-8 text-[color:var(--arc-accent)]" aria-hidden />
             <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
-              You&apos;re on the {confirmed.plan === "founder" ? "Pro" : confirmed.plan === "growth" ? "Pro+" : "Agency"} plan
+              You&apos;re on the{" "}
+              {PLAN_CONFIG[confirmed.plan as PlanId]?.name ?? confirmed.plan} plan
             </h1>
             {confirmed.currentPeriodEnd ? (
               <p className="mt-2 text-sm text-muted-foreground">

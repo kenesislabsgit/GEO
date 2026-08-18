@@ -13,7 +13,7 @@ export function ProReportLock({
   brandId: string;
 }) {
   return (
-    <div className="rb-empty px-6 py-12 text-center">
+    <div className="arc-empty px-6 py-12 text-center">
       <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-card text-muted-foreground shadow-sm">
         <Lock className="size-4" />
       </span>

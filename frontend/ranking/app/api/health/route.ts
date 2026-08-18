@@ -3,8 +3,9 @@ import { one } from "@/lib/db/pg";
 
 /**
  * Web liveness/readiness. Reports whether the database answers and whether
- * a worker has been seen recently - deployment probes and the admin page
- * both read this.
+ * a worker has been seen recently - deployment probes read this. The admin
+ * page shows the same worker-heartbeat signal, but via a direct DB query,
+ * not this endpoint.
  */
 export async function GET() {
   try {

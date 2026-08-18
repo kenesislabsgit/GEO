@@ -21,7 +21,7 @@ export function ExportDeleteForms() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "rankedbyai-export.json";
+      a.download = "arcanoris-export.json";
       a.click();
       URL.revokeObjectURL(url);
       setMessage("Export downloaded.");
@@ -57,7 +57,7 @@ export function ExportDeleteForms() {
   }
 
   return (
-    <div className="rb-panel">
+    <div className="arc-panel">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <p className="text-sm font-medium">Export your data</p>
