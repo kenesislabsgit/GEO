@@ -64,13 +64,28 @@ COMPANY_SUFFIX_WORDS = {
 }
 
 
+def grouped_company_name(
+    written_name: Any,
+    company_aliases: dict[str, str] | None,
+) -> str:
+    """The name this spelling was grouped under, for matching against the rest
+    of the audit. Falls back to the spelling itself when it heads its own
+    group or when no merge ran."""
+    written = str(written_name or "").strip()
+    return (company_aliases or {}).get(normalize_company_name(written)) or written
+
+
 def aggregate_recommendations(
     raw_results: list[dict[str, Any]],
     *,
     top_n: int = 5,
     user_company: str | None = None,
     user_aliases: list[str] | None = None,
+    company_aliases: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    """company_aliases maps a normalized spelling to its canonical display name
+    (from company_merge). It changes only how mentions are grouped when counted;
+    prompt outcomes and "recommended_instead" keep each answer's own words."""
     companies: dict[str, dict[str, Any]] = {}
     source_counts: dict[str, int] = defaultdict(int)
     category_counts: dict[str, int] = defaultdict(int)
@@ -92,7 +107,9 @@ def aggregate_recommendations(
         assistant_counts[assistant] += 1
         model_counts[model] += 1
         prompt_recommendations = result.get("recommended_companies", [])
-        user_match = find_user_match(prompt_recommendations, user_keys)
+        user_match = find_user_match(
+            prompt_recommendations, user_keys, company_aliases
+        )
         if user_match:
             user_mentions += 1
             user_rank_total += int(user_match.get("rank", 0) or 0)
@@ -124,6 +141,15 @@ def aggregate_recommendations(
                     "winners": [
                         {
                             "company_name": item.get("company_name", "Unknown"),
+                            # Two names on purpose. Anything shown to a reader
+                            # uses the assistant's own words; anything compared
+                            # with the rest of the audit uses the group name,
+                            # so both sides of a comparison speak one language.
+                            # Carrying it here means no later step has to
+                            # remember to translate - the record arrives ready.
+                            "grouped_name": grouped_company_name(
+                                item.get("company_name"), company_aliases
+                            ),
                             "rank": item.get("rank"),
                             "reason": str(item.get("reasoning", "")).strip(),
                         }
@@ -148,13 +174,22 @@ def aggregate_recommendations(
         )
         for recommendation in prompt_recommendations:
             written_name = str(recommendation.get("company_name", "")).strip()
-            name = canonical_company_key(written_name)
-            if not name or is_user_company(written_name, user_keys):
+            canonical = (company_aliases or {}).get(
+                normalize_company_name(written_name)
+            )
+            name = (
+                normalize_company_name(canonical)
+                if canonical
+                else canonical_company_key(written_name)
+            )
+            if not name or is_user_company(
+                written_name, user_keys, company_aliases
+            ):
                 continue
 
             if name not in companies:
                 companies[name] = {
-                    "company_name": written_name or name,
+                    "company_name": canonical or written_name or name,
                     "name_variants": defaultdict(int),
                     "mention_frequency": 0,
                     "rank_total": 0,
@@ -246,6 +281,14 @@ def aggregate_recommendations(
             "user_company": user_company or "Unknown",
             "aliases_checked": sorted(user_keys),
             "responses_analyzed": len(raw_results),
+            # Answers and questions are different numbers, and reports that
+            # carried only the first said "recommended in 5 of 105 buyer
+            # questions" when ten questions were asked to six assistants.
+            "questions_asked": len({
+                str(result.get("prompt", "")).strip()
+                for result in raw_results
+                if str(result.get("prompt", "")).strip()
+            }),
             "user_mentions": user_mentions,
             "user_mention_rate": round(user_mentions / len(raw_results), 4)
             if raw_results
@@ -265,11 +308,17 @@ def aggregate_recommendations(
         },
         "competitors": competitor_stats,
         "top_competitors": competitor_stats[:top_n],
+        # The map travels with the numbers it produced. Every later step
+        # already receives this aggregate, so none of them needs new wiring to
+        # translate a spelling - and a step that forgets to is a step whose
+        # comparison quietly stops matching.
+        "company_name_groups": dict(company_aliases or {}),
         "investigation_priority": rank_for_investigation(
             user_prompt_losses,
             user_prompt_wins,
             raw_results,
             user_keys,
+            company_aliases,
         ),
         "source_analysis": build_global_source_analysis(competitor_stats),
         "top_sources": sorted(
@@ -298,6 +347,7 @@ def rank_for_investigation(
     user_prompt_wins: list[dict[str, Any]],
     raw_results: list[dict[str, Any]],
     user_keys: set[str],
+    company_aliases: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Whose website is worth reading to explain why this company lost.
 
@@ -334,8 +384,13 @@ def rank_for_investigation(
 
         for recommendation in result.get("recommended_companies", []):
             name = recommendation.get("company_name", "")
-            key = canonical_company_key(name)
-            if not key or is_user_company(name, user_keys):
+            grouped = grouped_company_name(name, company_aliases)
+            key = (
+                normalize_company_name(grouped)
+                if company_aliases
+                else canonical_company_key(grouped)
+            )
+            if not key or is_user_company(name, user_keys, company_aliases):
                 continue
             rank = recommendation.get("rank")
             if not was_lost:
@@ -432,18 +487,34 @@ def choose_display_name(variants: dict[str, int]) -> str:
     )[0][0]
 
 
-def is_user_company(name: str, user_keys: set[str]) -> bool:
-    """The audited company, including its own sub-products and name variants.
-    "Stripe Connect" is Stripe, not a competitor, and must never be listed as
-    one; neither is "Kenesis" when the audited company is "Kenesis Labs"."""
+def is_user_company(
+    name: str,
+    user_keys: set[str],
+    company_aliases: dict[str, str] | None = None,
+) -> bool:
+    """The one question every step must answer the same way: is this name the
+    audited company?
+
+    It used to be answered twice. The counting accepted a name that merely
+    started with the company name, while the export accepted only an exact
+    match, so one spelling could be the customer in the numbers and a stranger
+    in the answers shown beside them. Both now call this.
+
+    The merge decides first: it has every name, the reasons and a web search,
+    and it puts the customer's own spellings under the customer's name. The
+    fallback below only matters when the merge could not run.
+    """
     normalized = normalize_company_name(name)
     if not normalized:
         return False
-    canonical = canonical_company_key(name)
+    grouped = (company_aliases or {}).get(normalized)
+    if grouped:
+        normalized = normalize_company_name(grouped)
+    fallback = canonical_company_key(normalized)
     for key in user_keys:
         if normalized == key or normalized.startswith(f"{key} "):
             return True
-        if canonical and canonical == canonical_company_key(key):
+        if fallback and fallback == canonical_company_key(key):
             return True
     return False
 
@@ -463,12 +534,13 @@ def build_user_keys(
 def find_user_match(
     recommendations: list[dict[str, Any]],
     user_keys: set[str],
+    company_aliases: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     if not user_keys:
         return None
     for item in recommendations:
         # A recommendation of one of the company's own products counts as the
         # company being recommended.
-        if is_user_company(item.get("company_name", ""), user_keys):
+        if is_user_company(item.get("company_name", ""), user_keys, company_aliases):
             return item
     return None

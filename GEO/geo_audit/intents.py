@@ -466,7 +466,11 @@ def build_customer_intent_review_payload(
     )
 
 
-QUESTIONS_PER_BATCH = 10
+# Five, not ten, so a ten-question audit writes as two calls side by side
+# rather than one long one. Nothing in a batch depends on anything in another -
+# each gets its own slice of buyer situations - so the only thing splitting
+# costs is a second call at the same total token spend.
+QUESTIONS_PER_BATCH = 5
 
 
 def question_batches(

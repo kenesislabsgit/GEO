@@ -220,7 +220,44 @@ def call_chat_completion(payload: dict[str, Any]) -> str:
     except URLError as exc:
         raise RuntimeError(f"LLM request failed: {exc}") from exc
 
-    return body["choices"][0]["message"]["content"]
+    return call_chat_message(payload).get("content") or ""
+
+
+def call_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
+    """The whole assistant message, not just its text.
+
+    A model that has been offered tools answers with tool_calls and no content.
+    Callers that run a tool loop need that message back intact so they can
+    append it to the conversation alongside the tool results.
+    """
+    load_dotenv(override=True)
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise LLMNotConfigured(
+            "Set LLM_API_KEY or OPENAI_API_KEY to run LLM generation."
+        )
+
+    api_base = os.environ.get("LLM_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    request = Request(
+        f"{api_base}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=120) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"LLM request failed: {exc.code} {detail}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"LLM request failed: {exc}") from exc
+
+    return body["choices"][0]["message"]
 
 
 def build_openai_response_payload(

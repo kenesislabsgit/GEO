@@ -18,7 +18,9 @@ from geo_audit.export import (
 from geo_audit.audit_recommendations import (
     build_audit_recommendations_payload,
     build_free_preview_recommendations,
+    add_missing_pages_to_the_catalog,
     build_verified_evidence_catalog,
+    compact_competitor_evidence,
     canonical_url,
     readable_evidence_row,
     user_page_excerpts,
@@ -37,7 +39,8 @@ from geo_audit.cli import (
     merge_user_snapshots,
     website_crawl_failure_message,
 )
-from geo_audit.crawler import ensure_url, normalize_url
+from geo_audit.competitor_evidence import replacements_for_empty_competitors
+from geo_audit.crawler import same_page_key, ensure_url, normalize_url
 from geo_audit.firecrawl import (
     FirecrawlClient,
     FirecrawlError,
@@ -55,10 +58,12 @@ from geo_audit.web_presence import (
     build_presence_entities,
     check_cited_extract,
     confirm_same_company,
+    gate_entity_mentions,
     mention_windows,
     verify_search_result,
 )
 from geo_audit.evidence import build_website_evidence, readable_excerpt
+from geo_audit.aggregation import build_user_keys  # noqa: F401
 from geo_audit.aggregation import aggregate_recommendations
 from geo_audit.intents import (
     MAX_QUESTION_WORDS,
@@ -70,7 +75,19 @@ from geo_audit.intents import (
     question_batches,
     sanitize_prompt_records,
 )
+from geo_audit.report_context import (
+    anonymous_assistant_labels,
+    build_company_blocks,
+    build_headline_numbers,
+    build_page_index,
+    build_question_rows,
+    open_page,
+    open_question,
+    strip_assistant_names,
+    assistant_and_model_names,
+)
 from geo_audit.profile import (
+    describe_site_pages,
     BOILERPLATE_TEXT_BUDGET,
     HOME_TEXT_BUDGET,
     PAGE_TEXT_BUDGET,
@@ -390,6 +407,86 @@ class PipelineChangeTests(unittest.TestCase):
             ]
         }
         self.assertFalse(should_enrich_user_snapshot(snapshot))
+
+    def test_a_page_inventory_keeps_only_pages_we_actually_read(self) -> None:
+        # This replaces looking for the word "pricing" in a link: a site whose
+        # prices live at "how much it costs" was reported as publishing none.
+        # No quote is asked for - we crawled these pages, so whose they are was
+        # never in doubt. The address comes from the crawl, never the model.
+        snapshot = {
+            "pages": [
+                {
+                    "url": "https://example.com/how-much",
+                    "title": "How much it costs",
+                    "main_text": "Three plans start at 12 dollars a month.",
+                },
+                {"url": "https://example.com/login", "title": "Sign in"},
+            ]
+        }
+        profile = normalize_company_profile(
+            {
+                "company_name": "Example",
+                "site_pages": [
+                    {
+                        "page_id": "page-001",
+                        "what_it_is_for": "lists three plans with monthly prices",
+                    },
+                    {"page_id": "page-002", "what_it_is_for": ""},
+                    {
+                        "page_id": "page-404",
+                        "what_it_is_for": "a page that was never crawled",
+                    },
+                ],
+            },
+            snapshot,
+        )
+        self.assertEqual(
+            profile["site_pages"],
+            [
+                {
+                    "page_id": "page-001",
+                    "url": "https://example.com/how-much",
+                    "what_it_is_for": "lists three plans with monthly prices",
+                }
+            ],
+        )
+
+    def test_a_competitor_page_inventory_is_checked_the_same_way(self) -> None:
+        snapshot = {
+            "pages": [
+                {
+                    "url": "https://rival.com/plans",
+                    "title": "Plans",
+                    "main_text": "Team plan is 20 dollars per seat each month.",
+                }
+            ]
+        }
+        reply = json.dumps(
+            {
+                "site_pages": [
+                    {
+                        "page_id": "page-001",
+                        "what_it_is_for": "publishes per-seat pricing",
+                    }
+                ]
+            }
+        )
+        with patch("geo_audit.profile.call_chat_completion", lambda payload: reply):
+            rows = describe_site_pages(snapshot)
+        self.assertEqual(rows[0]["url"], "https://rival.com/plans")
+        self.assertEqual(rows[0]["what_it_is_for"], "publishes per-seat pricing")
+
+    def test_a_failed_inventory_call_does_not_stop_the_audit(self) -> None:
+        # An empty list has to mean "not read", never "this rival publishes
+        # nothing", so the audit falls back rather than inventing a gap.
+        def boom(payload):
+            raise RuntimeError("model down")
+
+        with patch("geo_audit.profile.call_chat_completion", boom):
+            rows = describe_site_pages(
+                {"pages": [{"url": "https://rival.com", "main_text": "x"}]}
+            )
+        self.assertEqual(rows, [])
 
     def test_profile_removes_unverifiable_persona_references(self) -> None:
         profile = normalize_company_profile(
@@ -2489,25 +2586,26 @@ class PipelineChangeTests(unittest.TestCase):
 
     def test_a_large_question_set_is_written_in_parallel_batches(self) -> None:
         # Twenty questions in one pass took 98s, the second largest block in a
-        # Pro run, and nothing in it depended on anything else in it.
+        # Pro run, and nothing in it depended on anything else in it. Ten in
+        # one pass took 40s of an 83s stage, so the split starts at five.
         band = {"buyer_situations": [{"role": f"r{i}"} for i in range(6)]}
         self.assertEqual(len(question_batches(5, band)), 1)
-        self.assertEqual(len(question_batches(10, band)), 1)
+        self.assertEqual([count for count, _ in question_batches(10, band)], [5, 5])
 
         batches = question_batches(20, band)
-        self.assertEqual([count for count, _ in batches], [10, 10])
+        self.assertEqual([count for count, _ in batches], [5, 5, 5, 5])
         # Each batch writes for different people rather than racing to cover
-        # the same ones, so the two halves do not collide.
-        first, second = (
+        # the same ones, so the halves do not collide.
+        roles = [
             [row["role"] for row in share["buyer_situations"]]
             for _count, share in batches
-        )
-        self.assertEqual(first, ["r0", "r2", "r4"])
-        self.assertEqual(second, ["r1", "r3", "r5"])
+        ]
+        self.assertEqual(roles[0], ["r0", "r4"])
+        self.assertEqual(roles[1], ["r1", "r5"])
 
     def test_batches_still_work_when_the_band_has_no_situations(self) -> None:
         batches = question_batches(20, {})
-        self.assertEqual([count for count, _ in batches], [10, 10])
+        self.assertEqual([count for count, _ in batches], [5, 5, 5, 5])
 
     def test_the_site_the_ai_cited_beats_a_name_search(self) -> None:
         # Searching the web for "Triya" returned a doctor's practice, which
@@ -2553,7 +2651,7 @@ class PipelineChangeTests(unittest.TestCase):
         # rank is read off this list.
         names = ["A", "B", "C", "D", "E"]
 
-        def slow_crawl(url, max_pages=8):
+        def slow_crawl(url, max_pages=8, **_bounds):
             time.sleep(0.2)
             return {
                 "pages": [{"url": url, "title": "t", "main_text": "x" * 900}],
@@ -2572,6 +2670,130 @@ class PipelineChangeTests(unittest.TestCase):
             [row["company_name"] for row in evidence["competitors"]], names
         )
         self.assertLess(elapsed, 0.6, "competitor sites were read one at a time")
+
+    def test_a_slow_site_stops_at_its_time_budget(self) -> None:
+        # Four real competitor sites: two answered in nine seconds, one took
+        # sixty-eight. Every site is read at once, so the step waits for the
+        # worst of them.
+        import geo_audit.crawler as crawler
+
+        counter = {"n": 0}
+
+        def crawl_slowly(url):
+            time.sleep(0.05)
+            counter["n"] += 1
+            page = counter["n"]
+            html = (
+                "<html><body><p>text</p>"
+                f'<a href="https://slow.test/page{page}a">a</a>'
+                f'<a href="https://slow.test/page{page}b">b</a>'
+                "</body></html>"
+            )
+            return (html, 200, f"https://slow.test/page{page}")
+
+        with patch.object(crawler, "fetch_html", side_effect=crawl_slowly), patch.object(
+            crawler, "fetch_sitemap_urls", return_value=[]
+        ):
+            started = time.time()
+            snapshot = crawler.crawl_website(
+                "https://slow.test", max_pages=200, time_budget_seconds=0.3
+            )
+        self.assertLess(time.time() - started, 1.0)
+        self.assertLess(len(snapshot["pages"]), 200)
+        self.assertIn(
+            "time budget reached",
+            [row.get("error") for row in snapshot["failed_pages"]],
+        )
+
+    def test_a_site_of_dead_links_is_abandoned(self) -> None:
+        # One site spent forty-four seconds on nineteen links that did not
+        # exist before it found its eight pages.
+        import geo_audit.crawler as crawler
+        from urllib.error import URLError
+
+        attempts = []
+
+        def always_fail(url):
+            attempts.append(url)
+            raise URLError("gone")
+
+        with patch.object(crawler, "fetch_html", side_effect=always_fail), patch.object(
+            crawler, "fetch_sitemap_urls", return_value=[]
+        ):
+            snapshot = crawler.crawl_website(
+                "https://broken.test", max_pages=8, max_failures=3
+            )
+        self.assertEqual(snapshot["pages"], [])
+        self.assertLessEqual(len(attempts), 4)
+
+    def test_the_same_page_is_not_fetched_twice(self) -> None:
+        # A third of one competitor's page budget went on ":443" and
+        # tracking-parameter copies of pages already read.
+        self.assertEqual(
+            same_page_key("https://acuity.com/"),
+            same_page_key("https://acuity.com:443/"),
+        )
+        self.assertEqual(
+            same_page_key("https://acuity.com/about"),
+            same_page_key("https://acuity.com/about?nav-ref=navbar&dropdown=1"),
+        )
+        self.assertNotEqual(
+            same_page_key("https://acuity.com/blog?page=2"),
+            same_page_key("https://acuity.com/blog?page=3"),
+        )
+
+    def test_a_competitor_with_no_pages_is_replaced(self) -> None:
+        # A competitor whose website was never found reads no pages, so it can
+        # never be cited - while still sitting in the counts as though it had
+        # been looked at.
+        patterns = {
+            "top_competitors": [
+                {"company_name": "Found"},
+                {"company_name": "Missing"},
+                {"company_name": "NextInLine"},
+            ],
+            "investigation_priority": [{"company_name": "NextInLine"}],
+        }
+        picked = replacements_for_empty_competitors(
+            [
+                {"company_name": "Found", "website_snapshot": {"pages": [{"url": "u"}]}},
+                {"company_name": "Missing", "website_snapshot": {"pages": []}},
+            ],
+            patterns,
+            {"found", "missing"},
+        )
+        self.assertEqual([row["company_name"] for row in picked], ["NextInLine"])
+
+    def test_the_replacement_is_a_company_that_beat_the_audited_one(self) -> None:
+        # The most-mentioned rival may have won nothing. The report needs to
+        # point at whoever took the questions the audited company was missing
+        # from, so those come first when a slot has to be refilled.
+        patterns = {
+            "top_competitors": [
+                {"company_name": "Loud"},
+                {"company_name": "Gone"},
+                {"company_name": "AlsoLoud"},
+                {"company_name": "BeatYou"},
+            ],
+            "investigation_priority": [{"company_name": "BeatYou"}],
+        }
+        picked = replacements_for_empty_competitors(
+            [
+                {"company_name": "Loud", "website_snapshot": {"pages": [{"url": "u"}]}},
+                {"company_name": "Gone", "website_snapshot": {"pages": []}},
+            ],
+            patterns,
+            {"loud", "gone"},
+        )
+        self.assertEqual([row["company_name"] for row in picked], ["BeatYou"])
+
+    def test_nothing_is_replaced_when_every_site_was_read(self) -> None:
+        picked = replacements_for_empty_competitors(
+            [{"company_name": "Found", "website_snapshot": {"pages": [{"url": "u"}]}}],
+            {"top_competitors": [{"company_name": "Found"}, {"company_name": "Spare"}]},
+            {"found"},
+        )
+        self.assertEqual(picked, [])
 
     def test_pages_the_ai_cited_are_read_before_anything_else(self) -> None:
         # Its own answer to "why this company" beats any keyword list we
@@ -2618,20 +2840,40 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(user_page_excerpts(None), [])
         self.assertEqual(user_page_excerpts({"pages": "nonsense"}), [])
 
-    def test_the_payload_carries_the_audited_sites_own_words(self) -> None:
+    def test_the_payload_lists_pages_and_the_tool_carries_their_words(self) -> None:
+        # The page text no longer travels in the payload. Choosing which seven
+        # hundred characters mattered, before knowing the argument being made,
+        # was always a guess; the writer opens what it needs instead.
+        snapshot = {
+            "pages": [{"url": "https://kenesis.ai/", "main_text": "On-premise AI"}]
+        }
+        profile = {
+            "company_name": "Kenesis",
+            "site_pages": [
+                {
+                    "url": "https://kenesis.ai/",
+                    "what_it_is_for": "explains on-premise deployment",
+                }
+            ],
+        }
+        pages, blocks = build_company_blocks(
+            profile, {"competitors": []}, {}, [], snapshot
+        )
         payload = build_audit_recommendations_payload(
-            {"company_name": "Kenesis"},
+            profile,
             {"domain": "kenesis.ai"},
             {},
             {"competitors": []},
             {},
-            user_snapshot={
-                "pages": [
-                    {"url": "https://kenesis.ai/", "main_text": "On-premise AI"}
-                ]
-            },
+            user_snapshot=snapshot,
+            company_blocks=blocks,
         )
-        self.assertIn("On-premise AI", payload["messages"][-1]["content"])
+        sent = payload["messages"][-1]["content"]
+        self.assertNotIn("On-premise AI", sent)
+        self.assertIn("https://kenesis.ai/", sent)
+        self.assertIn("p-001", sent)
+        self.assertEqual(open_page("p-001", pages)["text"], "On-premise AI")
+        self.assertIn("error", open_page("p-999", pages))
 
     def test_every_page_we_read_can_be_cited(self) -> None:
         # The catalog used to accept only pages a keyword list had bucketed,
@@ -2717,19 +2959,24 @@ class PipelineChangeTests(unittest.TestCase):
                 }
             ]
         }
+        patterns = {"top_competitors": [{"company_name": "Triya"}]}
+        pages, blocks = build_company_blocks(
+            PROFILE, competitor_evidence, patterns, [], None
+        )
         payload = build_audit_recommendations_payload(
             PROFILE,
             {},
-            {"top_competitors": []},
+            patterns,
             competitor_evidence,
             {},
+            company_blocks=blocks,
         )
         self.assertEqual(payload["response_format"]["type"], "json_schema")
         prompt_data = json.loads(payload["messages"][1]["content"])
-        self.assertEqual(
-            prompt_data["evidence_catalog"][0]["url"],
-            "https://www.triya.ai/faq",
-        )
+        listed = prompt_data["each_company"]["Triya"]["pages_on_their_own_website"]
+        faq = next(row for row in listed if row["url"] == "https://www.triya.ai/faq")
+        self.assertIn(faq["page_id"], pages)
+        self.assertNotIn("evidence_catalog", prompt_data)
 
     def test_firecrawl_enhances_weak_snapshot_with_priority_page(self) -> None:
         client = Mock()
@@ -2764,7 +3011,12 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(enhanced["pages"][0]["fetch_provider"], "firecrawl")
         self.assertEqual(enhanced["pages"][0]["url"], "https://acme.test/faq")
 
-    def test_firecrawl_final_verification_rejects_wrong_company_page(self) -> None:
+    def test_the_final_reread_improves_the_extract_and_keeps_the_citation(self) -> None:
+        # The re-read used to decide whether a page proved a point by hunting
+        # for words - a pricing page headed "how much it costs" failed, and any
+        # page carrying the word passed. Whether a page belongs was already
+        # settled when it entered the list, and the writer chose it from pages
+        # it could read, so the re-read now only fetches a better extract.
         client = Mock()
         client.can_request.return_value = True
         client.scrape.return_value = {
@@ -2797,11 +3049,11 @@ class PipelineChangeTests(unittest.TestCase):
         verified = verify_selected_evidence_with_firecrawl(
             recommendations, client
         )
-        self.assertEqual(verified[0]["supporting_evidence"], [])
         self.assertEqual(
-            verified[0]["evidence_validation"]["rejected_refs"][0]["reason"],
-            "firecrawl_content_mismatch",
+            [row["evidence_id"] for row in verified[0]["supporting_evidence"]],
+            ["ev-001"],
         )
+        self.assertEqual(verified[0]["evidence_validation"]["rejected_refs"], [])
 
     def test_firecrawl_page_conversion_preserves_evidence_content(self) -> None:
         page = firecrawl_document_to_page(
@@ -3118,6 +3370,410 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertIsNone(host_from_value(None))
 
 
+def provider_answer(question, assistant, model, names, positions=None):
+    positions = positions or list(range(1, len(names) + 1))
+    return {
+        "prompt": question,
+        "prompt_category": "voice dictation",
+        "assistant": assistant,
+        "model": model,
+        "recommended_companies": [
+            {
+                "company_name": name,
+                "rank": position,
+                "reasoning": f"{assistant} liked {name} at {position}",
+            }
+            for name, position in zip(names, positions)
+        ],
+    }
+
+
+class ReportContextTests(unittest.TestCase):
+    """The writer used to get ten of a hundred lost questions and the first
+    seven hundred characters of three pages. Both slices were chosen without
+    knowing what it would need."""
+
+    ANSWERS = [
+        provider_answer("Best dictation app?", "bedrock_claude", "claude-haiku",
+                        ["Otter.ai", "Dragon"]),
+        provider_answer("Best dictation app?", "openai_search", "gpt-5-mini",
+                        ["Dragon", "Otter.ai"]),
+        provider_answer("Best dictation app?", "bedrock_nova", "amazon.nova-lite",
+                        ["Otter", "Wispr Flow"]),
+        provider_answer("Cheapest dictation app?", "bedrock_claude", "claude-haiku",
+                        ["Wispr Flow"]),
+    ]
+    KEYS = build_user_keys("Wispr Flow", None)
+    ALIASES = {"otter": "Otter.ai"}
+
+    def rows(self):
+        return build_question_rows(self.ANSWERS, "Wispr Flow", self.KEYS, self.ALIASES)
+
+    def test_one_row_per_question_not_per_answer(self):
+        rows = self.rows()
+        self.assertEqual([row["question_id"] for row in rows], ["q-01", "q-02"])
+
+    def test_a_merged_spelling_is_counted_as_one_company(self):
+        # "Otter" and "Otter.ai" are one company, so the row must not show two.
+        first = self.rows()[0]
+        names = [item["company"] for item in first["who_was_named"]]
+        self.assertEqual(sorted(names), ["Dragon", "Otter.ai"])
+        otter = next(item for item in first["who_was_named"] if item["company"] == "Otter.ai")
+        self.assertEqual(otter["named_by"], 3)
+        self.assertEqual(otter["position"], 1)
+
+    def test_the_row_carries_names_and_places_only(self):
+        # Reasons here spent ten thousand characters restating the same few
+        # sentences. The writer opens a question when it wants them.
+        dragon = next(
+            item for item in self.rows()[0]["who_was_named"]
+            if item["company"] == "Dragon"
+        )
+        self.assertEqual(dragon, {"company": "Dragon", "position": 1, "named_by": 2})
+
+    def test_the_reasons_are_there_when_a_question_is_opened(self):
+        rows = self.rows()
+        opened = open_question("q-01", rows, self.ANSWERS, anonymous_assistant_labels(self.ANSWERS))
+        reasons = [
+            company["reason"]
+            for answer in opened["answers"]
+            for company in answer["companies_it_named"]
+        ]
+        self.assertTrue(any("liked Dragon" in reason for reason in reasons))
+
+    def test_the_audited_company_is_counted_not_listed_as_a_rival(self):
+        rows = self.rows()
+        self.assertEqual(rows[0]["answers_naming_the_company"], 1)
+        self.assertEqual(rows[1]["answers_naming_the_company"], 1)
+        for row in rows:
+            self.assertNotIn(
+                "Wispr Flow", [item["company"] for item in row["who_was_named"]]
+            )
+
+    def test_the_headline_says_questions_not_answers(self):
+        rows = self.rows()
+        numbers = build_headline_numbers(
+            self.ANSWERS, rows, "Wispr Flow", self.KEYS, self.ALIASES
+        )
+        self.assertEqual(numbers["questions_asked"], 2)
+        self.assertEqual(numbers["answers_we_got_back"], 4)
+        self.assertEqual(numbers["assistants_asked"], 3)
+        self.assertEqual(numbers["answers_naming_the_audited_company"], 2)
+
+    def test_opening_a_question_hides_which_assistant_answered(self):
+        rows = self.rows()
+        labels = anonymous_assistant_labels(self.ANSWERS)
+        opened = open_question("q-01", rows, self.ANSWERS, labels)
+        said = {answer["assistant"] for answer in opened["answers"]}
+        self.assertTrue(all(name.startswith("assistant ") for name in said), said)
+        self.assertNotIn("bedrock_claude", json.dumps(opened))
+
+    def test_an_unknown_id_answers_rather_than_crashing(self):
+        rows = self.rows()
+        self.assertIn("error", open_question("q-99", rows, self.ANSWERS, {}))
+
+    def test_no_assistant_or_model_name_survives_into_the_advice(self):
+        names = assistant_and_model_names(self.ANSWERS)
+        written = strip_assistant_names(
+            "Claude and gpt-5-mini both ranked Otter.ai first.", names
+        )
+        self.assertNotIn("laude", written)
+        self.assertNotIn("gpt", written.lower())
+        self.assertIn("Otter.ai", written)
+
+    def test_ordinary_wording_is_left_alone(self):
+        names = assistant_and_model_names(self.ANSWERS)
+        line = "Three of the six assistants sent buyers to Otter.ai."
+        self.assertEqual(strip_assistant_names(line, names), line)
+
+    def test_ordinary_words_hiding_inside_model_ids_survive(self):
+        # Splitting model ids into alphabetic parts harvested "large",
+        # "flash" and "instruct" from mistral-large and gemini-2.5-flash. A
+        # live report then told a customer it needed SLAs "for an AI assistant
+        # organizations".
+        answers = [
+            provider_answer("q", "bedrock_mistral", "mistral.mistral-large-2402-v1:0", ["A"]),
+            provider_answer("q", "gemini", "gemini-2.5-flash", ["A"]),
+            provider_answer("q", "bedrock_llama", "us.meta.llama3-1-70b-instruct-v1:0", ["A"]),
+        ]
+        names = assistant_and_model_names(answers)
+        line = "SLAs for large organizations, a flash sale page, and instruct-led docs."
+        self.assertEqual(strip_assistant_names(line, names), line)
+        self.assertNotIn("large", names)
+        self.assertNotIn("flash", names)
+        self.assertNotIn("instruct", names)
+
+
+class PageListTests(unittest.TestCase):
+    """Three kinds of page, told apart. The audited company was one name among
+    six, and an outside review sat beside a rival's own marketing page with
+    nothing to separate them."""
+
+    PROFILE = {"company_name": "Kenesis"}
+    COMPETITORS = {
+        "competitors": [
+            {
+                "company_name": "Triya",
+                "website_snapshot": {
+                    "pages": [
+                        {
+                            "url": "https://triya.ai/pricing",
+                            "title": "Pricing",
+                            "main_text": "Three plans.",
+                        }
+                    ]
+                },
+                "site_pages": [
+                    {
+                        "url": "https://triya.ai/pricing",
+                        "what_it_is_for": "lists three plans with prices",
+                    }
+                ],
+                "verified_web_mentions": [
+                    {
+                        "verified": True,
+                        "url": "https://g2.com/triya",
+                        "title": "Triya reviews",
+                        "snippet": "42 reviews",
+                        "usefulness_reason": "buyers comparing it with rivals",
+                    }
+                ],
+            }
+        ]
+    }
+    SNAPSHOT = {
+        "pages": [
+            {"url": "https://kenesis.ai/", "title": "Home", "main_text": "On-premise"}
+        ]
+    }
+
+    def index(self):
+        return build_company_blocks(
+            self.PROFILE, self.COMPETITORS,
+            {"top_competitors": [{"company_name": "Triya"}]}, [], self.SNAPSHOT
+        )
+
+    def test_each_company_gets_its_own_block(self):
+        patterns = {"top_competitors": [{"company_name": "Triya"}]}
+        _pages, blocks = build_company_blocks(
+            self.PROFILE, self.COMPETITORS, patterns, [], self.SNAPSHOT
+        )
+        payload = build_audit_recommendations_payload(
+            self.PROFILE, {}, patterns, self.COMPETITORS, {},
+            company_blocks=blocks, user_snapshot=self.SNAPSHOT,
+        )
+        sent = json.loads(payload["messages"][1]["content"])
+        self.assertEqual(list(sent["each_company"]), ["Kenesis", "Triya"])
+        self.assertEqual(
+            [r["url"] for r in sent["each_company"]["Kenesis"]["pages_on_their_own_website"]],
+            ["https://kenesis.ai/"],
+        )
+
+    def test_a_page_written_elsewhere_is_kept_apart_from_their_own(self):
+        # What AI reaches for and what the wider internet holds are different
+        # claims, and reading them together is the diagnosis the report makes.
+        _pages, blocks = self.index()
+        triya = blocks["Triya"]
+        self.assertEqual(
+            [r["url"] for r in triya["pages_on_their_own_website"]],
+            ["https://triya.ai/pricing"],
+        )
+        self.assertEqual(
+            [r["url"] for r in triya["pages_the_wider_internet_holds_about_them"]],
+            ["https://g2.com/triya"],
+        )
+
+    def test_a_company_with_no_website_found_says_so(self):
+        _pages, blocks = build_company_blocks(
+            self.PROFILE,
+            {"competitors": [{"company_name": "Ghost", "verified_web_mentions": []}]},
+            {"top_competitors": [{"company_name": "Ghost"}]},
+            [],
+            self.SNAPSHOT,
+        )
+        self.assertEqual(blocks["Ghost"]["official_website"], "not known")
+        self.assertEqual(blocks["Ghost"]["pages_on_their_own_website"], [])
+
+
+class EverythingListedIsCitableTests(unittest.TestCase):
+    """A live run produced three recommendations and zero links. All three
+    cited the audited company's own pages, which the catalog never held."""
+
+    def test_the_audited_companys_own_pages_can_be_cited(self):
+        profile = {"company_name": "Kenesis"}
+        snapshot = {
+            "pages": [
+                {
+                    "url": "https://kenesis.ai/features",
+                    "title": "Features",
+                    "main_text": "Slack and Zapier integrations.",
+                }
+            ]
+        }
+        competitors = {"competitors": []}
+        catalog = build_verified_evidence_catalog(competitors)
+        pages, _inventory = build_page_index(profile, competitors, snapshot, catalog)
+        catalog = add_missing_pages_to_the_catalog(catalog, pages)
+
+        resolved = resolve_recommendation_evidence(
+            [{"observation": "x", "evidence_refs": ["p-001"]}], catalog
+        )
+        self.assertEqual(
+            [row["url"] for row in resolved[0]["supporting_evidence"]],
+            ["https://kenesis.ai/features"],
+        )
+
+    def test_an_id_that_was_never_listed_is_still_refused(self):
+        catalog = add_missing_pages_to_the_catalog([], {})
+        resolved = resolve_recommendation_evidence(
+            [{"observation": "x", "evidence_refs": ["p-999"]}], catalog
+        )
+        self.assertEqual(resolved[0]["supporting_evidence"], [])
+        self.assertEqual(
+            resolved[0]["evidence_validation"]["rejected_refs"][0]["reason"],
+            "unknown_evidence_id",
+        )
+
+
+class PageReadingTests(unittest.TestCase):
+    """A page found by web search used to carry the search engine's blurb -
+    a summary written for a query, not for the page - while the passages we
+    had pulled from the page itself were thrown away."""
+
+    PAGES = {
+        "p-001": {
+            "page_id": "p-001",
+            "company_name": "Triya",
+            "url": "https://g2.com/triya",
+            "title": "Triya reviews",
+            "text": "Cookie notice. Navigation. " + ("filler " * 400) + "Triya is cheap.",
+            "passages": ["Reviewers say Triya is cheap and quick to set up."],
+        },
+        "p-002": {
+            "page_id": "p-002",
+            "company_name": "Triya",
+            "url": "https://triya.ai/pricing",
+            "title": "Pricing",
+            "text": "Three plans from 12 dollars.",
+            "passages": [],
+        },
+    }
+
+    def test_text_is_what_comes_back_by_default(self):
+        # One call behaves the same way whatever the page is.
+        out = open_page("p-001", self.PAGES)
+        self.assertIn("Cookie notice", out["text"])
+        self.assertNotIn("what_it_says_about_this_company", out)
+
+    def test_passages_can_be_asked_for_on_a_web_mention(self):
+        out = open_page("p-001", self.PAGES, "passages")
+        self.assertEqual(
+            out["what_it_says_about_this_company"],
+            ["Reviewers say Triya is cheap and quick to set up."],
+        )
+
+    def test_asking_for_passages_on_a_crawled_page_returns_its_text(self):
+        # Pages read from a company's own website have no passages, because the
+        # whole page is already held.
+        out = open_page("p-002", self.PAGES, "passages")
+        self.assertEqual(out["text"], "Three plans from 12 dollars.")
+        self.assertIn("not a web mention", out["note"])
+
+    def test_an_unknown_page_says_so(self):
+        self.assertIn("error", open_page("p-999", self.PAGES))
+
+    def test_a_long_page_can_be_read_on_from_where_it_stopped(self):
+        # A fixed cut left the writer with the top of a long page and no way to
+        # know what it had missed.
+        pages = {"p-1": {"page_id": "p-1", "company_name": "X", "url": "u",
+                         "title": "t", "text": "A" * 14000, "passages": []}}
+        first = open_page("p-1", pages)
+        self.assertEqual((first["part"], first["parts"], len(first["text"])), (1, 3, 6000))
+        self.assertIn("part 2", first["more"])
+        last = open_page("p-1", pages, "text", 3)
+        self.assertEqual(len(last["text"]), 2000)
+        self.assertNotIn("more", last)
+
+    def test_asking_beyond_the_end_returns_the_last_part(self):
+        pages = {"p-1": {"page_id": "p-1", "company_name": "X", "url": "u",
+                         "title": "t", "text": "A" * 100, "passages": []}}
+        self.assertEqual(open_page("p-1", pages, "text", 99)["part"], 1)
+
+
+class WrittenAddressTests(unittest.TestCase):
+    """Links reach the reader through the citation list, where every address
+    came from a page this audit read. One typed into a sentence has no such
+    backing, and a link that goes nowhere costs the reader their trust."""
+
+    CATALOG = [
+        {
+            "evidence_id": "ev-001",
+            "company_name": "Rival",
+            "evidence_type": "pricing_page",
+            "url": "https://rival.com/plans",
+            "title": "Plans",
+            "excerpt": "Team plan is 20 dollars a seat.",
+        }
+    ]
+
+    def resolve(self, text):
+        return resolve_recommendation_evidence(
+            [
+                {
+                    "observation": text,
+                    "evidence": text,
+                    "suggested_change": text,
+                    "expected_impact": text,
+                    "evidence_refs": ["ev-001"],
+                }
+            ],
+            self.CATALOG,
+        )[0]
+
+    def test_an_address_we_read_survives(self):
+        row = self.resolve("Their prices are at https://rival.com/plans today.")
+        self.assertIn("https://rival.com/plans", row["observation"])
+
+    def test_an_address_we_never_read_is_removed(self):
+        row = self.resolve("See https://rival.com/invented-by-the-model for this.")
+        self.assertNotIn("invented-by-the-model", row["observation"])
+        self.assertNotIn("http", row["evidence"])
+
+    def test_the_citation_still_carries_the_real_link(self):
+        row = self.resolve("Their pricing page publishes per-seat prices.")
+        self.assertEqual(
+            [item["url"] for item in row["supporting_evidence"]],
+            ["https://rival.com/plans"],
+        )
+
+    def test_each_rival_page_is_handed_the_id_it_can_be_cited_by(self):
+        compact = compact_competitor_evidence(
+            {
+                "competitors": [
+                    {
+                        "company_name": "Rival",
+                        "site_pages": [
+                            {
+                                "url": "https://rival.com/plans",
+                                "what_it_is_for": "publishes per-seat pricing",
+                            },
+                            {
+                                "url": "https://rival.com/never-crawled",
+                                "what_it_is_for": "something else",
+                            },
+                        ],
+                    }
+                ]
+            },
+            self.CATALOG,
+        )
+        pages = compact["competitors"][0]["their_pages"]
+        self.assertEqual(pages[0]["cite_as"], "ev-001")
+        self.assertIsNone(pages[1]["cite_as"])
+        # No address travels with the description; the id fetches it.
+        self.assertNotIn("url", pages[0])
+
+
 class WebPresenceEntityCheckTests(unittest.TestCase):
     """The step counts how widely a company is written about, so a page that
     belongs to somebody with the same name moves the number being reported."""
@@ -3169,6 +3825,78 @@ class WebPresenceEntityCheckTests(unittest.TestCase):
             confirm_same_company("Agent Vi", {}, rows)
         self.assertNotIn("company_website", seen)
 
+    def test_the_model_rates_how_useful_each_page_is(self):
+        reply = json.dumps(
+            {
+                "pages": [
+                    {
+                        "url": "https://reddit.com/r/x",
+                        "is_this_company": True,
+                        "line": 1,
+                        "usefulness": "high",
+                        "reason": "buyers comparing it with rivals",
+                    }
+                ]
+            }
+        )
+        rows = [{"url": "https://reddit.com/r/x", "mention_windows": ["Horus"]}]
+        with patch(
+            "geo_audit.web_presence.call_chat_completion", lambda payload: reply
+        ):
+            verdicts = confirm_same_company("Horus", {}, rows)
+        self.assertEqual(verdicts["https://reddit.com/r/x"][3], "high")
+
+    def test_a_rating_the_model_leaves_out_lands_in_the_middle(self):
+        # A missing rating must not quietly promote or bury a page.
+        reply = json.dumps(
+            {
+                "pages": [
+                    {
+                        "url": "https://x.com/a",
+                        "is_this_company": True,
+                        "line": 1,
+                        "usefulness": "",
+                        "reason": "",
+                    }
+                ]
+            }
+        )
+        rows = [{"url": "https://x.com/a", "mention_windows": ["Horus"]}]
+        with patch(
+            "geo_audit.web_presence.call_chat_completion", lambda payload: reply
+        ):
+            verdicts = confirm_same_company("Horus", {}, rows)
+        self.assertEqual(verdicts["https://x.com/a"][3], "medium")
+
+    def test_the_most_useful_pages_are_shown_first(self):
+        # This order used to come from a hand-made sum that rewarded a page for
+        # repeating industry words.
+        entity_rows = [
+            {
+                "company_name": "Horus",
+                "verified_mentions": [
+                    {"url": "https://a", "search_rank": 1, "mention_windows": ["Horus"]},
+                    {"url": "https://b", "search_rank": 2, "mention_windows": ["Horus"]},
+                    {"url": "https://c", "search_rank": 3, "mention_windows": ["Horus"]},
+                ],
+            }
+        ]
+        ratings = {"https://a": "low", "https://b": "high", "https://c": "medium"}
+
+        def fake_confirm(name, profile, rows, own_website=None):
+            return {
+                str(row["url"]): (True, 1, "because", ratings[str(row["url"])])
+                for row in rows
+            }
+
+        with patch("geo_audit.web_presence.confirm_same_company", fake_confirm):
+            gated, _diagnostics = gate_entity_mentions(entity_rows, {})
+        self.assertEqual(
+            [row["url"] for row in gated[0]["verified_mentions"]],
+            ["https://b", "https://c", "https://a"],
+        )
+        self.assertEqual(gated[0]["verified_mentions"][0]["usefulness_reason"], "because")
+
     def test_a_mention_late_in_a_long_page_is_still_read(self):
         # A forum thread names the company in comment forty. Reading the top of
         # the page finds nothing, which is how a real mention gets thrown away.
@@ -3192,25 +3920,35 @@ class WebPresenceEntityCheckTests(unittest.TestCase):
         # Asked whether a page is about a company, a model tends to agree.
         # Making it cite the extract turns the answer into something testable.
         row = {"mention_windows": ["Horus builds video analytics software."]}
-        keep, reason = check_cited_extract(row, ["Horus"], (True, 4, "looks right"))
+        keep, reason, _use, _said = check_cited_extract(
+            row, ["Horus"], (True, 4, "looks right", "medium")
+        )
         self.assertFalse(keep)
         self.assertEqual(reason, "cited_extract_does_not_exist")
 
     def test_an_extract_that_does_not_name_the_company_is_rejected(self):
         row = {"mention_windows": ["Skip to main content. Contact sales today."]}
-        keep, reason = check_cited_extract(row, ["Horus"], (True, 1, "it is them"))
+        keep, reason, _use, _said = check_cited_extract(
+            row, ["Horus"], (True, 1, "it is them", "medium")
+        )
         self.assertFalse(keep)
         self.assertEqual(reason, "cited_extract_does_not_name_the_company")
 
     def test_a_cited_extract_that_names_the_company_is_kept(self):
         row = {"mention_windows": ["Horus builds video analytics software."]}
-        keep, reason = check_cited_extract(row, ["Horus"], (True, 1, "video analytics"))
+        keep, reason, usefulness, said = check_cited_extract(
+            row, ["Horus"], (True, 1, "video analytics", "high")
+        )
+        self.assertEqual(usefulness, "high")
+        self.assertEqual(said, "video analytics")
         self.assertTrue(keep)
         self.assertEqual(reason, "model_cited_extract_1")
 
     def test_a_model_saying_no_is_taken_at_its_word(self):
         row = {"mention_windows": ["Horus, an ancient Egyptian deity."]}
-        keep, reason = check_cited_extract(row, ["Horus"], (False, 0, "mythology"))
+        keep, reason, _use, _said = check_cited_extract(
+            row, ["Horus"], (False, 0, "mythology", "low")
+        )
         self.assertFalse(keep)
         self.assertTrue(reason.startswith("model:"))
 

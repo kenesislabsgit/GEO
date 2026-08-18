@@ -128,7 +128,12 @@ def build_competitor_evidence(
         if site_url and max_pages > 0 and may_crawl:
             snapshot = empty_snapshot(site_url)
             try:
-                snapshot = crawl_website(site_url, max_pages=max_pages)
+                snapshot = crawl_website(
+                    site_url,
+                    max_pages=max_pages,
+                    time_budget_seconds=COMPETITOR_CRAWL_SECONDS,
+                    max_failures=COMPETITOR_CRAWL_MAX_FAILURES,
+                )
             except Exception as exc:  # noqa: BLE001 - keep audit running.
                 snapshot["failed_pages"].append(
                     {"url": site_url, "error": str(exc)}
@@ -153,6 +158,12 @@ def build_competitor_evidence(
             item["website_snapshot"] = snapshot
             if snapshot.get("pages"):
                 item["website_evidence"] = build_website_evidence(snapshot)
+                # No model call here. Asked what each page was for, it returned
+                # "Provides background information about the company, its
+                # mission" for a page already titled "About Us | Calendly" -
+                # the title reworded, at a call per competitor. The report
+                # writer sees the title and opens the page when it needs more,
+                # which costs nothing because the text is already in hand.
                 item["collection_status"] = "website_and_citations"
                 if item["firecrawl_enhancement"]["pages_added"]:
                     item["collection_status"] = (
@@ -174,15 +185,15 @@ def build_competitor_evidence(
     # lock, so a competitor that arrives after it is spent fails its scrapes
     # and keeps whatever the plain crawler found, exactly as before.
     competitors = list(patterns.get("top_competitors", []))
+    listed = {
+        normalize_investigation_name(item.get("company_name"))
+        for item in competitors
+    }
     # A company that won a question the audited company lost may still sit
     # outside the top five by mention count, and then never reach this loop at
     # all. Pull in the ones we intend to crawl so the budget can be spent on
     # them; the rest of the list is unchanged.
     if crawl_names:
-        listed = {
-            normalize_investigation_name(item.get("company_name"))
-            for item in competitors
-        }
         by_name = {
             normalize_investigation_name(item.get("company_name")): item
             for item in patterns.get("competitors", [])
@@ -200,6 +211,26 @@ def build_competitor_evidence(
         ) as executor:
             evidence_items = list(
                 executor.map(collect_one, range(len(competitors)), competitors)
+            )
+
+    # A competitor whose website was never found reads no pages, so it can
+    # never be cited and never compared - while still sitting in the counts
+    # and the competitor list as though it had been looked at. Rather than
+    # crawl spare sites on every run to insure against that, the next
+    # competitor down is read only when one actually came back empty.
+    replacements = replacements_for_empty_competitors(
+        evidence_items, patterns, listed
+    )
+    if replacements:
+        with ThreadPoolExecutor(
+            max_workers=max(1, min(COMPETITOR_CONCURRENCY, len(replacements)))
+        ) as executor:
+            evidence_items.extend(
+                executor.map(
+                    collect_one,
+                    range(len(competitors), len(competitors) + len(replacements)),
+                    replacements,
+                )
             )
 
     return {
@@ -226,9 +257,72 @@ def build_competitor_evidence(
     }
 
 
+def replacements_for_empty_competitors(
+    evidence_items: list[dict[str, Any]],
+    patterns: dict[str, Any],
+    already_listed: set[str],
+) -> list[dict[str, Any]]:
+    """Read the next rival down for each one that came back with nothing.
+
+    Only the ones that came back with no pages at all matter here. A rival with
+    two pages can still be quoted; a rival with none cannot be cited, cannot be
+    compared, and yet still sits in the counts as though it had been looked at.
+
+    The replacements come from the companies that beat the audited company in
+    the questions it was missing from, before falling back to whoever was named
+    most often. A company that won a lost question is the one the report needs
+    to point at; the most-mentioned name may have won nothing.
+    """
+    empty = sum(
+        1
+        for item in evidence_items
+        if not (item.get("website_snapshot") or {}).get("pages")
+    )
+    if not empty:
+        return []
+    ranked = [
+        *patterns.get("investigation_priority", []),
+        *patterns.get("top_competitors", []),
+    ]
+    picked: list[dict[str, Any]] = []
+    seen = set(already_listed)
+    by_name = {
+        normalize_investigation_name(item.get("company_name")): item
+        for item in patterns.get("top_competitors", [])
+    }
+    for entry in ranked:
+        key = normalize_investigation_name(entry.get("company_name"))
+        if not key or key in seen:
+            continue
+        candidate = by_name.get(key)
+        if not candidate:
+            continue
+        seen.add(key)
+        picked.append(candidate)
+        if len(picked) >= empty:
+            break
+    return picked
+
+
 # Reading five competitor websites at once. Each is an unrelated site, and
 # the slow part is waiting on their servers rather than our own work.
 COMPETITOR_CONCURRENCY = 5
+
+# Every competitor site is read at the same time, so the step ends when the
+# slowest one does. Measured on four real sites: two answered in under ten
+# seconds, one took sixty-eight, and one reached its pages only after working
+# through nineteen dead links.
+#
+# Thirty seconds rather than twenty, because twenty was measured to cost real
+# evidence: the dead-link site returned one page at twenty seconds, two at
+# thirty and all eight by forty-five. Below thirty a rival contributes nothing
+# citable, which is a worse outcome than the wait.
+#
+# No separate cap on failures. One was tried at five and then twelve; both
+# stopped that site before its pages appeared, while the clock alone bounds
+# the damage just as well.
+COMPETITOR_CRAWL_SECONDS = 30.0
+COMPETITOR_CRAWL_MAX_FAILURES = None
 
 
 def preferred_competitor_site(

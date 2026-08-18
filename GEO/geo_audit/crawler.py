@@ -8,6 +8,7 @@ import json
 import re
 from typing import Any
 from urllib.error import HTTPError, URLError
+import time
 from urllib.parse import quote, urldefrag, urljoin, urlparse
 from .netguard import BlockedUrlError, open_url_guarded
 
@@ -128,8 +129,24 @@ class PageParser(HTMLParser):
                 )
 
 
-def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
+def crawl_website(
+    start_url: str,
+    max_pages: int = 12,
+    *,
+    time_budget_seconds: float | None = None,
+    max_failures: int | None = None,
+) -> dict[str, Any]:
+    """Read a website, bounded by pages, by clock, and by dead ends.
+
+    Measured on four competitor sites: two answered in nine seconds, one took
+    sixty-eight because the host itself is slow, and one spent forty-four
+    seconds on nineteen links that did not exist before finding its eight
+    pages. Every site is read at the same time, so the whole step waits for the
+    worst of them. A partial read of a slow site is worth far more than the
+    minute spent waiting for the rest of it.
+    """
     normalized_start = ensure_url(start_url)
+    started_at = time.monotonic()
     allowed_domains = candidate_domains(normalized_start)
     queue: deque[str] = deque(candidate_start_urls(normalized_start))
     seen: set[str] = set()
@@ -139,10 +156,28 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
     failed_pages: list[dict[str, str]] = []
 
     while queue and len(pages) < max_pages:
+        if time_budget_seconds is not None and (
+            time.monotonic() - started_at
+        ) >= time_budget_seconds:
+            failed_pages.append(
+                {"url": normalized_start, "error": "time budget reached"}
+            )
+            break
+        if max_failures is not None and len(failed_pages) >= max_failures:
+            failed_pages.append(
+                {"url": normalized_start, "error": "too many pages failed"}
+            )
+            break
         current_url = queue.popleft()
         if current_url in seen:
             continue
         seen.add(current_url)
+        # Fetching a page we already hold, only to throw it away once its
+        # address settles, is the most expensive way to learn nothing. A third
+        # of one competitor's page budget went on ":443" and tracking-parameter
+        # copies of pages already read.
+        if same_page_key(current_url) in stored:
+            continue
         current_host = urlparse(current_url).netloc.lower()
         if current_host in dns_failed_hosts:
             continue
@@ -204,11 +239,27 @@ def crawl_website(start_url: str, max_pages: int = 12) -> dict[str, Any]:
     }
 
 
+# Parameters that change how a visitor arrived, never which page they land on.
+TRACKING_PARAMETERS = ("utm_", "nav-ref", "dropdown", "msockid", "fbclid", "gclid", "ref")
+
+
 def same_page_key(url: str) -> str:
-    """One key per page, whatever scheme or host prefix reached it."""
+    """One key per page, whatever scheme, host prefix or tracking tag reached it."""
     parsed = urlparse(url)
     host = parsed.netloc.lower().removeprefix("www.")
-    return f"{host}{parsed.path.rstrip('/')}?{parsed.query}"
+    if host.endswith(":443"):
+        host = host[: -len(":443")]
+    if host.endswith(":80"):
+        host = host[: -len(":80")]
+    kept = [
+        pair
+        for pair in parsed.query.split("&")
+        if pair
+        and not any(
+            pair.lower().startswith(name) for name in TRACKING_PARAMETERS
+        )
+    ]
+    return f"{host}{parsed.path.rstrip('/')}?{'&'.join(sorted(kept))}"
 
 
 def fetch_html(url: str) -> tuple[str, int, str]:

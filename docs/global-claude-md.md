@@ -28,6 +28,24 @@ These are limits, not goals. Do not talk yourself past them.
 - No code in a reply unless I asked to see code, or the change is one or two
   lines. Otherwise just tell me the file name and what changed in it.
 
+## Never name code at me
+
+This is the one I keep having to repeat. Speak from what is already in my head,
+not from what is in your context window.
+
+- **No file names, no line numbers, no function names, no variable names.**
+  Not `aggregation.py:378`, not `verify_groups`, not `company_aliases`.
+  Describe the thing by what it does: "the part that counts up the mentions".
+- **No words that only exist inside the code.** If I have never said the word
+  in this conversation, do not use it.
+- **Describe behaviour, not structure.** Not "this module calls that one".
+  Say "after it finds the names, it goes and looks up each company".
+- **If you must point at a place in the code, name it the way I would.**
+  "the counting step", "the merge call", "the report writer".
+- Test before sending: could someone who has never opened this repository
+  follow every sentence? If not, rewrite it.
+- I will ask for file names when I want them.
+
 ## What I want instead of length
 
 - **Recommend one thing.** Not a survey of options. If there are two real

@@ -29,6 +29,18 @@ from .llm import (
 from .source_analysis import verify_source_url
 
 
+# Assistants kept naming the maker instead of the product: the answer said
+# "Google Docs Voice Typing" but the company field said "Google". That splits one
+# product across several spellings and pushes real competitors out of the top list.
+# Every prompt that fills in a company name repeats this rule.
+COMPANY_NAMING_RULE = """SECOND TASK, AS IMPORTANT AS THE ANSWER ITSELF: name every recommendation exactly as the answer names it.
+
+Whatever name the answer recommends, put that exact name in company_name. Same words, same spelling, same order.
+Do not shorten it to the maker, the parent company, or the brand family. Do not expand it, translate it, or tidy it up.
+Say the answer recommends "Google Docs Voice Typing". Then company_name is "Google Docs Voice Typing". It is never "Google", never "Google LLC", never "Google Docs".
+The name you write in the answer and the name you write in company_name are the same string. Writing a different one is as wrong as recommending a different product."""
+
+
 RECOMMENDATION_SYSTEM_PROMPT = """You are acting as a neutral assistant helping a customer choose software.
 
 Recommend the companies you genuinely believe best satisfy the user's request.
@@ -41,6 +53,8 @@ If web grounding or search is available, use it.
 Include citations or referenced sources whenever available.
 Rank recommendations naturally.
 Do not attempt to include any company unless it genuinely deserves to appear.
+
+""" + COMPANY_NAMING_RULE + """
 
 Return only valid JSON with this exact top-level structure:
 {
@@ -79,6 +93,7 @@ Keep answer_text decision-oriented and concise. Keep each recommendation's reaso
 Extract only companies or products that answer_text explicitly recommends.
 Do not include companies that are merely mentioned as examples, integrations, customers, publishers, analysts, or technologies.
 The evidence_quote must be an exact sentence or phrase copied from answer_text that demonstrates the recommendation.
+{COMPANY_NAMING_RULE}
 Return only valid JSON in this structure:
 {{
   "answers": [
@@ -125,6 +140,34 @@ Each answer object must also contain:
 
 Each recommended company object must also contain:
 "source_urls": ["https://source-supporting-this-company.example"]
+"official_website": "https://the-company-website.example"
+
+official_website is the ROOT address of the company's own website, and nothing
+else. Domain only. No path after it, no page, no folder, no language code.
+
+  right:  "https://calendly.com"
+  wrong:  "https://calendly.com/solutions/small-business"
+  wrong:  "https://calendly.com/help/calendly-embed-and-the-api"
+  wrong:  "https://doodle.com/en/product/polls/"
+
+If the address you have in mind has anything after the domain, cut it off and
+return what is left. Every character after the first single slash is wrong here.
+
+It must also be the company's OWN domain, not a service they publish on:
+
+  right:  "https://10to8.com"          wrong: "https://10to8.freshdesk.com"
+  right:  "https://acuityscheduling.com"  wrong: "https://support.squarespace.com"
+
+Why this field exists, so you can judge the edge cases yourself: a later step
+takes this address, opens it, and reads the site's own menu to find that
+company's pricing, features and customer pages. It needs the front door, because
+that is where the menu is. A help-centre address leads it into a support site
+and it comes back with nothing. That is a different job from source_urls, which
+are evidence for what you said and are supposed to point deep into a page.
+
+Fill it in only from what web search actually returned for that company. Leave
+it empty rather than writing an address from memory - an empty field is handled,
+a wrong one sends the whole step to the wrong website.
 """
 
 OPENAI_SEARCH_BATCH_SCHEMA = {
@@ -150,6 +193,7 @@ OPENAI_SEARCH_BATCH_SCHEMA = {
                                 "reasoning": {"type": "string"},
                                 "evidence_quote": {"type": "string"},
                                 "explicitly_recommended": {"type": "boolean"},
+                                "official_website": {"type": "string"},
                                 "source_urls": {
                                     "type": "array",
                                     "items": {"type": "string"},
@@ -157,6 +201,7 @@ OPENAI_SEARCH_BATCH_SCHEMA = {
                             },
                             "required": [
                                 "company_name",
+                                "official_website",
                                 "rank",
                                 "reasoning",
                                 "evidence_quote",
@@ -191,6 +236,7 @@ OPENAI_SEARCH_BATCH_SCHEMA = {
 
 
 ANSWER_ANALYSIS_SYSTEM_PROMPT = """Analyze an AI answer for recommendation visibility.
+""" + COMPANY_NAMING_RULE + """
 
 Use only the provided answer text and source URLs.
 Do not infer facts from outside knowledge.
@@ -230,6 +276,7 @@ Position refers only to the rank/order in an actual recommendation list.
 Preserve each input item's prompt_index and assistant exactly.
 Set explicitly_recommended to true only for actual recommendations.
 Copy an exact sentence or phrase from the answer into evidence_quote.
+""" + COMPANY_NAMING_RULE + """
 Attach source_urls to the relevant recommended company when the answer associates a URL with that company.
 If source URLs are present but the answer does not map them to a specific company, keep them in provider_source_urls and only copy them to company source_urls when reasonably associated by nearby text.
 
@@ -336,7 +383,7 @@ def collect_multi_model_recommendations(
     model_overrides: dict[str, str] | None = None,
     analysis_mode: bool = True,
     analyzer_batch_size: int = 5,
-    provider_concurrency: int = 4,
+    provider_concurrency: int = 20,
     search_context_size: str | None = None,
     openai_search_batch_size: int = 1,
     progress_callback: Any = None,
@@ -423,6 +470,10 @@ def collect_multi_model_recommendations(
                 tasks_for_assistant[start : start + BEDROCK_BATCH_SIZE]
             )
 
+    # One unit is one call to one assistant. Four at a time turned twenty-eight
+    # units into seven waves and six minutes of mostly waiting; the calls are
+    # spread across six different providers, so widening the queue hammers
+    # nobody. The app has run at twenty all along - only this default lagged.
     max_workers = max(1, min(provider_concurrency, len(task_groups) or 1))
     completed_groups = 0
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -1608,9 +1659,25 @@ def normalize_recommendations(
                 else 0.5,
                 "citations": normalize_string_list(item.get("citations", [])),
                 "source_urls": normalize_string_list(item.get("source_urls", [])),
+                # The address a buyer would type to reach this company, asked
+                # for separately because the source_urls are evidence for a
+                # claim and land deep inside help centres and developer docs.
+                # A later step needs a front door, and used to work one out by
+                # stripping whichever deep link it saw first - which sent one
+                # crawl into a documentation site and another to the wrong
+                # company entirely.
+                "official_website": normalize_official_website(
+                    item.get("official_website")
+                ),
             }
         )
     return [item for item in normalized if item["company_name"] and item["company_name"] != "Unknown"]
+
+
+def normalize_official_website(value: Any) -> str:
+    """Keep a plain http address, or nothing."""
+    url = str(value or "").strip()
+    return url if url.startswith(("http://", "https://")) else ""
 
 
 def quote_appears_in_answer(quote: str, answer_text: str) -> bool:

@@ -13,7 +13,26 @@ from .firecrawl import (
     environment_int,
     firecrawl_document_to_page,
 )
-from .llm import LLMNotConfigured, build_chat_payload, call_chat_completion
+from .aggregation import build_user_keys
+from .llm import (
+    LLMNotConfigured,
+    build_chat_payload,
+    call_chat_completion,
+    call_chat_message,
+)
+from .report_context import (
+    OPEN_PAGE_TOOL,
+    OPEN_QUESTION_TOOL,
+    anonymous_assistant_labels,
+    assistant_and_model_names,
+    build_headline_numbers,
+    build_company_blocks,
+    build_question_rows,
+    open_page,
+    trim_profile,
+    open_question,
+    strip_assistant_names,
+)
 
 
 EVIDENCE_TYPES = (
@@ -97,137 +116,166 @@ def build_free_preview_recommendations(
     ]
 
 
-AUDIT_RECOMMENDATION_SYSTEM_PROMPT = """You are an AI recommendation audit analyst.
+AUDIT_RECOMMENDATION_SYSTEM_PROMPT = """You are writing the improvements section of an AI visibility audit.
 
-Generate prioritized recommendations using only the provided evidence.
+WHAT THIS IS FOR
 
-Write at least 3 recommendations — more when the evidence supports them. When
-fewer than 3 lost questions exist, cover the strongest remaining material
-instead of stopping short: cited source patterns, recurring competitor
-patterns, and concrete gaps on the audited site. Each extra recommendation
-still has to meet every rule below; never pad with generic advice.
+A company pays to learn why AI assistants recommend rivals instead of them, and
+what to change on their website about it. We asked several assistants the same
+buyer questions and recorded every company each one named. Your job is to turn
+that into a short list of changes worth making.
 
-Every recommendation must include:
-- observation
-- evidence
-- suggested_change
-- expected_impact
-- confidence
-- evidence_types
-- evidence_refs
-- affected_loss_refs
+WHAT KIND OF DATA YOU HAVE
 
-Start from the buyer questions the audited company lost.
-recommendation_patterns.user_company_recommendation_summary.prompt_losses lists
-each lost question with a loss_id, the companies recommended instead, and
-winners: who took the question, at what position, and the assistant's own
-reason for choosing them.
-Order recommendations so the ones addressing lost questions come first.
-Select up to 3 affected_loss_refs, using loss_id values only from prompt_losses.
-Only select a loss when the suggested change would change what a reader learns
-about that specific question. Return an empty list when none apply.
+about_this_audit - how many questions were asked, how many assistants answered,
+how often the audited company was named.
 
-One recommendation is one lost question, the company that took it, and the
-change that answers it. The question you name, the reason that company won, and
-the page you cite must all be about the same thing. A reader should never have
-to work out how the three relate.
+the_company - what they sell, who buys it, what they claim.
 
-Use the winners' reasons. Saying a question was lost tells the reader nothing
-they can act on; saying what the assistant liked about the winner does.
+every_question_we_asked - each buyer question, how many times the audited
+company was recommended in the answers to it, and which other companies were
+recommended and how often.
 
-Cite only a company listed in the losses you selected. A page from a company
-that lost the same question proves nothing and reads as though the evidence was
-picked at random.
+each_company - one block per company. The audited company, and the five rivals
+named most often across the answers. Other companies appear in the question
+lists but have no block here, so there is nothing to cite for them.
+  official_website - their front door.
+  pages_on_their_own_website - pages we read from that site. What they publish
+    about themselves. Marketing, so it shows what they say, never whether it is
+    true.
+  pages_the_assistants_cited_while_answering - pages an assistant pointed a
+    buyer at while answering. This is what AI reaches for today. An empty list
+    means AI pointed at this company not once.
+  pages_the_wider_internet_holds_about_them - reviews, comparisons, forum
+    threads written by other people. This matters twice over. It is what an
+    assistant finds when it searches the web today, and it is the same kind of
+    public material an assistant is built from, so it shapes what a model knows
+    about a company before anyone asks it anything. A company the internet does
+    not discuss is one an assistant has little to say about, whether it searches
+    or answers from what it already knows. Empty means nobody is writing about
+    them.
 
-Worked example of the expected specificity:
+Read those last two lists as a pair. Cited tells you what AI reaches for.
+Written about tells you what there is to reach for. Together they say which
+problem a company has, and there are three:
 
-  observation: "Buyers asking for PPE compliance monitoring are sent to Coram
-    and Triya. This site has no page describing that workflow."
-  evidence: "Triya took loss-002 and loss-005 at first place. The assistant
-    picked it for on-premise PPE detection on existing cameras. Triya gives
-    that a page of its own; this site mentions it once on the home page."
-  suggested_change: "Give PPE compliance monitoring its own page. Cover what is
-    detected, who gets the alert, and what the report shows, with one named
-    factory."
-  affected_loss_refs: ["loss-002", "loss-005"]
+  Cited plenty, written about plenty.
+  People write about them, AI finds it and uses it. Nothing to fix here.
 
-Avoid recommendations that would read the same for any company in this category.
+  Cited none, written about plenty.
+  The material is out there and AI is not picking it up. The work is being
+  easier to find and easier to quote, not writing more.
 
-Write for somebody reading once. Short sentences. Ordinary words. One idea per
-sentence. No sentence should need reading twice.
+  Cited none, written about none.
+  Nobody is writing about them. Tidying their own website will not change this;
+  they need other people talking about them.
 
-loss_id and evidence_id values belong in affected_loss_refs and evidence_refs
-and nowhere else. Never write one into observation, evidence, suggested_change
-or expected_impact. They are addressing labels for this system, and the reader
-sees your sentences. Name the question or the company instead: "Triya took the
-zone breach question", never "Triya took loss-002".
+Three different problems with three different answers, so decide which one the
+audited company has before you write anything.
 
-Write "buyers looking for X are sent to Y", not "the audited company exhibits
-suboptimal alignment with observed competitor patterns in the X category".
+YOUR TOOLS
+
+open_question(question_id) - every assistant's full answer to that question,
+including the reason each gave for every company it named.
+
+open_page(page_id) - the first 6,000 characters of that page, which is usually
+the whole of what matters. If you need more, ask for the next part; the answer
+tells you how many parts there are.
+
+  open_page("p-014")             the first 6,000 characters
+  open_page("p-014", part=2)     the next 6,000, only if the first left you short
+
+For a page under what the wider internet holds, you may ask for the parts that
+name that company instead of the page:
+
+  open_page("p-072", how="passages")
+
+Twelve opens in total. That is a budget, not a target. Most questions need no
+opening - the list already says who was named and how often. Open a question when
+the audited company is missing and the same rival keeps taking it, or when you
+are about to write about that question. Open a page before saying what is on it.
+
+HOW TO DECIDE WHAT TO WRITE
+
+Start with the questions the audited company was never recommended in. Those are
+what it is losing. For each, look at who took it, then at what that company
+publishes and what is written about them elsewhere.
+
+A gap is a job a rival's pages do for a buyer that none of the audited company's
+pages does. Open both pages before claiming one. If a page already does the job
+under a different name, it is not missing, and saying it is is the mistake
+readers notice fastest.
+
+WHAT EACH RECOMMENDATION MUST BE
+
+One lost question, the company that took it, and the change that answers it. The
+question, the reason that company won, and the pages you cite must all be about
+the same thing.
+
+Cite two pages where you can: the rival's page showing what they do, and the
+audited company's page that should change. Put page_id values in evidence_refs.
+The citation carries the address to the reader, and it is the only address they
+get.
+
+Write at least three. More when the evidence supports it, never padding.
+
+WHERE OUR DATA IS WEAK
+
+Say nothing about any of this in what you write. Handle it and move on.
+
+Company names were gathered from many spellings into one. It is usually right.
+Occasionally two entries are really one company, or one entry has taken in two
+products. Where you end up more suspicious than sure, build on something else
+and say nothing about that name. Keep the bar high - most entries are sound, and
+discarding a good one costs a real finding.
+
+A company with no pages at all was not read, which is not the same as publishing
+nothing. Never write a gap from an empty list.
+
+An official_website may be missing or point at a parent company. Where a
+company's pages do not hang together as one business, treat that company as
+unverified and do not cite it.
+
+Four of the assistants cannot browse the web, so they cite nothing. An empty
+cited list is a finding about the company, not about them.
+
+NEVER
+
+Never name an AI assistant or a model. Write "three of the six assistants",
+"most assistants", "one assistant". A report naming them reads as an audit of
+one vendor rather than of a market.
+
+Never type a web address into a sentence. Describe the page - eg : "their pricing
+page", "your setup guide" - and let the citation carry the address. One typed
+from memory sends the reader nowhere.
+
+Never write a page_id or question_id into your sentences. They are labels for
+this system; the reader sees your prose. Name the question or the company.
+
+Never tell the reader to change a page they do not own.
+
+Never claim a change will make an AI recommend them, or talk about search
+rankings, snippets or SEO.
+
+HOW TO WRITE IT
+
+For somebody reading once. Short sentences, ordinary words, one idea per
+sentence. "Buyers looking for X are sent to Y", not "the audited company
+exhibits suboptimal alignment with observed competitor patterns".
+
 Never use: leverage, utilize, robust, holistic, synergy, optimize, seamless.
-Say "shows" not "demonstrates", "uses" not "utilises", "about" not "regarding".
+Say shows, uses, about.
 
-Do not give generic SEO advice.
-Do not frame impact as search engine ranking, search snippets, or SEO visibility.
-Do not claim that any change will make an AI system recommend the company.
-Do not say a change will increase the likelihood or chances of being recommended.
-Frame impact as improving clarity, machine readability, evidence quality, or alignment with observed competitor patterns.
-Every recommendation must connect to at least one observed AI recommendation result, cited source pattern, prompt loss, or recurring competitor pattern.
-Do not imply causation from competitor patterns. Use phrasing such as "observed among repeatedly recommended competitors" instead of "caused recommendations".
-If competitor website collection failed or a field is Unknown, do not treat it as Missing.
-Prefer recommendations that address the user's prompt losses and source evidence before generic website gaps.
-Say "Unknown" when evidence is missing.
+Avoid anything that would read the same for any company in this category.
 
-user_website_pages holds the audited company's own pages in its own words.
-Read them before writing any advice, and say what is actually true of the site
-rather than what its missing page types imply.
+EVERY RECOMMENDATION RETURNS
 
-- When a page already makes the point, say so and ask for it to be developed.
-  "Your home page mentions this in one line while the competitor devotes a page
-  to it" is accurate, specific, and something the reader can act on today.
-- Only call something absent when you have read the pages and it is absent.
-  Telling a company to start saying what it already says reads as though nobody
-  looked at their site, and the rest of the report is disbelieved with it.
-- Quote their own words back when you have them. A short quote from their page
-  beside a competitor's is the clearest way to show the difference in depth.
+observation, evidence, suggested_change, expected_impact, confidence,
+evidence_types, evidence_refs, affected_loss_refs.
 
-Select up to 3 evidence_refs only from evidence_catalog.
-
-A citation is what lets the reader check a claim without taking your word for
-it, so it has to carry its own weight. Each item gives you an address, the page
-title and an extract. Nothing tells you what kind of page it is, because that
-judgement is yours to make from what you can see.
-
-- Cite a page a buyer could reach and read. Checkout screens, cart and basket
-  pages, machine endpoints, session links and anything behind a login are not
-  pages a buyer lands on while looking for a provider.
-- Quote something the company states: a claim, a capability it describes, a
-  price it publishes, a customer it names. Interface wording is not a
-  statement. Totals, form fields, button labels, cookie notices and navigation
-  describe the screen rather than the company.
-- The extract must support the exact point being made, closely enough that a
-  reader sees the connection without it being explained.
-- Where several items carry the same fact, cite the one a buyer would find
-  first. A pricing page and a checkout screen may show the same number; only
-  one of them is where a buyer would read it.
-- Cite nothing rather than the nearest thing. A point left unsupported is
-  honest; a point propped up by an unrelated page is not.
-
-Do not select evidence merely because its company name or a broad word appears in the recommendation.
-If no catalog item directly supports a recommendation, return empty evidence_types and evidence_refs.
-
-summary is the one thing the reader sees first: three or four sentences saying
-where this company stands and why. Say what the AI assistants take this company
-to be, where it is recommended and where it is passed over, and which
-competitor it keeps losing to. Name the single most useful thing to change.
-
-Write it to somebody who owns the company and has thirty seconds. No preamble,
-no restating the question, no advice to "consider" anything. Numbers where they
-carry weight: "recommended in six of twenty answers, ranked first in three of
-those" tells them more than "moderate visibility". If they were never
-recommended, say that plainly rather than softening it.
-
-Return only the required JSON object.
+Use question_id values from every_question_we_asked in affected_loss_refs, up to
+three. Use page_id values in evidence_refs, up to three. Return an empty list
+rather than a reference you cannot stand behind.
 """
 
 # Four sentences read in thirty seconds, not a page.
@@ -295,12 +343,30 @@ def generate_audit_recommendations(
     user_snapshot: dict[str, Any] | None = None,
     firecrawl_client: FirecrawlClient | None = None,
     limit: int | None = None,
+    raw_results: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
     """limit keeps only the top N written actions. The model is asked for at
     least three (schema-enforced via minItems); the free audit keeps the top
     three. The deterministic top-competitor finding is kept only as a fallback
     when the model returns nothing at all."""
     evidence_catalog = build_verified_evidence_catalog(competitor_evidence)
+    answers = raw_results or []
+    company_name = str(company_profile.get("company_name", ""))
+    user_keys = build_user_keys(
+        company_name, company_profile.get("company_name_variants")
+    )
+    question_rows = build_question_rows(
+        answers,
+        company_name,
+        user_keys,
+        recommendation_patterns.get("company_name_groups") or {},
+    )
+    pages, blocks = build_company_blocks(
+        company_profile, competitor_evidence, recommendation_patterns,
+        answers, user_snapshot,
+    )
+    evidence_catalog = add_missing_pages_to_the_catalog(evidence_catalog, pages)
+    labels = anonymous_assistant_labels(answers)
     payload = build_audit_recommendations_payload(
         company_profile,
         user_evidence,
@@ -309,11 +375,19 @@ def generate_audit_recommendations(
         comparison,
         evidence_catalog=evidence_catalog,
         user_snapshot=user_snapshot,
+        raw_results=answers,
+        question_rows=question_rows,
+        company_blocks=blocks,
     )
+    if pages or question_rows:
+        payload["tools"] = [OPEN_PAGE_TOOL, OPEN_QUESTION_TOOL]
     try:
-        raw_response = call_chat_completion(payload)
+        raw_response, opened = answer_with_open_tools(
+            payload, pages, question_rows, answers, labels
+        )
     except LLMNotConfigured as exc:
         return None, payload, str(exc)
+    payload["opened"] = opened
 
     if raw_response.lstrip().startswith("["):
         parsed = extract_json_array(raw_response)
@@ -330,13 +404,19 @@ def generate_audit_recommendations(
     # everything, and read straight off the payload afterwards. A dashboard
     # that picked one of three sentences off the mention rate was the only
     # thing standing in for it.
-    payload["summary"] = summary
+    payload["summary"] = strip_assistant_names(
+        summary, assistant_and_model_names(answers)
+    )
 
     prompt_losses = compact_recommendation_patterns(recommendation_patterns)[
         "user_company_recommendation_summary"
     ]["prompt_losses"]
 
-    normalized = [normalize_recommendation(item) for item in parsed]
+    hidden = assistant_and_model_names(answers)
+    normalized = [
+        hide_assistant_names(normalize_recommendation(item), hidden)
+        for item in parsed
+    ]
     if limit:
         normalized = normalized[:limit]
     if limit and normalized:
@@ -353,8 +433,8 @@ def generate_audit_recommendations(
     resolved = resolve_recommendation_evidence(
         with_top_finding, evidence_catalog
     )
-    resolved = resolve_affected_prompts(resolved, prompt_losses)
-    resolved = keep_evidence_from_the_companies_that_won(resolved)
+    resolved = resolve_affected_prompts(resolved, prompt_losses, question_rows)
+    resolved = keep_evidence_from_the_companies_that_won(resolved, company_name)
     if firecrawl_client is not None:
         resolved = verify_selected_evidence_with_firecrawl(
             resolved, firecrawl_client
@@ -371,22 +451,40 @@ def build_audit_recommendations_payload(
     *,
     evidence_catalog: list[dict[str, Any]] | None = None,
     user_snapshot: dict[str, Any] | None = None,
+    raw_results: list[dict[str, Any]] | None = None,
+    question_rows: list[dict[str, Any]] | None = None,
+    company_blocks: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     catalog = (
         evidence_catalog
         if evidence_catalog is not None
         else build_verified_evidence_catalog(competitor_evidence)
     )
+    company_name = str(company_profile.get("company_name", ""))
+    user_keys = build_user_keys(
+        company_name, company_profile.get("company_name_variants")
+    )
+    aliases = recommendation_patterns.get("company_name_groups") or {}
+    rows = (
+        question_rows
+        if question_rows is not None
+        else build_question_rows(raw_results or [], company_name, user_keys, aliases)
+    )
     data = {
-        "company_profile": company_profile,
-        "user_website_evidence": user_evidence,
-        "user_website_pages": user_page_excerpts(user_snapshot),
-        "recommendation_patterns": compact_recommendation_patterns(
-            recommendation_patterns
+        "about_this_audit": build_headline_numbers(
+            raw_results or [], rows, company_name, user_keys, aliases
         ),
-        "competitor_evidence": compact_competitor_evidence(competitor_evidence),
-        "comparison": compact_comparison(comparison),
-        "evidence_catalog": [readable_evidence_row(row) for row in catalog],
+        "the_company": trim_profile(company_profile),
+        # One row per question, with who was named across every assistant.
+        # Sending answers instead sent the same question five times over.
+        "every_question_we_asked": rows,
+        # One block per company rather than one list per source. Within a block
+        # the three lists answer three different questions: what the company
+        # publishes, what AI reaches for, and what the wider internet holds.
+        # The last two read together are the diagnosis - a company nobody cites
+        # but everybody writes about has a different problem from one nobody
+        # writes about at all, and the old shape could not express either.
+        "each_company": company_blocks or {},
     }
     payload = build_chat_payload(
         AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
@@ -472,15 +570,44 @@ def compact_recommendation_patterns(
 
 def compact_competitor_evidence(
     competitor_evidence: dict[str, Any],
+    catalog: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    # Every page crawled from a competitor is already in the citation catalog
+    # with its real address. Joining on that address gives each inventory row
+    # the evidence_id it can be cited by, so the reader's link keeps coming
+    # from the catalog exactly as it did before and the model never has to
+    # write an address itself.
+    id_by_url = {
+        canonical_url(row.get("url")): row.get("evidence_id")
+        for row in (catalog or [])
+        if row.get("url") and row.get("evidence_id")
+    }
     return {
         "summary": competitor_evidence.get("summary", {}),
         "competitors": [
             {
                 "company_name": item.get("company_name", "Unknown"),
-                "recommendation_pattern": item.get("recommendation_pattern", {}),
+                # No addresses here. Every page is cited by id, and an address
+                # sitting in the context is an address the writer can copy into
+                # a sentence, where nothing vouches for it.
+                "recommendation_pattern": {
+                    key: value
+                    for key, value in (item.get("recommendation_pattern") or {}).items()
+                    if key not in {"source_urls", "models"}
+                },
                 "website_verified": bool(item.get("website_evidence")),
                 "collection_status": item.get("collection_status", "Unknown"),
+                # What each of their pages is for, in the words of the model
+                # that read it, so the advice can be written from what both
+                # sites actually publish rather than from which keywords
+                # happened to appear in a link.
+                "their_pages": [
+                    {
+                        "what_it_is_for": page.get("what_it_is_for"),
+                        "cite_as": id_by_url.get(canonical_url(page.get("url"))),
+                    }
+                    for page in (item.get("site_pages") or [])[:20]
+                ],
             }
             for item in competitor_evidence.get("competitors", [])
         ],
@@ -746,14 +873,12 @@ def verify_selected_evidence_with_firecrawl(
                 verified_rows.append(row)
                 continue
             page = firecrawl_document_to_page(document, url)
-            if not page_supports_evidence(row, page):
-                rejected.append(
-                    {
-                        "evidence_id": row.get("evidence_id"),
-                        "reason": "firecrawl_content_mismatch",
-                    }
-                )
-                continue
+            # The page is re-read to give the reader a better extract, not to
+            # second-guess the choice. Deciding whether a page proved a point
+            # by hunting for the word "pricing" threw away real citations - a
+            # page headed "how much it costs" failed - and waved through any
+            # page carrying the word. The writer chose this page from a list it
+            # could read; that judgement stands.
             verified_rows.append(
                 {
                     **row,
@@ -840,17 +965,32 @@ def normalize_recommendation(item: Any) -> dict[str, Any]:
 def resolve_affected_prompts(
     recommendations: list[dict[str, Any]],
     prompt_losses: list[dict[str, Any]],
+    question_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Turn model-selected loss_ids into the real lost questions.
+    """Turn the question ids the model chose into the real lost questions.
 
     Mirrors resolve_recommendation_evidence: the model may only reference
-    losses that were actually supplied, and anything else is dropped.
+    questions that were actually supplied, and anything else is dropped.
+
+    The writer sees one set of question ids - q-07 - and cites those. It used
+    to be handed a second set, loss-002, for the same questions, which is one
+    more thing to keep straight and one more way to be wrong. Both are accepted
+    here so an id from either scheme still resolves.
     """
     by_id = {
         str(loss.get("loss_id")): loss
         for loss in prompt_losses
         if loss.get("loss_id")
     }
+    by_question = {
+        str(loss.get("prompt", "")).strip(): loss
+        for loss in prompt_losses
+        if loss.get("prompt")
+    }
+    for row in question_rows or []:
+        loss = by_question.get(str(row.get("question", "")).strip())
+        if loss is not None:
+            by_id[str(row.get("question_id"))] = loss
     resolved = []
     for recommendation in recommendations:
         accepted = []
@@ -877,6 +1017,31 @@ def resolve_affected_prompts(
     return resolved
 
 
+WRITTEN_URL = re.compile(r"https?://[^\s)\]<>\"']+", re.IGNORECASE)
+
+
+def drop_addresses_we_never_read(text: Any, known: set[str]) -> str:
+    """Remove any web address in the written advice that we did not fetch.
+
+    Links reach the reader through the citation list, where every address comes
+    from a page this audit actually read. An address typed into a sentence has
+    no such backing - the model can write one from memory - and a link that
+    goes nowhere costs the reader their trust in everything around it.
+    """
+    written = str(text or "")
+    if "http" not in written:
+        return written
+    kept = WRITTEN_URL.sub(
+        lambda match: match.group(0)
+        if canonical_url(match.group(0).rstrip(".,;:")) in known
+        else "",
+        written,
+    )
+    kept = re.sub(r"[(\[]\s*[)\]]", "", kept)
+    kept = re.sub(r"\s+([.,;:!?])", r"", kept)
+    return re.sub(r"\s{2,}", " ", kept).strip(" ,;:")
+
+
 def resolve_recommendation_evidence(
     recommendations: list[dict[str, Any]],
     evidence_catalog: list[dict[str, Any]],
@@ -885,6 +1050,11 @@ def resolve_recommendation_evidence(
         str(row.get("evidence_id")): row
         for row in evidence_catalog
         if row.get("evidence_id")
+    }
+    known_urls = {
+        canonical_url(row.get("url"))
+        for row in evidence_catalog
+        if row.get("url")
     }
     resolved = []
     for recommendation in recommendations:
@@ -911,6 +1081,17 @@ def resolve_recommendation_evidence(
         resolved.append(
             {
                 **recommendation,
+                **{
+                    field: drop_addresses_we_never_read(
+                        recommendation.get(field), known_urls
+                    )
+                    for field in (
+                        "observation",
+                        "evidence",
+                        "suggested_change",
+                        "expected_impact",
+                    )
+                },
                 "evidence_types": normalize_evidence_types(
                     [row.get("evidence_type") for row in accepted]
                 ),
@@ -941,10 +1122,15 @@ def winning_company_names(affected_prompts: list[dict[str, Any]]) -> set[str]:
     for loss in affected_prompts:
         winners = loss.get("winners") or []
         if winners:
+            # Evidence cards are labelled with the group name, so compare group
+            # names. Matching the assistant's own spelling against a merged
+            # card label threw away proof from companies that genuinely won:
+            # a card reading "Otter.ai" never equals an answer's "Otter Voice
+            # Notes", and the finding lost its citation to a bystander check.
             names.update(
-                normalize_name(winner.get("company_name"))
+                normalize_name(winner.get("grouped_name") or winner.get("company_name"))
                 for winner in winners
-                if winner.get("company_name")
+                if winner.get("grouped_name") or winner.get("company_name")
             )
         else:
             names.update(
@@ -958,6 +1144,7 @@ def winning_company_names(affected_prompts: list[dict[str, Any]]) -> set[str]:
 
 def keep_evidence_from_the_companies_that_won(
     recommendations: list[dict[str, Any]],
+    audited_company: str | None = None,
 ) -> list[dict[str, Any]]:
     """A finding may only cite the companies that took the question it names.
 
@@ -972,10 +1159,19 @@ def keep_evidence_from_the_companies_that_won(
     This is the second half: if a page does not belong to a company that beat
     the audited company in the cited question, it is not evidence for this
     finding, and citing nothing is more honest than citing a bystander.
+
+    The audited company is exempt. Its own pages are never offered as proof
+    that somebody won - they are the page the advice asks them to change, and
+    the reader needs to be able to open it. Left in the filter, every finding
+    about their own site came out with nothing to click, which is how it
+    behaved on a live run.
     """
+    own = normalize_name(audited_company) if audited_company else ""
     cleaned = []
     for recommendation in recommendations:
         winners = winning_company_names(recommendation.get("affected_prompts", []))
+        if own:
+            winners = winners | {own}
         supporting = recommendation.get("supporting_evidence", [])
         # With no question attached there is nothing to check against, so the
         # citation stands on the model's own judgement as before.
@@ -1187,33 +1383,6 @@ def page_excerpt(page: dict[str, Any] | None, max_length: int = 320) -> str:
     return concise_text(text, max_length)
 
 
-def page_supports_evidence(
-    evidence: dict[str, Any],
-    page: dict[str, Any],
-) -> bool:
-    evidence_type = str(evidence.get("evidence_type", ""))
-    url = str(page.get("url", ""))
-    title = str(page.get("title", ""))
-    content = str(page.get("main_text", ""))
-    haystack = f"{url} {title} {content[:5000]}".lower()
-    company_name = str(evidence.get("company_name", "")).strip().lower()
-    if evidence_type == "external_mention":
-        return bool(company_name and company_name in haystack)
-    keywords = {
-        "use_case_page": ("use case", "solution", "industry"),
-        "feature_page": ("feature", "product", "platform", "capabilit"),
-        "pricing_page": ("pricing", "price", "plan", "cost"),
-        "faq_page": ("faq", "frequently asked", "questions"),
-        "customer_proof": ("case study", "customer", "testimonial", "success"),
-        "documentation": ("documentation", "docs", "developer", "api"),
-        "comparison_page": ("compare", "comparison", "alternative", "versus"),
-        "homepage_message": (),
-    }.get(evidence_type, ())
-    return evidence_type == "homepage_message" or any(
-        keyword in haystack for keyword in keywords
-    )
-
-
 def normalize_name(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
 
@@ -1236,3 +1405,132 @@ def concise_text(value: Any, max_length: int) -> str:
 def meaningful_text(value: Any) -> bool:
     text = " ".join(str(value or "").split()).strip()
     return bool(text and text.lower() != "unknown" and len(text.split()) >= 3)
+
+
+# Reading pages is cheap and the writer only opens what it needs, but a loop
+# with no end is a loop that can bill forever. Past this the tools are taken
+# away and it answers with what it has read.
+MAX_OPENS = 12
+MAX_OPEN_TURNS = 8
+
+
+def answer_with_open_tools(
+    payload: dict[str, Any],
+    pages: dict[str, dict[str, Any]],
+    question_rows: list[dict[str, Any]],
+    raw_results: list[dict[str, Any]],
+    labels: dict[str, str],
+) -> tuple[str, list[str]]:
+    """Let the writer read what it needs, then return its text.
+
+    Sending a fixed slice of every page meant choosing, in advance and without
+    knowing the argument being made, which seven hundred characters mattered.
+    The writer knows; it asks.
+    """
+    if "tools" not in payload:
+        return call_chat_completion(payload), []
+    hidden_names = assistant_and_model_names(raw_results)
+    messages = payload["messages"]
+    opened: list[str] = []
+    for _turn in range(MAX_OPEN_TURNS):
+        message = call_chat_message(payload)
+        calls = message.get("tool_calls") or []
+        if not calls:
+            return str(message.get("content") or ""), opened
+        messages.append(
+            {
+                "role": "assistant",
+                "content": message.get("content"),
+                "tool_calls": calls,
+            }
+        )
+        for call in calls:
+            function = call.get("function") or {}
+            name = str(function.get("name", ""))
+            try:
+                arguments = json.loads(function.get("arguments") or "{}")
+            except (TypeError, ValueError):
+                arguments = {}
+            if name == "open_page":
+                wanted = str(arguments.get("page_id", ""))
+                how = str(arguments.get("how", "text"))
+                part = arguments.get("part", 1)
+                result = open_page(wanted, pages, how, part)
+                opened.append(f"page {wanted} ({how} part {result.get('part', 1)})")
+            elif name == "open_question":
+                wanted = str(arguments.get("question_id", ""))
+                result = open_question(
+                    wanted, question_rows, raw_results, labels, hidden_names
+                )
+                opened.append(f"question {wanted}")
+            else:
+                result = {"error": f"There is no tool called {name}."}
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.get("id"),
+                    "content": json.dumps(result, ensure_ascii=False),
+                }
+            )
+        if len(opened) >= MAX_OPENS:
+            payload.pop("tools", None)
+            break
+    return str(call_chat_message(payload).get("content") or ""), opened
+
+
+def hide_assistant_names(
+    recommendation: dict[str, Any],
+    names: set[str],
+) -> dict[str, Any]:
+    """No AI assistant or model is named in anything a customer reads.
+
+    Naming one turns an audit of what buyers are told into an audit of one
+    vendor's model, and invites advice about pleasing that vendor. The prompt
+    asks for this; this makes it so.
+    """
+    return {
+        **recommendation,
+        **{
+            field: strip_assistant_names(recommendation.get(field), names)
+            for field in (
+                "observation",
+                "evidence",
+                "suggested_change",
+                "expected_impact",
+            )
+        },
+    }
+
+
+def add_missing_pages_to_the_catalog(
+    catalog: list[dict[str, Any]],
+    pages: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Anything the writer can see, it can cite.
+
+    The catalog held competitors' pages only, so when the advice was about the
+    audited company's own features page - which is what most advice is about -
+    the citation was rejected and the reader got a recommendation with nothing
+    to click. Three of three recommendations came back linkless on a live run
+    for exactly this reason.
+    """
+    known = {str(row.get("evidence_id")) for row in catalog}
+    topped_up = list(catalog)
+    for page_id, page in pages.items():
+        if page_id in known:
+            continue
+        topped_up.append(
+            {
+                "evidence_id": page_id,
+                "company_name": page.get("company_name", ""),
+                "evidence_type": "site_page",
+                "label": "Page on the website",
+                "title": concise_text(
+                    page.get("title") or page_name_from_url(page.get("url", "")), 100
+                ),
+                "url": page.get("url", ""),
+                "excerpt": concise_text(page.get("text", ""), 220),
+                "provenance": "audit_page_index",
+            }
+        )
+    return topped_up

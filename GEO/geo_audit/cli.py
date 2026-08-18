@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -11,6 +12,11 @@ from .audit_recommendations import (
     build_free_preview_recommendations,
     generate_audit_recommendations,
 )
+from .audit_summary import (
+    build_standing_sentence,
+    generate_audit_summary,
+)
+from .company_merge import generate_company_aliases
 from .comparison import compare_user_to_competitors
 from .competitor_evidence import build_competitor_evidence
 from .costs import tracker as cost_tracker
@@ -44,7 +50,7 @@ from .recommendations import (
 )
 from .report import generate_final_report
 from .utils import make_run_dir
-from .web_presence import collect_web_presence
+from .web_presence import build_search_client, collect_web_presence
 
 
 CRAWL_CONTEXT_PATH_TERMS = (
@@ -492,7 +498,7 @@ def main() -> None:
     collect_parser.add_argument(
         "--provider-concurrency",
         type=int,
-        default=4,
+        default=20,
         help="Number of provider prompt calls to run in parallel.",
     )
     collect_parser.add_argument(
@@ -684,7 +690,7 @@ def main() -> None:
     # ten questions across four assistants is sixteen jobs. Four workers ran
     # them in four waves and spent most of the step waiting for a slot rather
     # than for a model.
-    run_parser.add_argument("--provider-concurrency", type=int, default=12)
+    run_parser.add_argument("--provider-concurrency", type=int, default=20)
     run_parser.add_argument(
         "--search-context-size",
         choices=["low", "medium", "high"],
@@ -1516,14 +1522,50 @@ def main() -> None:
             encoding="utf-8",
         )
 
+        # The customer's own site is the only trustworthy source for the ways
+        # the customer writes its name. Until the profile collected them this
+        # list held one entry, the name itself, and every later step guessed at
+        # the rest on its own.
         aliases = [profile.get("company_name")] if profile.get("company_name") else []
+        for variant in profile.get("company_name_variants") or []:
+            text = str(variant or "").strip()
+            if text and text.lower() not in {a.lower() for a in aliases}:
+                aliases.append(text)
+        emit_run_progress("pattern_analysis", 72, "Aggregating recommendation patterns")
+        # One company, one count: assistants spell the same competitor several
+        # ways, and counting by spelling splits its mentions. The merge happens
+        # here because this is the first moment the full list of names exists.
+        # On any failure the audit carries on with per-spelling counts.
+        try:
+            merge_search_client = build_search_client(
+                os.getenv("AGENTCORE_GATEWAY_URL") or os.getenv("GATEWAY_URL")
+            )
+        except Exception:  # noqa: BLE001 - no search just means no web check.
+            merge_search_client = None
+        company_aliases, merge_artifact, merge_error = generate_company_aliases(
+            raw_results,
+            profile.get("company_name"),
+            aliases,
+            search_client=merge_search_client,
+            category_hint=profile.get("category"),
+            user_domain=profile.get("domain") or profile.get("input_url"),
+        )
+        (run_dir / "company_merge.json").write_text(
+            json.dumps(merge_artifact, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        if merge_error:
+            (run_dir / "company_merge_error.txt").write_text(
+                str(merge_error),
+                encoding="utf-8",
+            )
         patterns = aggregate_recommendations(
             raw_results,
             top_n=args.top_n,
             user_company=profile.get("company_name"),
             user_aliases=aliases,
+            company_aliases=company_aliases,
         )
-        emit_run_progress("pattern_analysis", 72, "Aggregating recommendation patterns")
         patterns_path = run_dir / "recommendation_patterns.json"
         patterns_path.write_text(
             json.dumps(patterns, indent=2, ensure_ascii=False),
@@ -1594,7 +1636,6 @@ def main() -> None:
             encoding="utf-8",
         )
 
-        audit_summary = ""
         if args.skip_audit_recommendations:
             audit_recs = (
                 build_free_preview_recommendations(profile, patterns)
@@ -1622,8 +1663,11 @@ def main() -> None:
                 # so it skips the extra Firecrawl re-check to stay fast.
                 firecrawl_client=None if args.free_preview else firecrawl_client,
                 limit=args.max_recommendations,
+                # The answers themselves, so the writer can group the questions
+                # and open any one of them in full rather than being handed a
+                # tenth of them chosen in advance.
+                raw_results=raw_results,
             )
-            audit_summary = str(rec_payload.get("summary", ""))
             (run_dir / "audit_recommendations_prompt.json").write_text(
                 json.dumps(rec_payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
@@ -1641,6 +1685,29 @@ def main() -> None:
             json.dumps(audit_recs, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+
+        # The verdict is written last, on its own, once the actions exist. It
+        # used to be a spare field on the recommendation call, which handed the
+        # model the whole report and got back prose that disagreed with the
+        # measured counts. The standing sentence is code's either way, so a
+        # preview that skips the call still shows a true verdict.
+        audit_summary = build_standing_sentence(
+            str(profile.get("company_name", "")), patterns
+        )
+        if not args.skip_audit_recommendations:
+            emit_run_progress("executive_verdict", 93, "Writing the executive verdict")
+            audit_summary, summary_payload, summary_error = generate_audit_summary(
+                profile, patterns, audit_recs
+            )
+            (run_dir / "audit_summary_prompt.json").write_text(
+                json.dumps(summary_payload, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            if summary_error:
+                (run_dir / "audit_summary_error.txt").write_text(
+                    str(summary_error),
+                    encoding="utf-8",
+                )
         save_firecrawl_usage(run_dir, firecrawl_client)
 
         if args.skip_final_report:

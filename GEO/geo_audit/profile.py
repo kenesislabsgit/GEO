@@ -71,7 +71,39 @@ buyer_facing_terms: words the site uses for the people it sells to, copied from
 the page: "founders", "IT teams", "hospitals", "growing brands".
 company_self_description: the words the company uses about itself and its own
 standing, copied from the page: "premium global technology partner", "India's
-largest broker". These are claims, not facts, and later steps treat them so."""
+largest broker". These are claims, not facts, and later steps treat them so.
+
+company_name_variants: every way this company's own site writes its own name.
+
+Copy each one exactly as it appears on a page. Nothing else belongs here. Do
+not build a variant by shortening a name, by adding or removing a domain
+ending, by expanding an abbreviation, or by writing the name the way you think
+the company would write it. If the spelling is not printed somewhere on the
+site, it does not go in the list.
+
+Include the short name, the full legal name, and the name of the single product
+when the site uses that name for the company itself - each only when the site
+actually prints it that way. Do not include separate products the company also
+sells.
+
+A later step counts how often AI assistants recommend this company and compares
+against this list, so one invented spelling adds mentions the company never
+earned. A short, honest list is right. A longer, guessed one is not.
+
+site_pages: an inventory of the pages you were given. One row per page that
+does a job for a buyer. Say what the page is for in your own plain words, not
+by picking from a list of types: "lists three plans with monthly prices",
+"walks a new user through setting up on a Mac", "a law firm's account of
+switching to it", "answers common questions about billing".
+
+Give the page_id of the page you are describing. Skip pages that carry no
+buyer-facing content of their own - a login screen, a cookie notice, an empty
+category page. Never describe a page you were not given, and never describe
+what a page ought to contain rather than what it does.
+
+This inventory is later compared against the same inventory for competitor
+sites, and the advice the company pays for is written from the difference. A
+page missing from this list reads as a page the company does not have."""
 
 
 PROFILE_EVIDENCE_RULES = """Supporting quotes. Only these fields need one:
@@ -88,6 +120,10 @@ checked against the page text directly, so do not write quotes for them."""
 PROFILE_SCHEMA = """Return only valid JSON with this exact top-level structure:
 {
   "company_name": "",
+  "company_name_variants": [],
+  "site_pages": [
+    {"page_id": "", "what_it_is_for": ""}
+  ],
   "category": "",
   "target_audience": "",
   "business_type": "",
@@ -357,6 +393,7 @@ def normalize_company_profile(
         "pricing_model": "Unknown",
     }
     list_fields = (
+        "company_name_variants",
         "company_locations",
         "regions_served",
         "industries",
@@ -378,6 +415,10 @@ def normalize_company_profile(
 
     if not normalized["primary_offerings"]:
         normalized["primary_offerings"] = list(normalized["features"])
+
+    normalized["site_pages"] = validate_site_pages(
+        normalized.get("site_pages"), page_urls
+    )
 
     evidence = normalized.get("evidence")
     if not isinstance(evidence, dict):
@@ -783,6 +824,116 @@ def quote_or_verbatim_part(quote: str, page_text: str) -> str:
         if len(piece) >= 20 and piece in page_text:
             return part
     return ""
+
+
+SITE_PAGES_SYSTEM_PROMPT = """You are given the pages of one company's website.
+
+Say what each page is for, in your own plain words: "lists three plans with
+monthly prices", "walks a new user through setting up on a Mac", "a law firm's
+account of switching to it", "answers common questions about billing".
+
+Do not sort pages into types. Describe what a buyer would actually get from
+each one.
+
+One row per page that does a job for a buyer. Skip pages with no buyer-facing
+content of their own - a login screen, a cookie notice, an empty category page.
+Never describe a page you were not given, and never describe what a page ought
+to contain.
+
+Give the page_id of the page you are describing.
+
+This list is compared against the same list for a rival's site, and the advice
+a company pays for is written from the difference. A page you leave out reads
+as a page the company does not have. A page you invent sends the advice the
+wrong way entirely.
+
+Return only JSON:
+{"site_pages": [{"page_id": "", "what_it_is_for": ""}]}
+"""
+
+
+def describe_site_pages(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+    """What each page of a competitor's site is for.
+
+    The audited company gets this for free inside its own profile call, which
+    already reads every page. A competitor has no such call, and until now its
+    site was judged by looking for words like "pricing" in a link - so a rival
+    whose prices live at "how much it costs" was reported as publishing none.
+
+    A failure returns an empty list. The audit then carries on with the word
+    search it used before rather than stopping.
+    """
+    pages = snapshot.get("pages") or []
+    if not pages:
+        return []
+    compact = []
+    for index, page in enumerate(pages, start=1):
+        compact.append(
+            {
+                "page_id": f"page-{index:03d}",
+                "url": page.get("url", ""),
+                "title": page.get("title", ""),
+                "headings": page.get("headings", {}),
+                "text": str(page.get("main_text", ""))[:1500],
+            }
+        )
+    payload = build_chat_payload(
+        SITE_PAGES_SYSTEM_PROMPT,
+        json.dumps({"pages": compact}, ensure_ascii=False),
+        temperature=0,
+        json_response=True,
+    )
+    try:
+        response = extract_json_object(call_chat_completion(payload))
+    except (LLMNotConfigured, RuntimeError, ValueError):
+        return []
+    page_urls = {row["page_id"]: row["url"] for row in compact}
+    return validate_site_pages(
+        response.get("site_pages") if isinstance(response, dict) else None,
+        page_urls,
+    )
+
+
+def validate_site_pages(
+    value: Any,
+    page_urls: dict[str, str],
+) -> list[dict[str, str]]:
+    """What each page on this site is for, in the model's own words.
+
+    This replaces looking for the word "pricing" in a link. A site whose
+    pricing lives at "how much it costs" used to be reported as having no
+    pricing page, and the advice the customer paid for then told them to build
+    one they already had.
+
+    No supporting quote is asked for here. Elsewhere a quote settles whose page
+    this is, because a search result could belong to anybody. These pages were
+    crawled from one site we chose, so ownership is not in question and the
+    quote would only be checking our own work. The address is taken from the
+    crawl by page_id and never from the model, and a page_id we did not send is
+    dropped - which is the whole of what needs guarding.
+    """
+    if not isinstance(value, list):
+        return []
+    rows = []
+    seen = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        page_id = clean_scalar(item.get("page_id") or item.get("page_ref"), "")
+        what_for = clean_scalar(
+            item.get("what_it_is_for") or item.get("purpose"), ""
+        )
+        if not page_id or not what_for or page_id not in page_urls or page_id in seen:
+            continue
+        seen.add(page_id)
+        rows.append(
+            {
+                "page_id": page_id,
+                "url": page_urls[page_id],
+                "what_it_is_for": what_for,
+            }
+        )
+    return rows
 
 
 def validate_claim_evidence(

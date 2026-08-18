@@ -4,7 +4,12 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
-from .aggregation import build_user_keys, canonical_company_key, find_user_match
+from .aggregation import (
+    build_user_keys,
+    canonical_company_key,
+    grouped_company_name,
+    is_user_company,
+)
 from .costs import per_call_usd
 from .scoring import build_scorecard
 
@@ -42,7 +47,12 @@ def build_frontend_export(
     brand_name = company_profile.get("company_name", "Unknown")
     domain = audited_domain(company_profile, website_snapshot)
     prompt_matrix = build_prompt_matrix(prompts, recommendation_patterns)
-    query_results = build_query_results(raw_results, brand_name, web_presence)
+    query_results = build_query_results(
+        raw_results,
+        brand_name,
+        web_presence,
+        recommendation_patterns.get("company_name_groups"),
+    )
     provider_coverage = build_provider_coverage(raw_results)
     # A provider is partial when it answered but recommended nobody — or when
     # it was asked and never answered at all. The second case used to be
@@ -183,11 +193,14 @@ def build_query_results(
     raw_results: list[dict[str, Any]],
     brand_name: str,
     web_presence: dict[str, Any] | None = None,
+    company_name_groups: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     web_presence = web_presence or {}
-    # The same rule the score uses. Exact string equality here meant an answer
-    # naming a sub-product ("Stripe Connect") counted towards mention_score and
-    # position_score while this table said the brand was absent with no rank.
+    # One question, one answer: whether a name is the audited company is
+    # decided in a single place. Matching the brand name exactly here while the
+    # counting step accepted anything starting with it meant a spelling could
+    # be the customer in the numbers and a stranger in the answers shown
+    # beside them.
     brand_keys = build_user_keys(brand_name, None)
     rows = []
     # A page written about a company is a fact about that company, not about
@@ -202,13 +215,24 @@ def build_query_results(
         cited_urls = sorted(set(provider_source_urls))
         brand_mentions = citation_brand_mentions(result)
         verified_mentions = []
-        for mention in mentions_for_recommendations(recommendations, web_presence):
+        for mention in mentions_for_recommendations(
+            recommendations, web_presence, company_name_groups
+        ):
             url = str(mention.get("url", "")).strip()
             if not url or url in exported_mentions:
                 continue
             exported_mentions.add(url)
             verified_mentions.append(mention)
-        brand_rec = find_user_match(recommendations, brand_keys)
+        brand_rec = next(
+            (
+                item
+                for item in recommendations
+                if is_user_company(
+                    item.get("company_name", ""), brand_keys, company_name_groups
+                )
+            ),
+            None,
+        )
         rows.append(
             {
                 "prompt_index": result.get("prompt_index"),
@@ -302,9 +326,16 @@ def build_citation_rows(raw_results: list[dict[str, Any]]) -> list[dict[str, Any
 def mentions_for_recommendations(
     recommendations: list[dict[str, Any]],
     web_presence: dict[str, Any],
+    company_name_groups: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
+    # Web presence is gathered for the merged competitor list, so its entities
+    # carry group names while each answer still carries its own spelling.
+    # Compare group names, or a page found for "Otter.ai" never reaches the
+    # answer that said "Otter Voice Notes".
     company_names = {
-        str(item.get("company_name", "")).lower().strip()
+        str(
+            grouped_company_name(item.get("company_name"), company_name_groups)
+        ).lower().strip()
         for item in recommendations
     }
     rows = []

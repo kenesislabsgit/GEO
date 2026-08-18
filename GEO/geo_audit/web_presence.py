@@ -61,6 +61,36 @@ KNOWN_ALIASES = {
 }
 
 
+def build_search_client(
+    gateway_url: str | None = None,
+    gateway_tool_name: str | None = None,
+) -> Any:
+    """The audit's one way of searching the web, shared by every step that
+    needs it, so a provider change lands everywhere at once."""
+    # AgentCore goes first because it is the one that answers. Measured over
+    # six live queries, DuckDuckGo failed all six and spent about 31 seconds
+    # each time doing it, while AgentCore returned results for all six in
+    # 1.3-3.3s. Every query was paying the full cost of a provider that had
+    # already stopped working, and because DuckDuckGo fails two ways — rate
+    # limited straight away, or a connect timeout thirty seconds later — the
+    # same run took 79s one day and 585s the next.
+    #
+    # DuckDuckGo stays as the fallback rather than being deleted, so a
+    # gateway outage still leaves a way to search.
+    agentcore = (
+        AgentCoreWebSearchClient.from_environment(
+            gateway_url=gateway_url,
+            tool_name=gateway_tool_name,
+        )
+        if gateway_url
+        else None
+    )
+    duckduckgo = DDGSSearchClient()
+    if agentcore is not None:
+        return FallbackWebSearchClient(agentcore, duckduckgo)
+    return FallbackWebSearchClient(duckduckgo, None)
+
+
 def collect_web_presence(
     company_profile: dict[str, Any],
     prompts: list[dict[str, Any]],
@@ -70,7 +100,7 @@ def collect_web_presence(
     max_competitors: int = 3,
     gateway_url: str | None = None,
     gateway_tool_name: str | None = None,
-    search_concurrency: int = 4,
+    search_concurrency: int = 12,
     fetch_concurrency: int = 8,
     error_log_path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -97,21 +127,8 @@ def collect_web_presence(
     #
     # DuckDuckGo stays as the fallback rather than being deleted, so a
     # gateway outage still leaves a way to search.
-    agentcore = (
-        AgentCoreWebSearchClient.from_environment(
-            gateway_url=configured_gateway_url,
-            tool_name=gateway_tool_name,
-        )
-        if configured_gateway_url
-        else None
-    )
     try:
-        duckduckgo = DDGSSearchClient()
-        client = (
-            FallbackWebSearchClient(agentcore, duckduckgo)
-            if agentcore is not None
-            else FallbackWebSearchClient(duckduckgo, None)
-        )
+        client = build_search_client(configured_gateway_url, gateway_tool_name)
     except Exception as exc:  # noqa: BLE001 - report setup/auth failures explicitly.
         configuration_error = {
             "provider": "duckduckgo",
@@ -169,6 +186,9 @@ def collect_web_presence(
     search_errors: list[dict[str, Any]] = []
     provider_counts: dict[str, int] = {}
     fallback_queries = 0
+    # Thirty-six searches four at a time is nine waves and about twenty-seven
+    # seconds of the stage. The queries are spread across six companies, so a
+    # wider queue leans on no single search provider harder than before.
     workers = max(1, min(search_concurrency, len(search_tasks) or 1))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -248,10 +268,7 @@ def collect_web_presence(
                 for row in verified_rows
                 if row.get("company_name") == company_name
             ],
-            key=lambda row: (
-                -int(row.get("relevance_score", 0)),
-                int(row.get("search_rank", 999)),
-            ),
+            key=lambda row: int(row.get("search_rank", 999)),
         )
         known_website = entity.get("known_website")
         if known_website:
@@ -680,10 +697,30 @@ not Horus Analytics at horusapp.io, however exactly the names agree. No
 company_website is given for companies whose address we do not reliably know,
 and then the extracts are all you have.
 
-For each page return two things:
+For each page return four things:
 
 - is_this_company: whether the page is about this company.
 - line: the number of the single extract that shows it, or 0 if none does.
+- usefulness: how much this page would help a buyer deciding between this
+  company and its rivals - "high", "medium" or "low".
+- reason: one short line, and where you say a page is useful, say what a buyer
+  would get from it.
+
+Only a handful of pages are shown to a paying customer, and usefulness decides
+which. Judge it by what a buyer would actually get:
+
+- high: somebody weighing this company up in their own words - a review, a
+  comparison, a forum thread, a customer's account of using it, an independent
+  write-up with an opinion.
+- medium: solid facts a buyer would want - pricing, what it does, who it is
+  for, a news item about the company.
+- low: a bare directory listing, a name in a long list, a job advert, a press
+  release repeated word for word, a page that names the company and says
+  nothing about it.
+
+Do not rate a page higher because it repeats industry words, and do not rate
+it lower for being short. A three-line forum reply from a real user beats a
+long page of marketing copy.
 
 - Same name, different business is the thing to catch. An investment firm and
   a video analytics vendor can both be called Vintra, and a research paper, an
@@ -715,14 +752,30 @@ SAME_COMPANY_SCHEMA = {
                     "url": {"type": "string"},
                     "is_this_company": {"type": "boolean"},
                     "line": {"type": "integer"},
+                    "usefulness": {"enum": ["high", "medium", "low"]},
                     "reason": {"type": "string"},
                 },
-                "required": ["url", "is_this_company", "line", "reason"],
+                "required": [
+                    "url",
+                    "is_this_company",
+                    "line",
+                    "usefulness",
+                    "reason",
+                ],
             },
         }
     },
     "required": ["pages"],
 }
+
+# The order pages are shown in. It used to be a hand-made sum - 55 points, plus
+# five for every industry word on the page, plus ten if the name was in the
+# title - which rewarded a page for repeating words and had no idea what a
+# buyer would get from reading it. The model already reads each page to decide
+# whose it is, so it says how useful the page is in the same breath. That
+# costs nothing extra and replaces a number nobody could justify.
+USEFULNESS_ORDER = {"high": 0, "medium": 1, "low": 2}
+
 
 MENTION_WINDOW_RADIUS = 300
 MAX_MENTION_WINDOWS = 4
@@ -809,8 +862,13 @@ def gate_entity_mentions(
                         # Nothing came back for this page. Keeping it would put
                         # an unchecked page into a count that is meant to be
                         # checked, so it is held back and said so.
-                        decided[item["key"]] = (False, "unchecked")
+                        decided[item["key"]] = (False, "unchecked", "low", "")
 
+    original_windows = {
+        str(row.get("url")): row.get("mention_windows") or []
+        for entity in entity_rows
+        for row in entity.get("verified_mentions", [])
+    }
     kept_rows = []
     dropped_rows = []
     for entity in entity_rows:
@@ -818,13 +876,33 @@ def gate_entity_mentions(
         dropped = []
         for row in entity.get("verified_mentions", []):
             key = f"{entity['company_name']}|{row.get('url')}"
-            keep, reason = decided.get(key, (False, "unchecked"))
-            # The extracts existed so this decision could be made. Carrying
-            # them into the saved run would put a copy of every page read into
-            # every audit on disk, and nothing downstream reads them.
-            row = {key_: value for key_, value in row.items() if key_ != "mention_windows"}
+            keep, reason, usefulness, said = decided.get(
+                key, (False, "unchecked", "low", "")
+            )
+            # The extracts are what this page actually says about this
+            # company, pulled from the page itself. They used to be dropped
+            # here to keep the saved run small, which left the report writer
+            # reading the search engine's blurb instead - a summary written for
+            # a search query, not for the page. They are kept now, trimmed to
+            # what a reader would use.
+            row = {
+                key_: value for key_, value in row.items() if key_ != "mention_windows"
+            }
+            passages = [
+                " ".join(str(window).split())[:600]
+                for window in original_windows.get(str(row.get("url")), [])[:4]
+            ]
+            if passages:
+                row["passages"] = passages
             if keep:
-                kept.append({**row, "accepted_because": reason})
+                kept.append(
+                    {
+                        **row,
+                        "accepted_because": reason,
+                        "usefulness": usefulness,
+                        "usefulness_reason": said,
+                    }
+                )
             else:
                 dropped.append(
                     {
@@ -835,7 +913,15 @@ def gate_entity_mentions(
                         "reason": reason,
                     }
                 )
-        entity["verified_mentions"] = kept
+        # Now the pages carry the model's rating, so the most useful lead.
+        # Ties keep the order the search returned.
+        entity["verified_mentions"] = sorted(
+            kept,
+            key=lambda row: (
+                USEFULNESS_ORDER.get(str(row.get("usefulness", "medium")), 1),
+                int(row.get("search_rank", 999)),
+            ),
+        )
         # Kept beside the entity so "no mentions found" can be told apart from
         # "mentions found and thrown away".
         entity["rejected_mentions"] = dropped
@@ -854,8 +940,8 @@ def gate_entity_mentions(
 def check_cited_extract(
     row: dict[str, Any],
     aliases: list[str],
-    verdict: tuple[bool, int, str],
-) -> tuple[bool, str]:
+    verdict: tuple[bool, int, str, str],
+) -> tuple[bool, str, str, str]:
     """Check the extract the model cited, rather than take its word for it.
 
     A model asked whether a page is about a company will tend to agree. Making
@@ -864,16 +950,16 @@ def check_cited_extract(
     page kept because of an extract that says nothing about who the page
     belongs to is the failure this whole step exists to prevent.
     """
-    keep, line_number, reason = verdict
+    keep, line_number, reason, usefulness = verdict
     if not keep:
-        return False, f"model:{reason}"
+        return False, f"model:{reason}", usefulness, reason
 
     windows = row.get("mention_windows", [])
     if line_number < 1 or line_number > len(windows):
-        return False, "cited_extract_does_not_exist"
+        return False, "cited_extract_does_not_exist", usefulness, reason
     if not any(contains_phrase(windows[line_number - 1], alias) for alias in aliases):
-        return False, "cited_extract_does_not_name_the_company"
-    return True, f"model_cited_extract_{line_number}"
+        return False, "cited_extract_does_not_name_the_company", usefulness, reason
+    return True, f"model_cited_extract_{line_number}", usefulness, reason
 
 
 def confirm_same_company(
@@ -940,10 +1026,12 @@ def confirm_same_company(
             line_number = int(item.get("line", 0))
         except (TypeError, ValueError):
             line_number = 0
+        usefulness = str(item.get("usefulness", "")).strip().lower()
         verdicts[url] = (
             bool(item.get("is_this_company")),
             line_number,
             str(item.get("reason", ""))[:200],
+            usefulness if usefulness in USEFULNESS_ORDER else "medium",
         )
     return verdicts
 
@@ -980,18 +1068,15 @@ def verify_search_result(
     if not windows:
         return None
 
-    context_terms = build_context_terms(company_profile)
+    # These words no longer rank anything - the model's usefulness rating does
+    # that now - but three later steps still use them to tell a page that says
+    # something about this market from one that only carries the name.
     context_matches = [
-        term for term in context_terms if contains_phrase(page_text, term)
+        term
+        for term in build_context_terms(company_profile)
+        if contains_phrase(page_text, term)
     ]
     source_type = classify_source_url(final_url)
-    relevance_score = min(
-        100,
-        55
-        + min(25, len(context_matches) * 5)
-        + (10 if matched_alias.lower() in str(parsed.get("title", "")).lower() else 0)
-        + (5 if source_type in {"community", "review_platform", "news_or_blog"} else 0),
-    )
     return {
         "company_name": row["company_name"],
         "url": canonical_url(final_url),
@@ -1003,12 +1088,16 @@ def verify_search_result(
         "search_rank": row.get("search_rank"),
         "search_provider": row.get("search_provider"),
         "source_type": source_type,
+        # The page as it reads, not the search engine's summary of it. The
+        # summary is written for the query that found the page, so it changes
+        # with the search wording and cannot be quoted as the page's own words.
+        # Kept trimmed: enough to read, far short of storing the whole web.
+        "page_text": " ".join(str(parsed.get("main_text", "")).split())[:12000],
         "matched_alias": matched_alias,
         "matched_context_terms": context_matches[:8],
         # Read by the same-company gate and removed once it has decided, so the
         # stored run does not carry a copy of every page it looked at.
         "mention_windows": windows,
-        "relevance_score": relevance_score,
         "http_status": status_code,
         "verified": True,
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
