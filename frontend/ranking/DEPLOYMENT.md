@@ -34,15 +34,14 @@ npm start
 ### Vercel
 
 The Next.js application is in `frontend/ranking`, not at the repository root.
-The repository-level `vercel.json` contains the correct install, build, and
-output paths, so importing the repository root into Vercel works without
-custom command overrides.
+In the Vercel project, open **Settings > Build and Deployment** and set
+**Root Directory** to `frontend/ranking`. Keep the framework preset as
+**Next.js**, then clear custom Build Command, Install Command, and Output
+Directory overrides so Vercel uses the defaults from this app's `package.json`.
 
-If the Vercel project already has **Root Directory** set to
-`frontend/ranking`, keep the framework preset as **Next.js** and clear any
-custom Build Command, Install Command, and Output Directory overrides. If the
-Root Directory is left at the repository root, the checked-in `vercel.json`
-handles those settings.
+Root Directory is a Vercel project setting. A repository-level build command
+that changes directories is not enough because Vercel detects the Next.js
+version before it runs the build.
 
 - Set every required variable from `.env.example`; production refuses to
   boot with missing config (`lib/env.ts`).
