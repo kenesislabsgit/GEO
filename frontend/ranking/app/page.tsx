@@ -139,14 +139,25 @@ function AnswerCard() {
 
 /* ------------------------------------------------------ blueprint marks -- */
 
-function Cross({ className }: { className: string }) {
+function Cross({
+  className,
+  tone = "light",
+}: {
+  className: string;
+  tone?: "light" | "dark";
+}) {
+  const surface =
+    tone === "dark"
+      ? "bg-[color:var(--arc-ink)] text-white/40"
+      : "bg-background text-foreground/45";
+
   return (
     <span
       aria-hidden
-      className={`pointer-events-none absolute z-10 text-foreground/30 ${className}`}
+      className={`pointer-events-none absolute z-10 size-5 -translate-x-1/2 -translate-y-1/2 ${surface} ${className}`}
     >
-      <span className="absolute -left-2 top-0 h-px w-4 bg-current" />
-      <span className="absolute -top-2 left-0 h-4 w-px bg-current" />
+      <span className="absolute top-[10px] left-[4px] h-px w-[13px] bg-current" />
+      <span className="absolute top-[4px] left-[10px] h-[13px] w-px bg-current" />
     </span>
   );
 }
@@ -158,16 +169,15 @@ function Cross({ className }: { className: string }) {
  */
 function SectionFrame({ tone = "light" }: { tone?: "light" | "dark" }) {
   const rail = tone === "dark" ? "border-white/10" : "border-border";
-  const mark = tone === "dark" ? "text-white/25" : "";
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
       <div
         className={`absolute inset-y-0 left-1/2 w-full max-w-6xl -translate-x-1/2 border-x ${rail}`}
       >
-        <Cross className={`top-0 left-0 ${mark}`} />
-        <Cross className={`top-0 right-0 ${mark}`} />
-        <Cross className={`bottom-0 left-0 ${mark}`} />
-        <Cross className={`bottom-0 right-0 ${mark}`} />
+        <Cross className="top-0 left-0" tone={tone} />
+        <Cross className="top-0 right-0" tone={tone} />
+        <Cross className="bottom-0 left-0" tone={tone} />
+        <Cross className="bottom-0 right-0" tone={tone} />
       </div>
     </div>
   );
