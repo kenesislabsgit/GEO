@@ -177,11 +177,7 @@ def aggregate_recommendations(
             canonical = (company_aliases or {}).get(
                 normalize_company_name(written_name)
             )
-            name = (
-                normalize_company_name(canonical)
-                if canonical
-                else canonical_company_key(written_name)
-            )
+            name = normalize_company_name(canonical or written_name)
             if not name or is_user_company(
                 written_name, user_keys, company_aliases
             ):
@@ -238,7 +234,7 @@ def aggregate_recommendations(
         mentions = item["mention_frequency"]
         rank_total = item.pop("rank_total")
         variants = item.pop("name_variants")
-        if variants:
+        if variants and not company_aliases:
             item["company_name"] = choose_display_name(variants)
         # Kept so a report can say the two names it merged were one company.
         item["canonical_key"] = key
@@ -385,11 +381,7 @@ def rank_for_investigation(
         for recommendation in result.get("recommended_companies", []):
             name = recommendation.get("company_name", "")
             grouped = grouped_company_name(name, company_aliases)
-            key = (
-                normalize_company_name(grouped)
-                if company_aliases
-                else canonical_company_key(grouped)
-            )
+            key = normalize_company_name(grouped)
             if not key or is_user_company(name, user_keys, company_aliases):
                 continue
             rank = recommendation.get("rank")

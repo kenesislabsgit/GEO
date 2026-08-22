@@ -74,7 +74,14 @@ class CompetitorMergeTests(unittest.TestCase):
             answer("c", "q2", [("kenesis.ai", 2)]),
         ]
         patterns = aggregate_recommendations(
-            raw, user_company="Adyen", user_aliases=["Adyen"]
+            raw,
+            user_company="Adyen",
+            user_aliases=["Adyen"],
+            company_aliases={
+                "kenesis labs": "Kenesis",
+                "kenesis": "Kenesis",
+                "kenesis.ai": "Kenesis",
+            },
         )
         competitors = patterns["competitors"]
         self.assertEqual(len(competitors), 1)
