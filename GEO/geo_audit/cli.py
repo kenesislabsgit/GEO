@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import csv
 from datetime import datetime, timezone
+import io
 import json
 import os
 from pathlib import Path
+import time
+from typing import Any
 from urllib.parse import urlparse
 
 from .aggregation import aggregate_recommendations
@@ -16,7 +21,7 @@ from .audit_summary import (
     build_standing_sentence,
     generate_audit_summary,
 )
-from .company_merge import generate_company_aliases
+from .company_merge import generate_candidate_company_aliases
 from .comparison import compare_user_to_competitors
 from .competitor_evidence import build_competitor_evidence
 from .costs import tracker as cost_tracker
@@ -42,6 +47,7 @@ from .intents import (
 from .profile import generate_company_profile
 from .quality import build_quality_summary
 from .recommendations import (
+    LiveCitationVerifier,
     collect_multi_model_recommendations,
     collect_openai_recommendations,
     save_prompt_payloads_preview,
@@ -51,6 +57,11 @@ from .recommendations import (
 from .report import generate_final_report
 from .utils import make_run_dir
 from .web_presence import build_search_client, collect_web_presence
+from .web_mention_agent import (
+    build_production_agent_input,
+    collect_web_presence_for_agent_input,
+    merge_web_presence_results,
+)
 
 
 CRAWL_CONTEXT_PATH_TERMS = (
@@ -64,6 +75,14 @@ CRAWL_CONTEXT_PATH_TERMS = (
     "solution",
     "use-case",
 )
+
+
+def timed_competitor_evidence(
+    *args: Any, **kwargs: Any
+) -> tuple[dict[str, Any], float]:
+    started = time.perf_counter()
+    result = build_competitor_evidence(*args, **kwargs)
+    return result, round(time.perf_counter() - started, 3)
 
 
 def emit_run_progress(step: str, progress: int, message: str, **extra: object) -> None:
@@ -119,15 +138,38 @@ def collect_user_website_snapshot(
     }
     firecrawl_result: dict[str, object] = {
         "attempted": False,
-        "reason": "Firecrawl is not configured",
+        "reason": "Standard crawler has not run",
         "mapped_urls": 0,
         "pages_added": 0,
         "pages_replaced": 0,
         "errors": [],
+        "standard_crawl_attempted": True,
+        "standard_crawl_sufficient": False,
+        "firecrawl_fallback_used": False,
+        # Kept for old output readers. The standard crawler is now primary,
+        # so it is never the fallback.
         "standard_fallback_used": False,
     }
 
-    if firecrawl_client is not None:
+    try:
+        snapshot = crawl_website(url, max_pages=max_pages)
+    except Exception as exc:  # noqa: BLE001 - Firecrawl may still recover it.
+        snapshot["failed_pages"].append(
+            {"url": normalized_url, "error": str(exc)}
+        )
+
+    firecrawl_result["standard_failed_pages"] = list(
+        snapshot.get("failed_pages", [])
+    )
+
+
+    standard_incomplete = (
+        not snapshot.get("pages")
+        or should_enrich_user_snapshot(snapshot)
+    )
+    firecrawl_result["standard_crawl_sufficient"] = not standard_incomplete
+
+    if firecrawl_client is not None and standard_incomplete:
         snapshot, firecrawl_result = enrich_user_snapshot(
             firecrawl_client,
             normalized_url,
@@ -137,33 +179,37 @@ def collect_user_website_snapshot(
                 environment_int("FIRECRAWL_USER_PROFILE_MAX_PAGES", 6),
             ),
         )
-        if firecrawl_result.get("pages_added") or firecrawl_result.get("pages_replaced"):
-            firecrawl_result["reason"] = "Firecrawl returned usable website content"
-        elif firecrawl_result.get("errors"):
-            firecrawl_result["reason"] = "Firecrawl did not return usable website content"
-        else:
-            firecrawl_result["reason"] = "Firecrawl returned incomplete website context"
-        firecrawl_result["standard_fallback_used"] = False
-
-    firecrawl_incomplete = (
-        not snapshot.get("pages")
-        or should_enrich_user_snapshot(snapshot)
-    )
-    if firecrawl_client is None or firecrawl_incomplete:
-        standard_snapshot = crawl_website(url, max_pages=max_pages)
-        snapshot = merge_user_snapshots(
-            snapshot,
-            standard_snapshot,
-            max_pages=max_pages,
-        )
-        firecrawl_result["standard_fallback_used"] = True
-        firecrawl_result["standard_fallback_reason"] = (
-            "Firecrawl is not configured"
-            if firecrawl_client is None
-            else "Firecrawl returned incomplete website context"
-        )
+        firecrawl_result["standard_crawl_attempted"] = True
+        firecrawl_result["standard_crawl_sufficient"] = False
         firecrawl_result["standard_failed_pages"] = list(
-            standard_snapshot.get("failed_pages", [])
+            snapshot.get("failed_pages", [])
+        )
+        firecrawl_result["firecrawl_fallback_used"] = True
+        firecrawl_result["standard_fallback_used"] = False
+        if firecrawl_result.get("pages_added") or firecrawl_result.get("pages_replaced"):
+            firecrawl_result["reason"] = (
+                "Standard crawler returned incomplete website context; "
+                "Firecrawl added usable content"
+            )
+        elif firecrawl_result.get("errors"):
+            firecrawl_result["reason"] = (
+                "Standard crawler returned incomplete website context; "
+                "Firecrawl fallback did not return usable content"
+            )
+        else:
+            firecrawl_result["reason"] = (
+                "Standard crawler returned incomplete website context; "
+                "Firecrawl fallback had no additional content"
+            )
+    elif standard_incomplete:
+        firecrawl_result["reason"] = (
+            "Standard crawler returned incomplete website context and "
+            "Firecrawl is not configured"
+        )
+    else:
+        firecrawl_result["reason"] = (
+            "Standard crawler returned usable website context; "
+            "Firecrawl was not needed"
         )
 
     crawl_quality = assess_crawl_quality(snapshot)
@@ -171,6 +217,157 @@ def collect_user_website_snapshot(
     firecrawl_result["crawl_quality"] = crawl_quality
     snapshot["firecrawl_enrichment"] = firecrawl_result
     return snapshot, firecrawl_result
+
+
+def save_writer_debug_artifacts(
+    output_dir: Path,
+    payload: dict[str, Any],
+    *,
+    duration_seconds: float,
+) -> None:
+    """Save the writer's readable input, tool trace, URL inventory, and time."""
+    messages = list(payload.get("messages") or [])
+    system_instructions = str(messages[0].get("content") or "") if messages else ""
+    raw_input = str(messages[1].get("content") or "") if len(messages) > 1 else ""
+    try:
+        writer_input: Any = json.loads(raw_input)
+    except (TypeError, ValueError):
+        writer_input = raw_input
+
+    initial = {"system_instructions": system_instructions, "input": writer_input}
+    (output_dir / "writer_initial_payload_readable.json").write_text(
+        json.dumps(initial, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    (output_dir / "writer_system_instructions.txt").write_text(
+        system_instructions, encoding="utf-8"
+    )
+
+    trace: list[dict[str, Any]] = []
+    for message in messages[2:]:
+        role = str(message.get("role") or "")
+        if role == "assistant" and message.get("tool_calls"):
+            trace.append({"role": role, "tool_calls": message.get("tool_calls")})
+        elif role == "tool":
+            content = message.get("content")
+            try:
+                content = json.loads(str(content))
+            except (TypeError, ValueError):
+                pass
+            trace.append(
+                {
+                    "role": role,
+                    "tool_call_id": message.get("tool_call_id"),
+                    "result": content,
+                }
+            )
+    (output_dir / "writer_tool_trace_readable.json").write_text(
+        json.dumps(
+            {"opened": payload.get("opened", []), "events": trace},
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    log_lines = [
+        f"Model: {payload.get('model', '')}",
+        f"Duration seconds: {round(duration_seconds, 3)}",
+        "",
+        "Final tool state:",
+        json.dumps(payload.get("writer_tool_state") or {}, indent=2, ensure_ascii=False),
+        "",
+        "Saved evidence analysis map:",
+        json.dumps(payload.get("finding_notebook") or [], indent=2, ensure_ascii=False),
+        "",
+        "Visible conversation after the initial prompt:",
+    ]
+    for index, message in enumerate(messages[2:], start=1):
+        role = str(message.get("role") or "unknown").upper()
+        log_lines.append(f"\n[{index}] {role}")
+        if message.get("content"):
+            log_lines.append(str(message.get("content")))
+        if message.get("tool_calls"):
+            for call in message.get("tool_calls") or []:
+                function = call.get("function") or {}
+                log_lines.append(
+                    f"TOOL REQUEST {function.get('name', '')}: "
+                    f"{function.get('arguments', '{}')}"
+                )
+        if role == "TOOL":
+            content = message.get("content")
+            try:
+                content = json.dumps(
+                    json.loads(str(content)), indent=2, ensure_ascii=False
+                )
+            except (TypeError, ValueError):
+                content = str(content or "")
+            log_lines.append(f"TOOL RESULT:\n{content}")
+    log_lines.extend(
+        [
+            "",
+            "Final visible model response:",
+            str(payload.get("writer_raw_response") or ""),
+            "",
+            "Note: private model reasoning is not exposed by the API. This log "
+            "contains all visible messages and tool activity available to the application.",
+        ]
+    )
+    (output_dir / "writer_run_log.txt").write_text(
+        "\n".join(log_lines), encoding="utf-8"
+    )
+    (output_dir / "writer_evidence_analysis.json").write_text(
+        json.dumps(
+            {
+                "analysis_entries": payload.get("finding_notebook") or [],
+                "final_writer_input": payload.get("final_writer_input") or {},
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    inventory = io.StringIO()
+    fields = ["company", "source_type", "page_id", "url", "title"]
+    csv_writer = csv.DictWriter(inventory, fieldnames=fields, lineterminator="\n")
+    csv_writer.writeheader()
+    if isinstance(writer_input, dict):
+        debug_blocks = payload.get("_writer_company_blocks") or writer_input.get(
+            "each_company"
+        ) or {}
+        for company, block in debug_blocks.items():
+            for source_type, pages in (
+                ("own_website", block.get("pages_on_their_own_website") or []),
+                (
+                    "assistant_cited",
+                    block.get("pages_the_assistants_cited_while_answering") or [],
+                ),
+                (
+                    "wider_web",
+                    block.get("pages_the_wider_internet_holds_about_them") or [],
+                ),
+            ):
+                for page in pages:
+                    csv_writer.writerow(
+                        {
+                            "company": company,
+                            "source_type": source_type,
+                            "page_id": page.get("page_id", ""),
+                            "url": page.get("url", ""),
+                            "title": page.get("title", ""),
+                        }
+                    )
+    (output_dir / "writer_site_inventory.csv").write_text(
+        inventory.getvalue(), encoding="utf-8"
+    )
+    (output_dir / "writer_stage_timing.json").write_text(
+        json.dumps(
+            {"duration_seconds": round(duration_seconds, 3)},
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def merge_user_snapshots(
@@ -645,7 +842,7 @@ def main() -> None:
     run_parser.add_argument(
         "--max-recommendations",
         type=int,
-        help="Keep only the top N generated improvement actions. The free audit uses 3.",
+        help="Keep only the top N generated improvement actions. The free audit uses 5.",
     )
     run_parser.add_argument(
         "--market",
@@ -1028,6 +1225,7 @@ def main() -> None:
 
     if args.command == "recommend":
         profile_path = Path(args.profile)
+        source_dir = profile_path.parent
         profile = json.loads(profile_path.read_text(encoding="utf-8"))
         user_evidence = json.loads(Path(args.user_evidence).read_text(encoding="utf-8"))
         patterns_path = (
@@ -1040,8 +1238,27 @@ def main() -> None:
             Path(args.competitor_evidence).read_text(encoding="utf-8")
         )
         comparison = json.loads(Path(args.comparison).read_text(encoding="utf-8"))
+        snapshot_path = source_dir / "website_snapshot.json"
+        raw_results_path = source_dir / "ai_recommendations_raw.json"
+        web_presence_path = source_dir / "web_presence.json"
+        snapshot = (
+            json.loads(snapshot_path.read_text(encoding="utf-8"))
+            if snapshot_path.exists()
+            else None
+        )
+        raw_results = (
+            json.loads(raw_results_path.read_text(encoding="utf-8"))
+            if raw_results_path.exists()
+            else []
+        )
+        web_presence = (
+            json.loads(web_presence_path.read_text(encoding="utf-8"))
+            if web_presence_path.exists()
+            else {}
+        )
 
         firecrawl_client = FirecrawlClient.from_environment()
+        writer_started = time.perf_counter()
         recommendations, payload, error = generate_audit_recommendations(
             profile,
             user_evidence,
@@ -1050,12 +1267,18 @@ def main() -> None:
             comparison,
             user_snapshot=snapshot,
             firecrawl_client=firecrawl_client,
+            raw_results=raw_results,
+            web_presence=web_presence,
         )
+        writer_seconds = time.perf_counter() - writer_started
 
         payload_path = profile_path.parent / "audit_recommendations_prompt.json"
         payload_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
+        )
+        save_writer_debug_artifacts(
+            source_dir, payload, duration_seconds=writer_seconds
         )
 
         if recommendations is None:
@@ -1172,6 +1395,12 @@ def main() -> None:
         print(f"Overall score: {export['score']['overall_score']}")
 
     if args.command == "run":
+        pipeline_started = time.perf_counter()
+        pipeline_stage_timings: dict[str, float] = {}
+
+        def record_stage(name: str, started: float) -> None:
+            pipeline_stage_timings[name] = round(time.perf_counter() - started, 3)
+
         run_dir = make_run_dir(Path(args.output_dir), args.url)
         cost_tracker.reset(args.max_cost_usd)
         firecrawl_client = FirecrawlClient.from_environment()
@@ -1219,6 +1448,7 @@ def main() -> None:
                 assistant_prompt_indexes[assistant] = [1, 2, unique_start, unique_start + 1, unique_start + 2]
                 unique_start += 3
         else:
+            crawl_started = time.perf_counter()
             reused_snapshot = None
             reuse_rejected = None
             if args.reuse_snapshot:
@@ -1236,6 +1466,9 @@ def main() -> None:
                     "pages_added": 0,
                     "pages_replaced": 0,
                     "errors": [],
+                    "standard_crawl_attempted": False,
+                    "standard_crawl_sufficient": True,
+                    "firecrawl_fallback_used": False,
                     "standard_fallback_used": False,
                     "reused_website_read": snapshot.get("reused_website_read", {}),
                     "crawl_quality": snapshot.get("crawl_quality", {}),
@@ -1251,11 +1484,7 @@ def main() -> None:
                 emit_run_progress(
                     "crawl_user_site",
                     5,
-                    (
-                        "Reading website with Firecrawl"
-                        if firecrawl_client is not None
-                        else "Firecrawl unavailable; using standard crawler"
-                    ),
+                    "Reading website with the standard crawler",
                     run_dir=str(run_dir),
                     reuse_skipped=reuse_rejected,
                 )
@@ -1264,11 +1493,11 @@ def main() -> None:
                     max_pages=args.max_pages,
                     firecrawl_client=firecrawl_client,
                 )
-            if firecrawl_profile_result.get("standard_fallback_used"):
+            if firecrawl_profile_result.get("firecrawl_fallback_used"):
                 emit_run_progress(
                     "crawl_user_site",
                     10,
-                    "Using standard crawler to complete missing website context",
+                    "Using Firecrawl to complete missing website context",
                 )
             (run_dir / "website_snapshot.json").write_text(
                 json.dumps(snapshot, indent=2, ensure_ascii=False),
@@ -1282,6 +1511,7 @@ def main() -> None:
                 ),
                 encoding="utf-8",
             )
+            record_stage("website_crawl", crawl_started)
             if not snapshot.get("pages"):
                 save_firecrawl_usage(run_dir, firecrawl_client)
                 raise SystemExit(
@@ -1291,6 +1521,7 @@ def main() -> None:
                         firecrawl_configured=firecrawl_client is not None,
                     )
                 )
+            evidence_started = time.perf_counter()
             user_evidence = build_website_evidence(snapshot)
             emit_run_progress(
                 "extract_user_evidence",
@@ -1303,6 +1534,8 @@ def main() -> None:
                 json.dumps(user_evidence, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
+            record_stage("website_evidence", evidence_started)
+            profile_started = time.perf_counter()
             profile, profile_payload, profile_error = generate_company_profile(
                 snapshot,
                 user_evidence,
@@ -1319,6 +1552,7 @@ def main() -> None:
                 json.dumps(profile, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
+            record_stage("company_profile", profile_started)
             profile_issue = question_profile_issue(profile)
             (run_dir / "company_profile_validation.json").write_text(
                 json.dumps(
@@ -1339,6 +1573,7 @@ def main() -> None:
             # their answers, and nothing ever read the guess, so a paid run was
             # buying an AI call whose output went straight to disk and stayed
             # there.
+            questions_started = time.perf_counter()
             if args.questions_file:
                 # The user's saved questions, asked verbatim. Question
                 # generation is for first audits that have none yet.
@@ -1383,6 +1618,7 @@ def main() -> None:
                 json.dumps(prompts, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
+            record_stage("buyer_question_generation", questions_started)
 
         # Geographic market questions (Pro+): rewrite ~45% of the buyer
         # questions across world markets — the picked (or detected) home
@@ -1423,6 +1659,7 @@ def main() -> None:
                 markets=covered,
             )
 
+        providers_started = time.perf_counter()
         emit_run_progress(
             "provider_questions",
             48,
@@ -1444,12 +1681,26 @@ def main() -> None:
                 total_groups=total,
             )
 
+        citation_match_terms = tuple(
+            value
+            for value in (
+                str(profile.get("company_name", "")).strip(),
+                urlparse(ensure_url(args.url)).netloc.lower().removeprefix("www."),
+            )
+            if value
+        )
+        live_citation_verifier = LiveCitationVerifier(
+            concurrency=args.provider_concurrency,
+            match_terms=citation_match_terms,
+        )
+        live_citation_verifier.submit(existing_results)
         new_results, payloads, errors = collect_multi_model_recommendations(
             prompts,
             assistants=collect_assistants,
             limit_per_assistant=args.limit_per_assistant,
             assistant_prompt_indexes=assistant_prompt_indexes,
             progress_callback=on_provider_progress,
+            result_callback=live_citation_verifier.submit,
             model_overrides={
                 "openai": args.openai_model or args.model,
                 "openai_search": args.openai_search_model or args.model,
@@ -1468,18 +1719,10 @@ def main() -> None:
         )
         # Cited pages are fetched to confirm they load, and checked for the
         # audited company's name so the report can say which sources ignore it.
-        raw_results = verify_provider_citations(
+        raw_results = live_citation_verifier.finish(
             existing_results + new_results,
-            concurrency=args.provider_concurrency,
-            match_terms=tuple(
-                value
-                for value in (
-                    str(profile.get("company_name", "")).strip(),
-                    urlparse(ensure_url(args.url)).netloc.lower().removeprefix("www."),
-                )
-                if value
-            ),
         )
+        record_stage("assistant_answers_and_citation_checks", providers_started)
         emit_run_progress(
             "provider_questions",
             65,
@@ -1532,24 +1775,47 @@ def main() -> None:
             if text and text.lower() not in {a.lower() for a in aliases}:
                 aliases.append(text)
         emit_run_progress("pattern_analysis", 72, "Aggregating recommendation patterns")
-        # One company, one count: assistants spell the same competitor several
-        # ways, and counting by spelling splits its mentions. The merge happens
-        # here because this is the first moment the full list of names exists.
-        # On any failure the audit carries on with per-spelling counts.
-        try:
-            merge_search_client = build_search_client(
-                os.getenv("AGENTCORE_GATEWAY_URL") or os.getenv("GATEWAY_URL")
+        # One company, one count: code first forms only safe whole-word
+        # candidates, one model call decides them, and web search reviews only
+        # important or uncertain families. On failure the audit safely keeps
+        # per-spelling counts.
+        research_stage_timings: dict[str, Any] = {}
+        research_started = time.perf_counter()
+        research_executor = None
+        audited_research_future = None
+        competitor_evidence = None
+        competitor_evidence_future = None
+        if not args.skip_web_presence:
+            audited_input = build_production_agent_input(
+                profile,
+                raw_results,
+                {},
+                max_competitors=0,
+                audited_website_url=str(
+                    snapshot.get("normalized_url") or args.url
+                ),
             )
-        except Exception:  # noqa: BLE001 - no search just means no web check.
-            merge_search_client = None
-        company_aliases, merge_artifact, merge_error = generate_company_aliases(
+            research_executor = ThreadPoolExecutor(max_workers=2)
+            audited_research_future = research_executor.submit(
+                collect_web_presence_for_agent_input,
+                audited_input,
+                diagnostics_root=run_dir / "web_mention_agent" / "audited_company",
+                gateway_url=(
+                    os.getenv("AGENTCORE_GATEWAY_URL")
+                    or os.getenv("GATEWAY_URL")
+                ),
+            )
+        merge_started = time.perf_counter()
+        company_aliases, merge_artifact, merge_error = generate_candidate_company_aliases(
             raw_results,
             profile.get("company_name"),
-            aliases,
-            search_client=merge_search_client,
-            category_hint=profile.get("category"),
-            user_domain=profile.get("domain") or profile.get("input_url"),
         )
+        research_stage_timings["company_merge_seconds"] = round(
+            time.perf_counter() - merge_started, 3
+        )
+        pipeline_stage_timings["company_name_merge"] = research_stage_timings[
+            "company_merge_seconds"
+        ]
         (run_dir / "company_merge.json").write_text(
             json.dumps(merge_artifact, indent=2, ensure_ascii=False),
             encoding="utf-8",
@@ -1593,28 +1859,140 @@ def main() -> None:
                 76,
                 "Finding and verifying company mentions across the web",
             )
-            web_presence = collect_web_presence(
-                profile,
-                prompts,
-                raw_results,
-                patterns,
-                max_competitors=args.web_presence_max_competitors,
-                search_concurrency=args.provider_concurrency,
-                fetch_concurrency=args.provider_concurrency,
-                error_log_path=run_dir / "web_search_errors.log",
+            web_started = time.perf_counter()
+            try:
+                full_agent_input = build_production_agent_input(
+                    profile,
+                    raw_results,
+                    patterns,
+                    max_competitors=args.web_presence_max_competitors,
+                    audited_website_url=str(
+                        snapshot.get("normalized_url") or args.url
+                    ),
+                )
+                competitor_input = {
+                    **full_agent_input,
+                    "companies": full_agent_input.get("companies", [])[1:],
+                }
+                known_competitor_presence = {
+                    "entities": [
+                        {
+                            "company_name": company.get("company_name"),
+                            "official_website": (
+                                company.get("website_url")
+                                if company.get("website_url") != "not_yet_found"
+                                else None
+                            ),
+                            "verified_mentions": [],
+                        }
+                        for company in competitor_input["companies"]
+                    ]
+                }
+                competitor_evidence_future = research_executor.submit(
+                    timed_competitor_evidence,
+                    patterns,
+                    web_presence=known_competitor_presence,
+                    max_pages=args.competitor_max_pages,
+                    crawl_limit=args.max_competitors_crawled,
+                    firecrawl_client=firecrawl_client,
+                )
+                competitor_started_at = time.perf_counter()
+                competitor_web_presence = collect_web_presence_for_agent_input(
+                    competitor_input,
+                    diagnostics_root=run_dir / "web_mention_agent" / "competitors",
+                    gateway_url=(
+                        os.getenv("AGENTCORE_GATEWAY_URL")
+                        or os.getenv("GATEWAY_URL")
+                    ),
+                )
+                research_stage_timings["competitor_web_seconds"] = round(
+                    time.perf_counter() - competitor_started_at, 3
+                )
+                audited_web_presence = audited_research_future.result()
+                research_stage_timings["audited_company_web_seconds"] = round(
+                    float(
+                        (audited_web_presence.get("summary") or {}).get(
+                            "integration_seconds", 0
+                        )
+                        or 0
+                    ),
+                    3,
+                )
+                web_presence = merge_web_presence_results(
+                    audited_web_presence,
+                    competitor_web_presence,
+                )
+            except Exception as exc:  # noqa: BLE001 - old flow is the safe fallback.
+                (run_dir / "web_mention_agent_error.txt").write_text(
+                    f"{type(exc).__name__}: {exc}", encoding="utf-8"
+                )
+                web_presence = collect_web_presence(
+                    profile,
+                    prompts,
+                    raw_results,
+                    patterns,
+                    max_competitors=args.web_presence_max_competitors,
+                    search_concurrency=args.provider_concurrency,
+                    fetch_concurrency=args.provider_concurrency,
+                    error_log_path=run_dir / "web_search_errors.log",
+                )
+                web_presence["agent_fallback_reason"] = (
+                    f"{type(exc).__name__}: {exc}"
+                )
+            if competitor_evidence_future is not None:
+                try:
+                    (
+                        early_competitor_evidence,
+                        competitor_fetch_seconds,
+                    ) = competitor_evidence_future.result()
+                    research_stage_timings[
+                        "competitor_website_fetch_seconds"
+                    ] = competitor_fetch_seconds
+                    completion_started = time.perf_counter()
+                    competitor_evidence = build_competitor_evidence(
+                        patterns,
+                        web_presence=web_presence,
+                        existing_evidence=early_competitor_evidence,
+                        max_pages=args.competitor_max_pages,
+                        crawl_limit=args.max_competitors_crawled,
+                        firecrawl_client=firecrawl_client,
+                    )
+                    research_stage_timings[
+                        "missing_competitor_fetch_tail_seconds"
+                    ] = round(time.perf_counter() - completion_started, 3)
+                except Exception as exc:  # noqa: BLE001 - sequential fallback below.
+                    (run_dir / "competitor_parallel_fetch_error.txt").write_text(
+                        f"{type(exc).__name__}: {exc}", encoding="utf-8"
+                    )
+            if research_executor is not None:
+                research_executor.shutdown(wait=True)
+            research_stage_timings["web_mention_agent_seconds"] = round(
+                time.perf_counter() - web_started, 3
             )
+            pipeline_stage_timings["web_mention_agent"] = research_stage_timings[
+                "web_mention_agent_seconds"
+            ]
+        research_stage_timings["combined_seconds"] = round(
+            time.perf_counter() - research_started, 3
+        )
+        (run_dir / "research_stage_timings.json").write_text(
+            json.dumps(research_stage_timings, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
         (run_dir / "web_presence.json").write_text(
             json.dumps(web_presence, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 
-        competitor_evidence = build_competitor_evidence(
-            patterns,
-            web_presence=web_presence,
-            max_pages=args.competitor_max_pages,
-            crawl_limit=args.max_competitors_crawled,
-            firecrawl_client=firecrawl_client,
-        )
+        competitor_started = time.perf_counter()
+        if competitor_evidence is None:
+            competitor_evidence = build_competitor_evidence(
+                patterns,
+                web_presence=web_presence,
+                max_pages=args.competitor_max_pages,
+                crawl_limit=args.max_competitors_crawled,
+                firecrawl_client=firecrawl_client,
+            )
         emit_run_progress(
             "competitor_evidence",
             82,
@@ -1627,7 +2005,14 @@ def main() -> None:
             json.dumps(competitor_evidence, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        if "competitor_website_fetch_seconds" in research_stage_timings:
+            pipeline_stage_timings["competitor_evidence"] = research_stage_timings[
+                "missing_competitor_fetch_tail_seconds"
+            ]
+        else:
+            record_stage("competitor_evidence", competitor_started)
 
+        comparison_started = time.perf_counter()
         comparison = compare_user_to_competitors(user_evidence, competitor_evidence)
         emit_run_progress("comparison", 88, "Comparing user website against competitors")
         comparison_path = run_dir / "comparison.json"
@@ -1635,6 +2020,7 @@ def main() -> None:
             json.dumps(comparison, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        record_stage("comparison", comparison_started)
 
         if args.skip_audit_recommendations:
             audit_recs = (
@@ -1652,6 +2038,7 @@ def main() -> None:
             )
         else:
             emit_run_progress("improvement_recommendations", 91, "Generating improvement recommendations")
+            writer_started = time.perf_counter()
             audit_recs, rec_payload, rec_error = generate_audit_recommendations(
                 profile,
                 user_evidence,
@@ -1667,10 +2054,18 @@ def main() -> None:
                 # and open any one of them in full rather than being handed a
                 # tenth of them chosen in advance.
                 raw_results=raw_results,
+                # Includes independently searched pages for the audited
+                # company. Rival pages are already carried by competitor_evidence.
+                web_presence=web_presence,
             )
+            writer_seconds = time.perf_counter() - writer_started
+            pipeline_stage_timings["final_writer"] = round(writer_seconds, 3)
             (run_dir / "audit_recommendations_prompt.json").write_text(
                 json.dumps(rec_payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
+            )
+            save_writer_debug_artifacts(
+                run_dir, rec_payload, duration_seconds=writer_seconds
             )
             if audit_recs is None:
                 audit_recs = []
@@ -1695,6 +2090,7 @@ def main() -> None:
             str(profile.get("company_name", "")), patterns
         )
         if not args.skip_audit_recommendations:
+            verdict_started = time.perf_counter()
             emit_run_progress("executive_verdict", 93, "Writing the executive verdict")
             audit_summary, summary_payload, summary_error = generate_audit_summary(
                 profile, patterns, audit_recs
@@ -1708,6 +2104,7 @@ def main() -> None:
                     str(summary_error),
                     encoding="utf-8",
                 )
+            record_stage("executive_verdict", verdict_started)
         save_firecrawl_usage(run_dir, firecrawl_client)
 
         if args.skip_final_report:
@@ -1737,6 +2134,7 @@ def main() -> None:
                     encoding="utf-8",
                 )
 
+        export_started = time.perf_counter()
         quality = build_quality_summary(
             raw_results,
             patterns,
@@ -1780,6 +2178,29 @@ def main() -> None:
         export_path = run_dir / "audit_export.json"
         export_path.write_text(
             json.dumps(export, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        record_stage("quality_and_frontend_export", export_started)
+        pipeline_stage_timings["total"] = round(
+            time.perf_counter() - pipeline_started, 3
+        )
+        (run_dir / "pipeline_stage_timings.json").write_text(
+            json.dumps(
+                {
+                    "stages_seconds": pipeline_stage_timings,
+                    "slowest_stage": max(
+                        (
+                            {"stage": key, "seconds": value}
+                            for key, value in pipeline_stage_timings.items()
+                            if key != "total"
+                        ),
+                        key=lambda item: item["seconds"],
+                        default=None,
+                    ),
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
         emit_run_progress("frontend_export", 98, "Created frontend export", audit_export_path=str(export_path))

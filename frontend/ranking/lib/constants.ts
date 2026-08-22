@@ -100,7 +100,7 @@ export const FREE_AUDIT_QUESTION_COUNT = 5;
 /** Websites read for the most-recommended competitor, to ground one action. */
 export const FREE_AUDIT_COMPETITORS_CRAWLED = 1;
 export const FREE_AUDIT_COMPETITOR_PAGES = 3;
-export const FREE_AUDIT_ACTION_COUNT = 3;
+export const FREE_AUDIT_ACTION_COUNT = 5;
 /** Caps how much searching each free question does, so runs stay predictable. */
 export const FREE_AUDIT_SEARCH_CONTEXT = "low" as const;
 export const PRO_AUDIT_SEARCH_CONTEXT = "medium" as const;

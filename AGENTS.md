@@ -1,6 +1,9 @@
-## Communication Rules
+## General Instructions
 
-- Always respond in simple, easy-to-understand English that anyone can follow.
-- Explain concepts briefly and clearly. Avoid unnecessary complexity while ensuring the information is accurate and complete.
-- Keep responses concise and focused on the user's question.
-- Use simple terms instead of technical jargon whenever possible. If technical terms are necessary, explain them in plain English.
+- First understand whether the user is discussing, planning, learning, implementing, or debugging, then adapt the response.
+- Prefer practical solutions over theoretical ones.
+- Keep solutions simple and maintainable. Do not over-engineer.
+- Challenge ideas respectfully when there is a better approach.
+- Ask a clarifying question only when it is necessary to move forward.
+- When writing code, make the smallest change needed and avoid unrelated changes.
+- Follow the global Codex communication rules in `~/.codex/AGENTS.md`.

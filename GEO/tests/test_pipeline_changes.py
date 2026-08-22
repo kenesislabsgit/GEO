@@ -16,6 +16,8 @@ from geo_audit.export import (
     host_from_value,
 )
 from geo_audit.audit_recommendations import (
+    AUDIT_RECOMMENDATION_SCHEMA,
+    AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
     build_audit_recommendations_payload,
     build_free_preview_recommendations,
     add_missing_pages_to_the_catalog,
@@ -25,12 +27,16 @@ from geo_audit.audit_recommendations import (
     readable_evidence_row,
     user_page_excerpts,
     ensure_top_competitor_finding,
+    hydrate_writer_page,
     keep_evidence_from_the_companies_that_won,
     normalize_recommendation,
+    passage_is_on_page,
     page_excerpt,
     resolve_recommendation_evidence,
     strip_internal_references,
     verify_selected_evidence_with_firecrawl,
+    recommendations_from_findings,
+    validate_and_save_finding,
 )
 from geo_audit.competitor_evidence import enhance_competitor_snapshot
 from geo_audit.cli import (
@@ -40,7 +46,7 @@ from geo_audit.cli import (
     website_crawl_failure_message,
 )
 from geo_audit.competitor_evidence import replacements_for_empty_competitors
-from geo_audit.crawler import same_page_key, ensure_url, normalize_url
+from geo_audit.crawler import same_page_key, ensure_url, normalize_url, parse_page
 from geo_audit.firecrawl import (
     FirecrawlClient,
     FirecrawlError,
@@ -82,6 +88,7 @@ from geo_audit.report_context import (
     build_page_index,
     build_question_rows,
     open_page,
+    open_company_sources,
     open_question,
     strip_assistant_names,
     assistant_and_model_names,
@@ -164,17 +171,20 @@ PROFILE = {
 
 def ai_question_response(prompts: list[str]) -> str:
     return json.dumps(
-        [
-            {
-                "category": "Discovery",
-                "buying_stage": "Discovery",
-                "persona_id": "buyer",
-                "intent": "find suitable providers",
-                "profile_evidence": [],
-                "prompt": prompt,
-            }
-            for prompt in prompts
-        ]
+        {
+            "buyer_band": json.loads(BAND_RESPONSE),
+            "questions": [
+                {
+                    "category": "Discovery",
+                    "buying_stage": "Discovery",
+                    "persona_id": "buyer",
+                    "intent": "find suitable providers",
+                    "profile_evidence": [],
+                    "prompt": prompt,
+                }
+                for prompt in prompts
+            ],
+        }
     )
 
 
@@ -276,37 +286,46 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertIn("DNS resolution failed", message)
         self.assertNotIn("FIRECRAWL_API_KEY", message)
 
-    def test_user_crawl_uses_firecrawl_first_without_standard_fallback(self) -> None:
+    def test_strong_standard_user_crawl_skips_firecrawl(self) -> None:
         client = Mock()
         client.can_request.return_value = True
-        client.map_site.return_value = [
-            {"url": "https://example.com/services", "title": "Services"},
-            {"url": "https://example.com/about", "title": "About"},
-        ]
-
-        def scrape(url: str) -> dict[str, object]:
-            return {
-                "markdown": f"# Page\n{('Useful buyer and service context. ' * 80)}",
-                "metadata": {"sourceURL": url, "title": "Page"},
-                "links": [],
-            }
-
-        client.scrape.side_effect = scrape
-        with patch("geo_audit.cli.crawl_website") as standard_crawl:
+        standard_snapshot = {
+            "input_url": "example.com",
+            "normalized_url": "https://example.com",
+            "domain": "example.com",
+            "allowed_domains": ["example.com", "www.example.com"],
+            "generated_at": "now",
+            "max_pages": 6,
+            "pages": [
+                {
+                    "url": "https://example.com",
+                    "main_text": "Useful homepage context. " * 80,
+                },
+                {
+                    "url": "https://example.com/services",
+                    "main_text": "Useful buyer and service context. " * 80,
+                },
+            ],
+            "failed_pages": [],
+        }
+        with patch(
+            "geo_audit.cli.crawl_website", return_value=standard_snapshot
+        ) as standard_crawl:
             snapshot, result = collect_user_website_snapshot(
                 "example.com",
                 max_pages=6,
                 firecrawl_client=client,
             )
 
-        standard_crawl.assert_not_called()
+        standard_crawl.assert_called_once()
+        client.map_site.assert_not_called()
+        client.scrape.assert_not_called()
+        self.assertTrue(result["standard_crawl_sufficient"])
+        self.assertFalse(result["firecrawl_fallback_used"])
         self.assertFalse(result["standard_fallback_used"])
-        self.assertEqual(len(snapshot["pages"]), 3)
-        self.assertTrue(
-            all(page["fetch_provider"] == "firecrawl" for page in snapshot["pages"])
-        )
+        self.assertEqual(len(snapshot["pages"]), 2)
 
-    def test_user_crawl_falls_back_when_firecrawl_fails(self) -> None:
+    def test_weak_standard_user_crawl_uses_firecrawl_fallback(self) -> None:
         client = Mock()
         client.can_request.return_value = True
         client.map_site.return_value = []
@@ -338,8 +357,30 @@ class PipelineChangeTests(unittest.TestCase):
             )
 
         standard_crawl.assert_called_once()
-        self.assertTrue(result["standard_fallback_used"])
+        self.assertTrue(result["firecrawl_fallback_used"])
+        self.assertFalse(result["standard_fallback_used"])
+        client.map_site.assert_called_once()
         self.assertEqual(snapshot["pages"][0]["fetch_provider"], "deterministic_crawler")
+
+    def test_failed_standard_user_crawl_uses_firecrawl_fallback(self) -> None:
+        client = Mock()
+        client.can_request.return_value = True
+        client.map_site.return_value = []
+        client.scrape.return_value = {
+            "markdown": "# Example\n" + ("Useful buyer context. " * 100),
+            "metadata": {"sourceURL": "https://example.com", "title": "Example"},
+            "links": [],
+        }
+        with patch(
+            "geo_audit.cli.crawl_website", side_effect=ValueError("normal failed")
+        ):
+            snapshot, result = collect_user_website_snapshot(
+                "example.com", max_pages=6, firecrawl_client=client
+            )
+
+        self.assertTrue(result["firecrawl_fallback_used"])
+        self.assertEqual(snapshot["pages"][0]["fetch_provider"], "firecrawl")
+        self.assertIn("normal failed", str(result["standard_failed_pages"]))
 
     def test_weak_user_snapshot_is_enriched_with_firecrawl(self) -> None:
         snapshot = {
@@ -618,7 +659,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
 
         self.assertEqual(profile["regions_served"], ["Worldwide"])
-        self.assertEqual(profile["pricing_model"], "Unknown")
+        self.assertNotIn("pricing_model", profile)
         self.assertEqual(profile["buyer_personas"][0]["regions"], ["Worldwide"])
         self.assertEqual(
             profile["buyer_personas"][0]["organization_sizes"],
@@ -738,7 +779,13 @@ class PipelineChangeTests(unittest.TestCase):
         )
 
         self.assertEqual(profile["company_locations"], [])
-        self.assertEqual(profile["pricing_model"], "Unknown")
+        for unused_field in (
+            "pricing_model",
+            "core_messaging",
+            "customer_segments",
+            "market_signals",
+        ):
+            self.assertNotIn(unused_field, profile)
         self.assertEqual(profile["keywords"], [])
         # primary_offerings no longer falls back to features, so it must survive
         # on its own.
@@ -1232,7 +1279,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[BAND_RESPONSE, response, response],
+            return_value=response,
         ):
             prompts, payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts).lower()
@@ -1274,7 +1321,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[BAND_RESPONSE, response, response],
+            return_value=response,
         ):
             prompts, _payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts or []).lower()
@@ -1341,7 +1388,7 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[BAND_RESPONSE, response, response],
+            return_value=response,
         ):
             prompts, _payload, error = generate_free_customer_intents(profile)
         text = " ".join(item["prompt"] for item in prompts or []).lower()
@@ -1530,14 +1577,13 @@ class PipelineChangeTests(unittest.TestCase):
         )
         with patch(
             "geo_audit.intents.call_chat_completion",
-            side_effect=[BAND_RESPONSE, response, response],
+            return_value=response,
         ) as llm_call:
             prompts, payload, error = generate_free_customer_intents(PROFILE)
         self.assertIsNone(error)
         self.assertEqual(len(prompts), 5)
         self.assertEqual(payload["mode"], "ai_generated_free_preview")
-        # Band, draft, review.
-        self.assertEqual(llm_call.call_count, 3)
+        self.assertEqual(llm_call.call_count, 1)
         self.assertTrue(
             all("kenesis" not in item["prompt"].lower() for item in prompts)
         )
@@ -2460,6 +2506,8 @@ class PipelineChangeTests(unittest.TestCase):
                 "suggested_change": "Publish detailed case studies.",
                 "expected_impact": "Improves evidence quality.",
                 "confidence": "High",
+                "competitor_evidence_reason": "The case study proves customer use.",
+                "audited_company_evidence_reason": "The audited page lacks this proof.",
                 "supporting_evidence": [
                     {
                         "evidence_id": "ev-001",
@@ -2483,6 +2531,10 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(
             supporting[0]["url"],
             "https://acme.test/customers/factory",
+        )
+        self.assertEqual(
+            rows[0]["evidence"]["competitor_evidence_reason"],
+            "The case study proves customer use.",
         )
 
     def test_citations_survive_without_the_model_echoing_a_type(self) -> None:
@@ -2670,6 +2722,105 @@ class PipelineChangeTests(unittest.TestCase):
             [row["company_name"] for row in evidence["competitors"]], names
         )
         self.assertLess(elapsed, 0.6, "competitor sites were read one at a time")
+
+    def test_finished_competitor_download_is_reused_after_web_search(self) -> None:
+        patterns = {"top_competitors": [{"company_name": "Rival"}]}
+        existing = {
+            "competitors": [
+                {
+                    "company_name": "Rival",
+                    "website_url": "https://rival.test",
+                    "website_snapshot": {
+                        "pages": [
+                            {
+                                "url": "https://rival.test",
+                                "title": "Rival",
+                                "main_text": "Useful rival content",
+                            }
+                        ]
+                    },
+                    "website_evidence": {"pages_crawled": 1},
+                    "collection_status": "website_and_citations",
+                }
+            ]
+        }
+        web_presence = {
+            "entities": [
+                {
+                    "company_name": "Rival",
+                    "official_website": "https://rival.test",
+                    "verified_mentions": [
+                        {
+                            "verified": True,
+                            "url": "https://review.test/rival",
+                            "source_type": "external_mention",
+                        }
+                    ],
+                }
+            ]
+        }
+
+        with patch("geo_audit.competitor_evidence.crawl_website") as crawl:
+            refreshed = build_competitor_evidence(
+                patterns,
+                web_presence=web_presence,
+                existing_evidence=existing,
+            )
+
+        crawl.assert_not_called()
+        rival = refreshed["competitors"][0]
+        self.assertEqual(len(rival["verified_web_mentions"]), 1)
+        self.assertEqual(len(rival["website_snapshot"]["pages"]), 1)
+
+    def test_missing_competitor_site_is_downloaded_after_web_search_finds_it(
+        self,
+    ) -> None:
+        patterns = {"top_competitors": [{"company_name": "Rival"}]}
+        existing = {
+            "competitors": [
+                {
+                    "company_name": "Rival",
+                    "website_url": "Unknown",
+                    "website_snapshot": None,
+                    "website_evidence": None,
+                    "collection_status": "citation_only",
+                }
+            ]
+        }
+        web_presence = {
+            "entities": [
+                {
+                    "company_name": "Rival",
+                    "official_website": "https://rival.test",
+                    "verified_mentions": [],
+                }
+            ]
+        }
+        snapshot = {
+            "pages": [
+                {
+                    "url": "https://rival.test",
+                    "title": "Rival",
+                    "main_text": "Useful rival content",
+                }
+            ],
+            "failed_pages": [],
+        }
+
+        with patch(
+            "geo_audit.competitor_evidence.crawl_website", return_value=snapshot
+        ) as crawl:
+            refreshed = build_competitor_evidence(
+                patterns,
+                web_presence=web_presence,
+                existing_evidence=existing,
+            )
+
+        crawl.assert_called_once()
+        self.assertEqual(
+            refreshed["competitors"][0]["collection_status"],
+            "website_and_citations",
+        )
 
     def test_a_slow_site_stops_at_its_time_budget(self) -> None:
         # Four real competitor sites: two answered in nine seconds, one took
@@ -2870,8 +3021,22 @@ class PipelineChangeTests(unittest.TestCase):
         )
         sent = payload["messages"][-1]["content"]
         self.assertNotIn("On-premise AI", sent)
-        self.assertIn("https://kenesis.ai/", sent)
-        self.assertIn("p-001", sent)
+        self.assertNotIn("https://kenesis.ai/", sent)
+        self.assertNotIn("p-001", sent)
+        sent_data = json.loads(sent)
+        self.assertEqual(
+            sent_data["companies_with_sources"],
+            [{"company_name": "Kenesis", "relationship": "audited_company"}],
+        )
+        inventory = open_company_sources("Kenesis", blocks)
+        self.assertEqual(
+            inventory["pages_on_their_own_website"][0]["url"],
+            "https://kenesis.ai/",
+        )
+        self.assertEqual(
+            inventory["pages_on_their_own_website"][0]["page_id"],
+            "p-001",
+        )
         self.assertEqual(open_page("p-001", pages)["text"], "On-premise AI")
         self.assertIn("error", open_page("p-999", pages))
 
@@ -2973,10 +3138,319 @@ class PipelineChangeTests(unittest.TestCase):
         )
         self.assertEqual(payload["response_format"]["type"], "json_schema")
         prompt_data = json.loads(payload["messages"][1]["content"])
-        listed = prompt_data["each_company"]["Triya"]["pages_on_their_own_website"]
+        self.assertEqual(
+            [row["company_name"] for row in prompt_data["companies_with_sources"]],
+            [PROFILE["company_name"], "Triya"],
+        )
+        self.assertNotIn("https://www.triya.ai/faq", payload["messages"][1]["content"])
+        listed = open_company_sources(
+            "Triya", blocks
+        )["pages_on_their_own_website"]
         faq = next(row for row in listed if row["url"] == "https://www.triya.ai/faq")
         self.assertIn(faq["page_id"], pages)
         self.assertNotIn("evidence_catalog", prompt_data)
+
+    def test_finding_notebook_accepts_only_opened_exact_two_sided_evidence(self) -> None:
+        competitor_text = (
+            "Triya publishes a detailed security guide for regulated factory teams."
+        )
+        audited_text = (
+            "Kenesis explains video analytics but gives only a short security overview."
+        )
+        pages = {
+            "p-001": {
+                "page_id": "p-001",
+                "company_name": "Kenesis",
+                "text": audited_text,
+            },
+            "p-002": {
+                "page_id": "p-002",
+                "company_name": "Triya",
+                "text": competitor_text,
+            },
+        }
+        rows = [
+            {
+                "question_id": "q-01",
+                "who_was_named": [{"company": "Triya", "mentions": 3}],
+            }
+        ]
+        findings: list[dict] = []
+        result = validate_and_save_finding(
+            {
+                "primary_question_id": "q-01",
+                "affected_question_ids": ["q-01"],
+                "competitor_company": "Triya",
+                "competitor_page_id": "p-002",
+                "competitor_passage": competitor_text,
+                "audited_page_id": "p-001",
+                "audited_passage": audited_text,
+                "observation": "Triya provides deeper security proof.",
+                "suggested_change": "Expand the website security page with deployment proof.",
+                "expected_impact": "Buyers can verify security fit more easily.",
+                "competitor_evidence_reason": "The guide directly answers the security need.",
+                "audited_company_evidence_reason": "The current page gives less detail.",
+                "confidence": "High",
+            },
+            pages=pages,
+            question_rows=rows,
+            company_blocks={"Kenesis": {}, "Triya": {}},
+            audited_company="Kenesis",
+            opened_page_ids={"p-001", "p-002"},
+            opened_question_ids={"q-01"},
+            findings=findings,
+        )
+
+        self.assertTrue(result["accepted"])
+        self.assertEqual(len(findings), 1)
+        recommendation = recommendations_from_findings(findings)[0]
+        self.assertEqual(recommendation["evidence_refs"], ["p-002", "p-001"])
+        self.assertEqual(
+            recommendation["suggested_change"],
+            "Expand the website security page with deployment proof.",
+        )
+
+    def test_evidence_map_rejects_unopened_pages(self) -> None:
+        findings: list[dict] = []
+        result = validate_and_save_finding(
+            {
+                "primary_question_id": "q-01",
+                "affected_question_ids": ["q-01"],
+                "competitor_company": "Triya",
+                "competitor_page_id": "p-002",
+                "competitor_passage": "Words that are not on the selected competitor page at all.",
+                "audited_page_id": "p-001",
+                "audited_passage": "Words that are not on the selected audited page at all.",
+                "observation": "Unsupported comparison.",
+                "suggested_change": "Publish a website guide.",
+                "expected_impact": "Clearer proof.",
+                "competitor_evidence_reason": "Unsupported.",
+                "audited_company_evidence_reason": "Unsupported.",
+                "confidence": "High",
+            },
+            pages={
+                "p-001": {"company_name": "Kenesis", "text": "Different own text."},
+                "p-002": {"company_name": "Triya", "text": "Different rival text."},
+            },
+            question_rows=[
+                {
+                    "question_id": "q-01",
+                    "who_was_named": [{"company": "Triya", "mentions": 2}],
+                }
+            ],
+            company_blocks={"Kenesis": {}, "Triya": {}},
+            audited_company="Kenesis",
+            opened_page_ids={"p-001"},
+            opened_question_ids={"q-01"},
+            findings=findings,
+        )
+
+        self.assertFalse(result["accepted"])
+        self.assertEqual(findings, [])
+        self.assertIn("open the competitor page", " ".join(result["errors"]))
+
+    def test_finding_passage_may_join_page_list_items_without_inventing_claims(self) -> None:
+        page = {
+            "text": (
+                "Track work across several teams. Keep stakeholders informed. "
+                "Manage dependencies across connected projects. Coordinate launches "
+                "with engineering and marketing teams."
+            )
+        }
+        combined = (
+            "Track work across several teams. Manage dependencies across connected "
+            "projects. Coordinate launches with engineering and marketing teams."
+        )
+        self.assertTrue(passage_is_on_page(combined, page))
+
+    def test_writer_selects_pages_in_stages_and_returns_five_actions(self) -> None:
+        self.assertIn("Do not open every listed page", AUDIT_RECOMMENDATION_SYSTEM_PROMPT)
+        self.assertIn("opened page content decides", AUDIT_RECOMMENDATION_SYSTEM_PROMPT)
+        self.assertIn(
+            "compare the actual opened content from the relevant",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "action first and then search for pages",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "skip that question and investigate another",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "same underlying website gap",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "describes what competitors do but cites only the audited company's pages",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "capability you describe must be supported",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "If any check fails",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn("NON-NEGOTIABLE METHOD", AUDIT_RECOMMENDATION_SYSTEM_PROMPT)
+        self.assertIn(
+            "new page only after checking that no existing page",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Never recommend building a\nnew product capability",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "legitimate public\npresence on other websites",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "published proof or legitimate\nexternal visibility",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "If several failed questions have the same\nunderlying reason"
+            ),
+            2,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "Changing the wording does not make a repeated idea\nunique"
+            ),
+            2,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "recommendation must include at least one opened competitor page and at\n"
+                "least one opened audited-company page in evidence_refs"
+            ),
+            2,
+        )
+        self.assertIn(
+            "They let the user open\nboth pages, verify the comparison",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "remaining tool calls to find a different failed question and action",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "Do not ask the user to take an action without two verifiable page links."
+            ),
+            2,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "When you cannot confidently provide both links, discard that action."
+            ),
+            2,
+        )
+        self.assertEqual(
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT.count(
+                "A recommendation without both links is not a recommendation."
+            ),
+            2,
+        )
+        self.assertIn(
+            "A parent-company\npage is valid only when its opened text is specifically about the winning",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "never permits lowering this evidence standard",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "The main\npriority is broad investigation, proof from both sides and a clear action",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "investigate at\nleast six distinct lost questions covering different buyer needs",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Do not write all five from one or two subject areas",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Avoid vague actions such as merely saying\nto improve, enhance or strengthen",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Finally confirm that the main job was completed",
+            AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+        )
+        self.assertIn("Write exactly five", AUDIT_RECOMMENDATION_SYSTEM_PROMPT)
+        schema = AUDIT_RECOMMENDATION_SCHEMA["properties"]["recommendations"]
+        self.assertEqual(schema["minItems"], 5)
+        self.assertEqual(schema["maxItems"], 5)
+        required = schema["items"]["required"]
+        self.assertIn("competitor_evidence_reason", required)
+        self.assertIn("audited_company_evidence_reason", required)
+
+    def test_selected_empty_page_is_fetched_for_the_writer(self) -> None:
+        page = {
+            "url": "https://example.test/research",
+            "title": "",
+            "text": "",
+        }
+        html = (
+            "<html><head><title>Research</title></head><body>"
+            "Independent research explains the company and its product clearly."
+            "</body></html>"
+        )
+        with patch(
+            "geo_audit.audit_recommendations.fetch_html",
+            return_value=(html, 200, "https://example.test/research"),
+        ) as fetch:
+            hydrated = hydrate_writer_page(page)
+
+        fetch.assert_called_once_with(
+            "https://example.test/research", timeout=15
+        )
+        self.assertIn("Independent research", hydrated["text"])
+        self.assertEqual(hydrated["title"], "Research")
+
+    def test_selected_page_firecrawl_is_a_bounded_fallback(self) -> None:
+        page = {
+            "url": "https://example.test/research",
+            "title": "",
+            "text": "",
+        }
+        client = Mock()
+        client.can_request.return_value = True
+        client.scrape.return_value = {
+            "markdown": "# Research\nUseful independent information about the company.",
+            "metadata": {
+                "sourceURL": "https://example.test/research",
+                "title": "Research",
+            },
+            "links": [],
+        }
+        with patch(
+            "geo_audit.audit_recommendations.fetch_html",
+            side_effect=TimeoutError("normal fetch timed out"),
+        ):
+            hydrated = hydrate_writer_page(page, client)
+
+        client.scrape.assert_called_once_with(
+            "https://example.test/research", timeout=15
+        )
+        self.assertIn("Useful independent information", hydrated["text"])
+
+    def test_svg_accessibility_title_does_not_replace_page_title(self) -> None:
+        html = """
+        <html>
+          <head><title>Company product page</title></head>
+          <body><svg><title>Social network</title></svg></body>
+        </html>
+        """
+        page = parse_page("https://example.test/product", html, 200)
+        self.assertEqual(page["title"], "Company product page")
 
     def test_firecrawl_enhances_weak_snapshot_with_priority_page(self) -> None:
         client = Mock()
@@ -3046,14 +3520,54 @@ class PipelineChangeTests(unittest.TestCase):
                 },
             }
         ]
-        verified = verify_selected_evidence_with_firecrawl(
-            recommendations, client
-        )
+        with patch(
+            "geo_audit.audit_recommendations.fetch_html",
+            side_effect=ValueError("normal fetch failed"),
+        ):
+            verified = verify_selected_evidence_with_firecrawl(
+                recommendations, client
+            )
         self.assertEqual(
             [row["evidence_id"] for row in verified[0]["supporting_evidence"]],
             ["ev-001"],
         )
         self.assertEqual(verified[0]["evidence_validation"]["rejected_refs"], [])
+        client.scrape.assert_called_once()
+
+    def test_final_reread_uses_normal_fetch_before_firecrawl(self) -> None:
+        client = Mock()
+        client.can_request.return_value = True
+        recommendations = [
+            {
+                "supporting_evidence": [
+                    {
+                        "evidence_id": "ev-001",
+                        "evidence_type": "external_mention",
+                        "url": "https://example.test/article",
+                        "excerpt": "Search snippet.",
+                    }
+                ],
+                "evidence_validation": {
+                    "accepted_refs": ["ev-001"],
+                    "rejected_refs": [],
+                },
+            }
+        ]
+        html = "<html><title>Article</title><body>" + (
+            "Useful independent article content. " * 20
+        ) + "</body></html>"
+        with patch(
+            "geo_audit.audit_recommendations.fetch_html",
+            return_value=(html, 200, "https://example.test/article"),
+        ):
+            verified = verify_selected_evidence_with_firecrawl(
+                recommendations, client
+            )
+
+        client.scrape.assert_not_called()
+        row = verified[0]["supporting_evidence"][0]
+        self.assertEqual(row["provenance"], "standard_crawler_verified")
+        self.assertEqual(row["verification"]["provider"], "deterministic_crawler")
 
     def test_firecrawl_page_conversion_preserves_evidence_content(self) -> None:
         page = firecrawl_document_to_page(
@@ -3150,6 +3664,14 @@ class PipelineChangeTests(unittest.TestCase):
         for text in ("No ids here at all.", "Version 2-3 of the platform.", ""):
             self.assertEqual(strip_internal_references(text), text)
 
+    def test_page_and_question_ids_never_reach_the_reader(self):
+        self.assertEqual(
+            strip_internal_references("Evidence (p-049, p-052)."), "Evidence."
+        )
+        self.assertEqual(
+            strip_internal_references("Reason (q-09 answers)."), "Reason."
+        )
+
     def test_normalize_recommendation_strips_ids_from_every_written_field(self):
         cleaned = normalize_recommendation(
             {
@@ -3157,6 +3679,8 @@ class PipelineChangeTests(unittest.TestCase):
                 "evidence": "Shown on their site (ev-002).",
                 "suggested_change": "Publish a page. See ev-003.",
                 "expected_impact": "Clearer for buyers, per loss-001.",
+                "competitor_evidence_reason": "Chosen from p-003.",
+                "audited_company_evidence_reason": "Compared with p-004.",
             }
         )
         for field in (
@@ -3164,6 +3688,8 @@ class PipelineChangeTests(unittest.TestCase):
             "evidence",
             "suggested_change",
             "expected_impact",
+            "competitor_evidence_reason",
+            "audited_company_evidence_reason",
         ):
             self.assertNotRegex(cleaned[field], r"(?:ev|loss)-\d+")
         self.assertEqual(cleaned["observation"], "Lost to Triya.")
@@ -3441,6 +3967,60 @@ class ReportContextTests(unittest.TestCase):
         ]
         self.assertTrue(any("liked Dragon" in reason for reason in reasons))
 
+    def test_open_question_returns_page_ids_cited_for_each_company(self):
+        answers = [
+            {
+                "prompt": "Best review platform?",
+                "assistant": "openai_search",
+                "model": "search-model",
+                "raw_response": "GitLab is strong for reviews.",
+                "provider_source_urls": ["https://gitlab.test/reviews"],
+                "recommended_companies": [
+                    {
+                        "company_name": "GitLab",
+                        "rank": 1,
+                        "reasoning": "Detailed review workflows.",
+                        "source_urls": ["https://gitlab.test/reviews"],
+                    }
+                ],
+            }
+        ]
+        rows = build_question_rows(answers, "Linear", build_user_keys("Linear", None), {})
+        pages = {
+            "p-081": {
+                "page_id": "p-081",
+                "company_name": "GitLab",
+                "url": "https://gitlab.test/reviews",
+            }
+        }
+        opened = open_question(
+            "q-01",
+            rows,
+            answers,
+            anonymous_assistant_labels(answers),
+            pages=pages,
+        )
+        answer = opened["answers"][0]
+        self.assertEqual(answer["assistant_cited_page_ids"], ["p-081"])
+        self.assertEqual(
+            answer["companies_it_named"][0]["assistant_cited_page_ids"],
+            ["p-081"],
+        )
+
+    def test_open_question_uses_an_empty_page_list_when_no_source_was_cited(self):
+        rows = self.rows()
+        opened = open_question(
+            "q-01",
+            rows,
+            self.ANSWERS,
+            anonymous_assistant_labels(self.ANSWERS),
+            pages={},
+        )
+        for answer in opened["answers"]:
+            self.assertEqual(answer["assistant_cited_page_ids"], [])
+            for company in answer["companies_it_named"]:
+                self.assertEqual(company["assistant_cited_page_ids"], [])
+
     def test_the_audited_company_is_counted_not_listed_as_a_rival(self):
         rows = self.rows()
         self.assertEqual(rows[0]["answers_naming_the_company"], 1)
@@ -3563,9 +4143,14 @@ class PageListTests(unittest.TestCase):
             company_blocks=blocks, user_snapshot=self.SNAPSHOT,
         )
         sent = json.loads(payload["messages"][1]["content"])
-        self.assertEqual(list(sent["each_company"]), ["Kenesis", "Triya"])
         self.assertEqual(
-            [r["url"] for r in sent["each_company"]["Kenesis"]["pages_on_their_own_website"]],
+            [row["company_name"] for row in sent["companies_with_sources"]],
+            ["Kenesis", "Triya"],
+        )
+        self.assertNotIn("https://kenesis.ai/", payload["messages"][1]["content"])
+        kenesis_sources = open_company_sources("Kenesis", blocks)
+        self.assertEqual(
+            [r["url"] for r in kenesis_sources["pages_on_their_own_website"]],
             ["https://kenesis.ai/"],
         )
 
@@ -3583,6 +4168,47 @@ class PageListTests(unittest.TestCase):
             ["https://g2.com/triya"],
         )
 
+    def test_audited_company_web_mentions_reach_its_company_block(self):
+        web_presence = {
+            "entities": [
+                {
+                    "company_name": "Kenesis",
+                    "entity_type": "user_company",
+                    "verified_mentions": [
+                        {
+                            "verified": True,
+                            "url": "https://industry.test/kenesis-review",
+                            "title": "Kenesis review",
+                            "page_text": "Kenesis provides on-premise video analytics.",
+                            "passages": ["Kenesis provides on-premise video analytics."],
+                        },
+                        {
+                            "verified": False,
+                            "url": "https://unverified.test/kenesis",
+                        },
+                    ],
+                }
+            ]
+        }
+        pages, blocks = build_company_blocks(
+            self.PROFILE,
+            self.COMPETITORS,
+            {"top_competitors": [{"company_name": "Triya"}]},
+            [],
+            user_snapshot=self.SNAPSHOT,
+            web_presence=web_presence,
+        )
+
+        rows = blocks["Kenesis"]["pages_the_wider_internet_holds_about_them"]
+        self.assertEqual(
+            [row["url"] for row in rows],
+            ["https://industry.test/kenesis-review"],
+        )
+        self.assertEqual(
+            pages[rows[0]["page_id"]]["passages"],
+            web_presence["entities"][0]["verified_mentions"][0]["passages"],
+        )
+
     def test_a_company_with_no_website_found_says_so(self):
         _pages, blocks = build_company_blocks(
             self.PROFILE,
@@ -3593,6 +4219,39 @@ class PageListTests(unittest.TestCase):
         )
         self.assertEqual(blocks["Ghost"]["official_website"], "not known")
         self.assertEqual(blocks["Ghost"]["pages_on_their_own_website"], [])
+
+    def test_discovered_official_homepage_can_be_opened_after_failed_crawl(self):
+        competitors = {
+            "competitors": [
+                {
+                    "company_name": "Triya",
+                    "website_url": "https://triya.test",
+                    "website_snapshot": {"pages": []},
+                }
+            ]
+        }
+        answers = [
+            {
+                "recommended_companies": [
+                    {
+                        "company_name": "Triya",
+                        "official_website": "https://triya.test",
+                    }
+                ]
+            }
+        ]
+        pages, blocks = build_company_blocks(
+            self.PROFILE,
+            competitors,
+            {"top_competitors": [{"company_name": "Triya"}]},
+            answers,
+            user_snapshot=self.SNAPSHOT,
+        )
+
+        own = blocks["Triya"]["pages_on_their_own_website"]
+        self.assertEqual(own[0]["url"], "https://triya.test")
+        self.assertIn(own[0]["page_id"], pages)
+        self.assertEqual(pages[own[0]["page_id"]]["text"], "")
 
 
 class EverythingListedIsCitableTests(unittest.TestCase):

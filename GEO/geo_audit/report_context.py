@@ -5,9 +5,9 @@ questions, the first seven hundred characters of three pages, a two-hundred
 character extract per citation. We chose those slices without knowing what the
 writer would need, and it wrote as though the slice were the whole.
 
-Now it gets an index of everything - all twenty questions, every page of every
-site read - and tools to open any of it in full. Nothing is hidden, and nothing
-large is sent that goes unread.
+Now it gets all twenty questions and the names of the companies whose sources
+are available. It asks for one company's source inventory only when that
+company matters to a lost question, then opens only the pages it needs.
 
 Two things never reach it. Which AI assistant said what, because a report that
 names them turns an audit of a market into an audit of one vendor's model. And
@@ -326,38 +326,34 @@ def anonymous_assistant_labels(raw_results: list[dict[str, Any]]) -> dict[str, s
 OPEN_PAGE_TOOL = {
     "type": "function",
     "function": {
-        "name": "open_page",
+        "name": "open_pages",
+        "strict": True,
         "description": (
-            "Read a page. Every page listed under a company can be opened by "
-            "its page_id. Returns the page text by default. For a page under "
+            "Read one to eight selected pages together. Every page listed under "
+            "a requested company can be opened by its page_id. For a page under "
             "what the wider internet holds, ask for 'passages' to get only the "
             "parts naming that company."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "page_id": {
-                    "type": "string",
-                    "description": "The page_id from an inventory, such as p-014.",
-                },
-                "part": {
-                    "type": "integer",
-                    "description": (
-                        "Which slice of the page to read. Leave out for the "
-                        "first. The answer says how many parts there are."
-                    ),
-                },
-                "how": {
-                    "enum": ["text", "passages"],
-                    "description": (
-                        "Leave out or use 'text' for the page's text, which is "
-                        "the default for every page. 'passages' returns only "
-                        "the parts naming that company, and exists only for "
-                        "pages listed under what the wider internet holds."
-                    ),
-                },
+                "pages": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "page_id": {"type": "string"},
+                            "part": {"type": "integer"},
+                            "how": {"enum": ["text", "passages"]},
+                        },
+                        "required": ["page_id", "part", "how"],
+                        "additionalProperties": False,
+                    },
+                }
             },
-            "required": ["page_id"],
+            "required": ["pages"],
             "additionalProperties": False,
         },
     },
@@ -366,25 +362,169 @@ OPEN_PAGE_TOOL = {
 OPEN_QUESTION_TOOL = {
     "type": "function",
     "function": {
-        "name": "open_question",
+        "name": "open_questions",
+        "strict": True,
         "description": (
-            "Read every assistant's full answer to one buyer question. The "
+            "Read every assistant's full answers to one to six buyer questions "
+            "together. The "
             "question list shows who was named and the strongest reason given; "
-            "this shows what each answer actually said."
+            "this shows what each answer actually said and the page_ids of "
+            "sources it cited for each company when those pages are available."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "question_id": {
-                    "type": "string",
-                    "description": "The question_id from the question list, such as q-07.",
+                "question_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "items": {"type": "string"},
+                    "description": "Distinct question_id values from the question list.",
                 }
             },
-            "required": ["question_id"],
+            "required": ["question_ids"],
             "additionalProperties": False,
         },
     },
 }
+
+
+OPEN_COMPANY_SOURCES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "open_company_sources",
+        "strict": True,
+        "description": (
+            "Get source inventories for one to six relevant companies together. Only the audited company "
+            "and the five top competitors named in companies_with_sources are "
+            "available. Returns its official website and the page_id, address, "
+            "title and source group of every stored page. Call this before "
+            "open_page; companies outside that list have no stored sources."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "company_names": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "items": {"type": "string"},
+                    "description": (
+                        "Exact company names from companies_with_sources."
+                    ),
+                }
+            },
+            "required": ["company_names"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+SAVE_FINDING_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "save_evidence_analysis",
+        "strict": True,
+        "description": (
+            "After each page-reading batch, save one to five detailed analysis "
+            "entries in the persistent evidence map. Explain what each page says, "
+            "how the two pages relate to the grouped questions, why the listed "
+            "competitor won, and what appears weaker or unclear for the audited "
+            "company. Include both page IDs. This is analysis for a later writer, "
+            "not the final recommendation. The tool only checks IDs, ownership, "
+            "opened pages, and the question-to-competitor connection."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "findings": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                "primary_question_id": {"type": "string"},
+                "affected_question_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 3,
+                },
+                "competitor_company": {"type": "string"},
+                "competitor_page_id": {"type": "string"},
+                "competitor_passage": {"type": "string", "description": "Detailed summary of the relevant competitor page content."},
+                "audited_page_id": {"type": "string"},
+                "audited_passage": {"type": "string", "description": "Detailed summary of the relevant audited-company page content."},
+                "observation": {"type": "string", "description": "Reasoning that connects the questions and both pages."},
+                "suggested_change": {"type": "string", "description": "Possible direction for the later writer, not a final recommendation."},
+                "expected_impact": {"type": "string"},
+                "competitor_evidence_reason": {"type": "string"},
+                "audited_company_evidence_reason": {"type": "string"},
+                "confidence": {
+                    "type": "string",
+                    "enum": ["High", "Medium", "Low"],
+                },
+            },
+                        "required": [
+                "primary_question_id",
+                "affected_question_ids",
+                "competitor_company",
+                "competitor_page_id",
+                "competitor_passage",
+                "audited_page_id",
+                "audited_passage",
+                "observation",
+                "suggested_change",
+                "expected_impact",
+                "competitor_evidence_reason",
+                "audited_company_evidence_reason",
+                "confidence",
+                        ],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+            "required": ["findings"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+def open_company_sources(
+    company_name: str,
+    company_blocks: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Return one available company's links instead of sending every link up front."""
+    wanted = re.sub(r"[^a-z0-9]+", "", str(company_name or "").casefold())
+    matched_name = next(
+        (
+            name
+            for name in company_blocks
+            if re.sub(r"[^a-z0-9]+", "", str(name).casefold()) == wanted
+        ),
+        None,
+    )
+    if matched_name is None:
+        return {
+            "error": "No stored source inventory exists for that company.",
+            "companies_with_sources": list(company_blocks),
+        }
+    block = company_blocks[matched_name]
+    return {
+        "company_name": matched_name,
+        "official_website": block.get("official_website", "not known"),
+        "pages_on_their_own_website": block.get(
+            "pages_on_their_own_website", []
+        ),
+        "pages_the_assistants_cited_while_answering": block.get(
+            "pages_the_assistants_cited_while_answering", []
+        ),
+        "pages_the_wider_internet_holds_about_them": block.get(
+            "pages_the_wider_internet_holds_about_them", []
+        ),
+    }
 
 
 PAGE_TEXT_LIMIT = 6000
@@ -451,6 +591,7 @@ def open_question(
     raw_results: list[dict[str, Any]],
     labels: dict[str, str],
     hidden_names: set[str] | None = None,
+    pages: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Every answer to one question, with no assistant identifiable.
 
@@ -469,10 +610,31 @@ def open_question(
     hide = hidden_names if hidden_names is not None else assistant_and_model_names(
         raw_results
     )
+    page_ids_by_url = {
+        canonical_page_url(page.get("url")): page_id
+        for page_id, page in (pages or {}).items()
+        if page.get("url")
+    }
+
+    def source_page_ids(values: Any) -> list[str]:
+        found: list[str] = []
+        for value in values or []:
+            candidate = (
+                value.get("url") or value.get("source_url") or ""
+                if isinstance(value, dict)
+                else value
+            )
+            address = clean_source_url(candidate)
+            page_id = page_ids_by_url.get(canonical_page_url(address))
+            if page_id and page_id not in found:
+                found.append(page_id)
+        return found
+
     answers = []
     for result in raw_results:
         if str(result.get("prompt", "")).strip() != row["question"]:
             continue
+        answer_page_ids = source_page_ids(result.get("provider_source_urls", []))
         answers.append(
             {
                 "assistant": labels.get(str(result.get("assistant", "")), "an assistant"),
@@ -484,11 +646,18 @@ def open_question(
                     )[:2500],
                     hide,
                 ),
+                "assistant_cited_page_ids": answer_page_ids,
                 "companies_it_named": [
                     {
                         "company": item.get("company_name"),
                         "position": item.get("rank"),
                         "reason": strip_assistant_names(item.get("reasoning"), hide),
+                        "assistant_cited_page_ids": source_page_ids(
+                            [
+                                *(item.get("source_urls", []) or []),
+                                *(item.get("citations", []) or []),
+                            ]
+                        ),
                     }
                     for item in result.get("recommended_companies", []) or []
                 ],
@@ -679,6 +848,7 @@ def build_company_blocks(
     recommendation_patterns: dict[str, Any],
     raw_results: list[dict[str, Any]],
     user_snapshot: dict[str, Any] | None = None,
+    web_presence: dict[str, Any] | None = None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """One block per company: where they live, and every page we hold for them.
 
@@ -722,6 +892,19 @@ def build_company_blocks(
             crawled[name].append((page.get("url"), page.get("title"), page.get("main_text")))
 
     found: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+    # Competitor evidence already carries the rivals' independent-search
+    # pages. The audited company's pages live only in web_presence, so bring
+    # that one missing entity into the same company block.
+    for entity in (web_presence or {}).get("entities", []) or []:
+        entity_name = str(entity.get("company_name", "")).strip()
+        if entity.get("entity_type") != "user_company" and not is_user_company(
+            entity_name, user_keys, aliases
+        ):
+            continue
+        for mention in entity.get("verified_mentions", []) or []:
+            if mention.get("verified"):
+                found[user_company].append(mention)
+        break
     for competitor in competitor_evidence.get("competitors", []) or []:
         name = str(competitor.get("company_name", "Unknown"))
         for mention in competitor.get("verified_web_mentions", []) or []:
@@ -766,6 +949,12 @@ def build_company_blocks(
             return row
 
         own = [row for row in (keep(*page) for page in crawled.get(name, [])) if row]
+        # A discovered official address must remain readable even when the
+        # earlier site crawl returned no pages. Giving it a page_id lets the
+        # writer fetch it only if needed through open_page's bounded fallback.
+        official_home = keep(site, "", "") if site else None
+        if official_home and official_home not in own:
+            own.insert(0, official_home)
         elsewhere = []
         for mention in found.get(name, []):
             row = keep(

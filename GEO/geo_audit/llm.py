@@ -220,7 +220,7 @@ def call_chat_completion(payload: dict[str, Any]) -> str:
     except URLError as exc:
         raise RuntimeError(f"LLM request failed: {exc}") from exc
 
-    return call_chat_message(payload).get("content") or ""
+    return body.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
 
 
 def call_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
@@ -413,6 +413,150 @@ def call_bedrock_converse(
         "metrics": response.get("metrics", {}),
     }
     return text, metadata
+
+
+def call_bedrock_tool_message(
+    payload: dict[str, Any],
+    *,
+    model: str | None = None,
+) -> dict[str, Any]:
+    """Run the OpenAI-shaped writer conversation through Bedrock Converse.
+
+    The writer keeps one internal message format. This adapter translates its
+    visible conversation and function tools to Bedrock, then translates the
+    response back so the same validated tool loop works for Claude Haiku.
+    """
+    load_dotenv(override=True)
+    try:
+        import boto3
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError as exc:
+        raise LLMNotConfigured("Install boto3 to use AWS Bedrock providers.") from exc
+
+    selected_model = (
+        model
+        or os.environ.get("AUDIT_WRITER_BEDROCK_MODEL")
+        or DEFAULT_BEDROCK_MODELS["bedrock_claude"]
+    )
+    region = os.environ.get("AWS_REGION") or os.environ.get(
+        "AWS_DEFAULT_REGION", DEFAULT_BEDROCK_REGION
+    )
+    system_parts: list[dict[str, str]] = []
+    bedrock_messages: list[dict[str, Any]] = []
+
+    def append_message(role: str, content: list[dict[str, Any]]) -> None:
+        if bedrock_messages and bedrock_messages[-1]["role"] == role:
+            bedrock_messages[-1]["content"].extend(content)
+        else:
+            bedrock_messages.append({"role": role, "content": content})
+
+    for index, message in enumerate(payload.get("messages") or []):
+        role = str(message.get("role") or "")
+        if role == "system" and index == 0:
+            system_parts.append({"text": str(message.get("content") or "")})
+            continue
+        if role == "system":
+            append_message(
+                "user",
+                [{"text": "[SYSTEM PROGRESS]\n" + str(message.get("content") or "")}],
+            )
+        elif role == "user":
+            append_message("user", [{"text": str(message.get("content") or "")}])
+        elif role == "assistant":
+            content: list[dict[str, Any]] = []
+            if message.get("content"):
+                content.append({"text": str(message.get("content"))})
+            for call in message.get("tool_calls") or []:
+                function = call.get("function") or {}
+                try:
+                    tool_input = json.loads(function.get("arguments") or "{}")
+                except (TypeError, ValueError):
+                    tool_input = {}
+                content.append(
+                    {
+                        "toolUse": {
+                            "toolUseId": str(call.get("id") or ""),
+                            "name": str(function.get("name") or ""),
+                            "input": tool_input,
+                        }
+                    }
+                )
+            if content:
+                append_message("assistant", content)
+        elif role == "tool":
+            try:
+                tool_content = json.loads(str(message.get("content") or "{}"))
+            except (TypeError, ValueError):
+                tool_content = {"text": str(message.get("content") or "")}
+            append_message(
+                "user",
+                [
+                    {
+                        "toolResult": {
+                            "toolUseId": str(message.get("tool_call_id") or ""),
+                            "content": [{"json": tool_content}],
+                        }
+                    }
+                ],
+            )
+
+    request: dict[str, Any] = {
+        "modelId": selected_model,
+        "system": system_parts,
+        "messages": bedrock_messages,
+        "inferenceConfig": {"maxTokens": 10000, "temperature": 0.2},
+    }
+    writer_tools = payload.get("tools") or payload.get("_writer_tools")
+    if writer_tools:
+        request["toolConfig"] = {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": str(tool.get("function", {}).get("name") or ""),
+                        "description": str(
+                            tool.get("function", {}).get("description") or ""
+                        ),
+                        "inputSchema": {
+                            "json": tool.get("function", {}).get("parameters") or {}
+                        },
+                    }
+                }
+                for tool in writer_tools or []
+            ]
+        }
+
+    client = boto3.client("bedrock-runtime", region_name=region)
+    try:
+        response = client.converse(**request)
+    except (BotoCoreError, ClientError) as exc:
+        raise RuntimeError(f"Bedrock writer request failed: {exc}") from exc
+
+    output = response.get("output", {}).get("message", {})
+    text_parts: list[str] = []
+    tool_calls: list[dict[str, Any]] = []
+    for part in output.get("content", []) or []:
+        if part.get("text"):
+            text_parts.append(str(part["text"]))
+        if part.get("toolUse"):
+            tool_use = part["toolUse"]
+            tool_calls.append(
+                {
+                    "id": str(tool_use.get("toolUseId") or ""),
+                    "type": "function",
+                    "function": {
+                        "name": str(tool_use.get("name") or ""),
+                        "arguments": json.dumps(
+                            tool_use.get("input") or {}, ensure_ascii=False
+                        ),
+                    },
+                }
+            )
+    return {
+        "content": "\n".join(text_parts) or None,
+        "tool_calls": tool_calls,
+        "model": selected_model,
+        "usage": response.get("usage") or {},
+    }
 
 
 def build_anthropic_payload(

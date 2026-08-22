@@ -1,5 +1,16 @@
 import path from "path";
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
+
+// Next.js loads .env.local for the app; Vitest does not. Without this,
+// TEST_DATABASE_URL is ignored and the tests fall back to the hardcoded
+// localhost:5432 default - which is wrong on any machine where an older
+// PostgreSQL already holds that port. Real environment variables still win,
+// so CI can override without touching a file.
+Object.assign(process.env, {
+  ...loadEnv("test", __dirname, ""),
+  ...process.env,
+});
 
 export default defineConfig({
   test: {

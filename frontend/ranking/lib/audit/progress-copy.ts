@@ -104,6 +104,7 @@ const FREE_STAGES: readonly AuditStage[] = [
       "competitor_evidence",
       "comparison",
       "improvement_recommendations",
+      "executive_verdict",
       "final_report",
       "frontend_export",
       "frontend_import",
@@ -159,6 +160,7 @@ const PRO_STAGES: readonly AuditStage[] = [
     id: "actions",
     steps: [
       "improvement_recommendations",
+      "executive_verdict",
       "final_report",
       "frontend_export",
       "frontend_import",

@@ -27,6 +27,7 @@ are counted against each other.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from .llm import (
@@ -576,6 +577,100 @@ def generate_company_aliases(
     )
     artifact["aliases"] = aliases
     return aliases, artifact, None
+
+
+def generate_candidate_company_aliases(
+    raw_results: list[dict[str, Any]],
+    user_company: str | None,
+) -> tuple[dict[str, str], dict[str, Any], str | None]:
+    """Run the tested whole-word candidate merge used by the main pipeline.
+
+    Code first limits the LLM to plausible families that share a complete
+    brand word. One normal model call decides those families. Only important
+    or uncertain families receive a web-search review. Every returned name is
+    checked against the actual answer names before it can affect counts.
+    """
+    started = time.perf_counter()
+    artifact: dict[str, Any] = {
+        "strategy": "whole_word_candidates_then_selective_web_review",
+        "audited_company": str(user_company or ""),
+    }
+    try:
+        from experiments.company_name_standardization.candidate_merge import (
+            build_candidate_groups,
+            build_final_counts,
+            call_normal_decider,
+            call_web_reviewer,
+            groups_needing_web_review,
+            top_five_threshold,
+        )
+        from experiments.company_name_standardization.experiment import (
+            assemble_lowercase_names,
+        )
+
+        rows = assemble_lowercase_names(raw_results)
+        groups = build_candidate_groups(rows)
+        threshold = top_five_threshold(rows)
+        artifact.update(
+            {
+                "input": rows,
+                "candidate_groups": groups,
+                "top_five_threshold_before_merge": threshold,
+            }
+        )
+
+        normal_started = time.perf_counter()
+        if groups:
+            normal_decisions, normal_payload, normal_raw = call_normal_decider(groups)
+        else:
+            normal_decisions, normal_payload, normal_raw = [], {}, ""
+        artifact["normal_decision_seconds"] = round(
+            time.perf_counter() - normal_started, 3
+        )
+        artifact["normal_decision_prompt"] = normal_payload
+        artifact["normal_decision_raw"] = normal_raw
+        artifact["normal_decisions"] = normal_decisions
+
+        web_groups = groups_needing_web_review(
+            groups,
+            normal_decisions,
+            threshold=threshold,
+            audited_company=str(user_company or ""),
+        )
+        artifact["web_review_groups"] = web_groups
+        web_started = time.perf_counter()
+        web_decisions, web_payload, web_metadata = call_web_reviewer(web_groups)
+        artifact["web_review_seconds"] = round(
+            time.perf_counter() - web_started, 3
+        )
+        artifact["web_review_prompt"] = web_payload
+        artifact["web_review_response"] = web_metadata
+        artifact["web_decisions"] = web_decisions
+
+        final = build_final_counts(rows, groups, normal_decisions, web_decisions)
+        aliases = dict(final.get("alias_map") or {})
+
+        # If the exact audited-company name is present in a merged family, its
+        # family must count under the customer's public name. This prevents a
+        # model-selected legal name from hiding the customer from its own count.
+        customer_key = normalize_company_name(str(user_company or ""))
+        if customer_key:
+            for decision in final.get("applied_merge_decisions", []) or []:
+                members = {
+                    normalize_company_name(name)
+                    for name in decision.get("input_names", []) or []
+                }
+                if customer_key in members:
+                    for member in members:
+                        aliases[member] = str(user_company)
+
+        artifact["final"] = {**final, "alias_map": aliases}
+        artifact["total_seconds"] = round(time.perf_counter() - started, 3)
+        return aliases, artifact, None
+    except Exception as exc:  # noqa: BLE001 - keep per-spelling counts on failure.
+        artifact["total_seconds"] = round(time.perf_counter() - started, 3)
+        artifact["failure"] = f"{type(exc).__name__}: {exc}"
+        return {}, artifact, artifact["failure"]
 
 
 SEARCH_TOOL = {

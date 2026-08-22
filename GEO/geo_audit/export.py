@@ -624,6 +624,12 @@ def build_action_rows(
                 ),
                 "evidence_validation": item.get("evidence_validation", {}),
                 "evidence_types": item.get("evidence_types", []),
+                "competitor_evidence_reason": item.get(
+                    "competitor_evidence_reason"
+                ),
+                "audited_company_evidence_reason": item.get(
+                    "audited_company_evidence_reason"
+                ),
                 "competitor_gaps": competitor_gap_context(item, comparison),
             },
             "priority": index,

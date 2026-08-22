@@ -120,7 +120,8 @@ class FirecrawlClient:
                 links.append(candidate)
         return dedupe_links(links)
 
-    def scrape(self, url: str) -> dict[str, Any]:
+    def scrape(self, url: str, *, timeout: int | None = None) -> dict[str, Any]:
+        request_timeout = self.timeout if timeout is None else max(5, timeout)
         response = self._request(
             "scrape",
             "/scrape",
@@ -133,9 +134,10 @@ class FirecrawlClient:
                 "proxy": "basic",
                 "storeInCache": True,
                 "maxAge": 604800000,
-                "timeout": self.timeout * 1000,
+                "timeout": request_timeout * 1000,
             },
             subject=url,
+            timeout=request_timeout,
         )
         data = response.get("data", response)
         if not isinstance(data, dict):
@@ -162,6 +164,7 @@ class FirecrawlClient:
         payload: dict[str, Any],
         *,
         subject: str,
+        timeout: int | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             if not self.can_request():
@@ -179,7 +182,10 @@ class FirecrawlClient:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with urlopen(
+                request,
+                timeout=self.timeout if timeout is None else max(5, timeout),
+            ) as response:
                 parsed = json.loads(response.read().decode("utf-8"))
             if not isinstance(parsed, dict) or parsed.get("success") is False:
                 message = (

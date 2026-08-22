@@ -58,7 +58,13 @@ class PageParser(HTMLParser):
         if tag in {"script", "style", "noscript"}:
             self._skip_text_depth += 1
 
-        if tag == "title" or tag in self.headings:
+        # Only the document title inside <head> is a page title. SVG icons can
+        # also contain <title> elements for accessibility; treating the last
+        # one as the page title labelled every Typeform page "LinkedIn".
+        if tag == "title" and "head" in self._tag_stack[:-1] and not self.title:
+            self._capture_tag = tag
+            self._capture_text = []
+        elif tag in self.headings:
             self._capture_tag = tag
             self._capture_text = []
 
@@ -262,13 +268,13 @@ def same_page_key(url: str) -> str:
     return f"{host}{parsed.path.rstrip('/')}?{'&'.join(sorted(kept))}"
 
 
-def fetch_html(url: str) -> tuple[str, int, str]:
+def fetch_html(url: str, *, timeout: int = 15) -> tuple[str, int, str]:
     # Guarded fetch: the audited website and every redirect it takes is
     # untrusted input. netguard validates each hop against internal ranges
     # and caps the body.
     final_url, response_headers, body = open_url_guarded(
         url,
-        timeout=15,
+        timeout=max(1, timeout),
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "

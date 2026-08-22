@@ -537,7 +537,7 @@ def write_one_batch(
     )
 
 
-def generate_customer_intents(
+def generate_customer_intents_multi_call(
     company_profile: dict[str, Any],
     *,
     count: int = 30,
@@ -589,6 +589,70 @@ def generate_customer_intents(
         if repair_error:
             return None, payload, repair_error
     return prompts[:count], payload, None
+
+
+def generate_customer_intents(
+    company_profile: dict[str, Any],
+    *,
+    count: int = 30,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
+    """Use the tested single call, with the previous flow as a safe fallback."""
+    profile_issue = question_profile_issue(company_profile)
+    if profile_issue:
+        return None, build_customer_intent_payload(company_profile, count=count), (
+            profile_issue
+        )
+
+    unified_payload = build_chat_payload(
+        UNIFIED_QUESTION_SYSTEM_PROMPT,
+        json.dumps(
+            {
+                "requested_question_count": count,
+                "company_facts": build_question_profile_context(company_profile),
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        temperature=0.2,
+        json_response=True,
+    )
+    fallback_reason = ""
+    try:
+        parsed = extract_json_object(call_chat_completion(unified_payload))
+        buyer_band = normalize_buyer_band(
+            parsed.get("buyer_band"), MAX_BUYER_SITUATIONS
+        )
+        market = concise_profile_value(
+            company_profile.get("primary_market"), "Unknown"
+        )
+        if market != "Unknown":
+            buyer_band["geography"] = market
+        prompts = sanitize_prompt_records(
+            parsed.get("questions")
+            if isinstance(parsed.get("questions"), list)
+            else [],
+            company_profile,
+        )
+        if len(prompts) >= count:
+            unified_payload["mode"] = "unified_one_call"
+            unified_payload["buyer_band"] = buyer_band
+            unified_payload["question_count"] = count
+            return prompts[:count], unified_payload, None
+        fallback_reason = (
+            f"Unified call returned {len(prompts)} distinct questions; "
+            f"expected {count}."
+        )
+    except (LLMNotConfigured, RuntimeError, TimeoutError, ValueError) as exc:
+        fallback_reason = f"{type(exc).__name__}: {exc}"
+
+    prompts, fallback_payload, fallback_error = generate_customer_intents_multi_call(
+        company_profile,
+        count=count,
+    )
+    fallback_payload["mode"] = "multi_call_fallback"
+    fallback_payload["unified_attempt"] = unified_payload
+    fallback_payload["unified_fallback_reason"] = fallback_reason
+    return prompts, fallback_payload, fallback_error
 
 
 def repair_short_question_set(
@@ -1085,6 +1149,58 @@ naturally ask it, so the answers name providers relevant there.
 - Return JSON: {"questions": ["...", "..."]} in the same order as the input
   items, each rewritten for its own item's market.
 """
+
+
+UNIFIED_QUESTION_SYSTEM_PROMPT = """Create natural, unbranded buyer questions
+for an AI visibility audit. Infer who buys this kind of offering from the
+supplied company facts, then write the complete question set.
+
+Each question must ask an AI assistant to recommend suitable products or
+providers. Never name the audited company, its website, or its customers. Use
+the buyer's words, not the company's marketing language. Make each question a
+short single sentence about one real need, with only the buyer details that
+change the answer. Keep it under 25 words. Avoid generic category questions,
+implementation questions, repeated meaning, and structurally different
+providers. Spread the set across distinct buyer situations, organization
+sizes, needs, and discovery, comparison, and decision stages.
+
+Return only JSON:
+{
+  "buyer_band": {
+    "band_summary": "",
+    "buyer_words_for_provider": "",
+    "sector_focus": "specialist|generalist",
+    "sector_focus_reason": "",
+    "organization_sizes": [],
+    "sectors_served": [],
+    "sectors_open_to_it": [],
+    "geography": "",
+    "decision_makers": [],
+    "band_confidence": "High|Medium|Low",
+    "band_evidence": [],
+    "buyer_situations": [
+      {
+        "situation_id": "",
+        "role": "",
+        "organization": "",
+        "trigger": "",
+        "constraint": "",
+        "words_they_use": []
+      }
+    ]
+  },
+  "questions": [
+    {
+      "category": "",
+      "buying_stage": "",
+      "persona_id": "",
+      "intent": "",
+      "profile_evidence": [],
+      "prompt": ""
+    }
+  ]
+}
+The questions array must contain exactly requested_question_count items."""
 
 # One market per continent-ish spread. A Pro+ audit asks a slice of its
 # questions across these so the report can compare visibility by region.

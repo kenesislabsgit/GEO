@@ -14,6 +14,7 @@ from geo_audit.company_merge import (
     MERGE_VOTES,
     collect_name_rows,
     drop_self_contradictions,
+    generate_candidate_company_aliases,
     generate_company_aliases,
     unanimous_aliases,
     verify_customer_group,
@@ -392,6 +393,35 @@ class GenerateTest(unittest.TestCase):
             )
         call.assert_not_called()
         self.assertEqual((aliases, error), ({}, None))
+
+
+class CandidatePipelineMergeTest(unittest.TestCase):
+    def test_high_confidence_candidate_merge_reaches_production_aliases(self):
+        decision = {
+            "candidate_id": "cg-001",
+            "should_merge": True,
+            "canonical_company": "Formstack",
+            "input_names": ["formstack", "formstack forms"],
+            "confidence": "high",
+            "needs_web_search": False,
+            "reason": "Same public company identity.",
+        }
+        with patch(
+            "experiments.company_name_standardization.candidate_merge.call_normal_decider",
+            return_value=([decision], {"normal": "prompt"}, "normal response"),
+        ), patch(
+            "experiments.company_name_standardization.candidate_merge.call_web_reviewer",
+            return_value=([decision], {"web": "prompt"}, {"response": "ok"}),
+        ):
+            aliases, artifact, error = generate_candidate_company_aliases(
+                [answer("Formstack"), answer("Formstack Forms")],
+                "Acme",
+            )
+
+        self.assertIsNone(error)
+        self.assertEqual(aliases["formstack"], "Formstack")
+        self.assertEqual(aliases["formstack forms"], "Formstack")
+        self.assertEqual(artifact["strategy"], "whole_word_candidates_then_selective_web_review")
 
 
 class AggregationMergeTest(unittest.TestCase):

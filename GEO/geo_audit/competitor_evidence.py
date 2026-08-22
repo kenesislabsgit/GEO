@@ -23,6 +23,7 @@ def build_competitor_evidence(
     *,
     competitor_sites: dict[str, str] | None = None,
     web_presence: dict[str, Any] | None = None,
+    existing_evidence: dict[str, Any] | None = None,
     max_pages: int = 8,
     crawl_limit: int | None = None,
     firecrawl_client: FirecrawlClient | None = None,
@@ -34,6 +35,10 @@ def build_competitor_evidence(
     missing from — not from whoever is named most often overall."""
     competitor_sites = competitor_sites or {}
     web_presence = web_presence or {}
+    existing_by_name = {
+        normalize_investigation_name(item.get("company_name")): item
+        for item in (existing_evidence or {}).get("competitors", [])
+    }
     evidence_items = []
 
     firecrawl_competitor_limit = environment_int(
@@ -64,6 +69,7 @@ def build_competitor_evidence(
         competitor: dict[str, Any],
     ) -> dict[str, Any]:
         name = competitor.get("company_name", "Unknown")
+        existing = existing_by_name.get(normalize_investigation_name(name))
         cited_urls = competitor.get("source_urls", [])
         presence = find_web_presence(name, web_presence)
         verified_mentions = presence.get("verified_mentions", [])
@@ -72,7 +78,10 @@ def build_competitor_evidence(
             for row in verified_mentions
             if row.get("verified") and row.get("url")
         ]
-        manual_site = find_competitor_site(name, competitor_sites)
+        existing_site = str((existing or {}).get("website_url") or "")
+        if existing_site == "Unknown":
+            existing_site = ""
+        manual_site = find_competitor_site(name, competitor_sites) or existing_site
         site_discovery = discover_competitor_site(
             name,
             [*cited_urls, *verified_urls],
@@ -84,7 +93,7 @@ def build_competitor_evidence(
             cited_urls,
         )
 
-        item: dict[str, Any] = {
+        fresh_item: dict[str, Any] = {
             "company_name": name,
             "recommendation_pattern": {
                 "mention_frequency": competitor.get("mention_frequency", 0),
@@ -120,12 +129,42 @@ def build_competitor_evidence(
                 "errors": [],
             },
         }
+        item = {**fresh_item, **(existing or {})}
+        item.update(
+            {
+                "recommendation_pattern": fresh_item["recommendation_pattern"],
+                "website_url": site_url or existing_site or "Unknown",
+                "site_discovery": site_discovery,
+                "source_analysis": fresh_item["source_analysis"],
+                "verified_web_mentions": verified_mentions,
+                "web_presence_summary": fresh_item["web_presence_summary"],
+                "external_authority_evidence": fresh_item[
+                    "external_authority_evidence"
+                ],
+            }
+        )
 
         if crawl_names is not None:
             may_crawl = normalize_investigation_name(name) in crawl_names
         else:
             may_crawl = crawl_limit is None or competitor_index < crawl_limit
-        if site_url and max_pages > 0 and may_crawl:
+        already_has_pages = bool(
+            (item.get("website_snapshot") or {}).get("pages")
+        )
+        already_tried_same_site = bool(
+            existing
+            and existing_site
+            and site_url == existing_site
+            and existing.get("collection_status") == "website_failed"
+        )
+        if already_has_pages:
+            return item
+        if (
+            site_url
+            and max_pages > 0
+            and may_crawl
+            and not already_tried_same_site
+        ):
             snapshot = empty_snapshot(site_url)
             try:
                 snapshot = crawl_website(
@@ -174,7 +213,7 @@ def build_competitor_evidence(
                 item["collection_error"] = (
                     "No pages crawled from discovered website."
                 )
-        elif site_url:
+        elif site_url and not already_tried_same_site:
             item["collection_status"] = "citation_only_with_discovered_site"
 
         return item

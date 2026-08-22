@@ -28,6 +28,12 @@ const description =
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
+  // The app already owns light/dark theming. Dark Reader rewrites SVG stroke
+  // attributes before React hydrates, making the client DOM differ from the
+  // server HTML and producing hydration errors on every Lucide icon.
+  other: {
+    "darkreader-lock": "",
+  },
   title: {
     default: `${APP_NAME} - ${APP_TAGLINE}`,
     template: `%s · ${APP_NAME}`,

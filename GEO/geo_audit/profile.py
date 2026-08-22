@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -216,13 +217,106 @@ the effort on the strongest items instead."""
 PROFILE_SYSTEM_PROMPT = build_profile_system_prompt()
 
 
+PROFILE_PAGE_SELECTION_PROMPT = """Choose the website pages that best explain
+the company. Select at most five pages that together show what the company is,
+what it sells, who it serves, and useful buying proof. Include the homepage.
+Prefer pages with different purposes. Use only the supplied page IDs.
+Return only JSON: {"page_ids": ["page-001"]}."""
+
+
+def compact_page_options(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    """Small page list for the fast page-selection call."""
+    options = []
+    for index, page in enumerate(snapshot.get("pages", []), start=1):
+        headings = page.get("headings")
+        if not isinstance(headings, dict):
+            headings = {}
+        options.append(
+            {
+                "page_id": f"page-{index:03d}",
+                "url": str(page.get("url", ""))[:500],
+                "title": str(page.get("title", ""))[:240],
+                "meta_description": str(page.get("meta_description", ""))[:400],
+                "headings": {
+                    level: [str(value)[:240] for value in headings.get(level, [])[:5]]
+                    for level in ("h1", "h2")
+                    if headings.get(level)
+                },
+            }
+        )
+    return options
+
+
+def build_profile_page_selection_payload(
+    snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    return build_chat_payload(
+        PROFILE_PAGE_SELECTION_PROMPT,
+        json.dumps(
+            {
+                "domain": snapshot.get("domain", ""),
+                "pages": compact_page_options(snapshot),
+            },
+            ensure_ascii=False,
+        ),
+        temperature=0,
+        json_response=True,
+    )
+
+
+def select_profile_page_ids(
+    snapshot: dict[str, Any],
+    *,
+    max_pages: int = 5,
+) -> tuple[list[str] | None, dict[str, Any] | None, str | None]:
+    page_ids = [
+        f"page-{index:03d}"
+        for index, _ in enumerate(snapshot.get("pages", []), start=1)
+    ]
+    if len(page_ids) <= max_pages:
+        return page_ids, None, None
+
+    payload = build_profile_page_selection_payload(snapshot)
+    started = time.perf_counter()
+    try:
+        response = call_chat_completion(payload)
+    except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
+        payload["duration_seconds"] = round(time.perf_counter() - started, 3)
+        # Keep the old full-page behaviour when selection fails. Accuracy wins
+        # over speed on this rare path.
+        return None, payload, f"Profile page selection failed: {exc}"
+
+    parsed = extract_json_object(response)
+    payload["duration_seconds"] = round(time.perf_counter() - started, 3)
+    payload["selection_response"] = parsed
+    requested = parsed.get("page_ids")
+    if not isinstance(requested, list):
+        return None, payload, "Profile page selection returned no page IDs."
+
+    valid = []
+    for value in requested:
+        page_id = str(value).strip()
+        if page_id in page_ids and page_id not in valid:
+            valid.append(page_id)
+
+    homepage_id = page_ids[0]
+    valid = [homepage_id, *[page_id for page_id in valid if page_id != homepage_id]]
+    if len(valid) < 2:
+        return None, payload, "Profile page selection returned too few valid pages."
+    return valid[:max_pages], payload, None
+
+
 def build_company_profile_payload(
     snapshot: dict[str, Any],
     website_evidence: dict[str, Any],
     *,
     lean: bool = False,
+    selected_page_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    compact_snapshot = compact_snapshot_for_llm(snapshot)
+    compact_snapshot = compact_snapshot_for_llm(
+        snapshot,
+        selected_page_ids=selected_page_ids,
+    )
     user_prompt = json.dumps(
         {
             "website_snapshot": compact_snapshot,
@@ -245,18 +339,51 @@ def generate_company_profile(
     *,
     lean: bool = False,
 ) -> tuple[dict[str, Any] | None, dict[str, Any], str | None]:
-    payload = build_company_profile_payload(snapshot, website_evidence, lean=lean)
+    selected_page_ids, selection_payload, selection_error = (
+        select_profile_page_ids(snapshot)
+    )
+    payload = build_company_profile_payload(
+        snapshot,
+        website_evidence,
+        lean=lean,
+        selected_page_ids=selected_page_ids,
+    )
+    profile_started = time.perf_counter()
     try:
         raw_response = call_chat_completion(payload)
     except TimeoutError:
         try:
             raw_response = call_chat_completion(payload)
         except (LLMNotConfigured, RuntimeError, TimeoutError) as exc:
+            payload["page_selection"] = {
+                "selected_page_ids": selected_page_ids,
+                "error": selection_error,
+                "request": selection_payload,
+            }
+            payload["profile_generation_seconds"] = round(
+                time.perf_counter() - profile_started, 3
+            )
             return None, payload, f"Company profile request failed: {exc}"
     except (LLMNotConfigured, RuntimeError) as exc:
+        payload["page_selection"] = {
+            "selected_page_ids": selected_page_ids,
+            "error": selection_error,
+            "request": selection_payload,
+        }
+        payload["profile_generation_seconds"] = round(
+            time.perf_counter() - profile_started, 3
+        )
         return None, payload, str(exc)
 
     parsed = extract_json_object(raw_response)
+    payload["page_selection"] = {
+        "selected_page_ids": selected_page_ids,
+        "error": selection_error,
+        "request": selection_payload,
+    }
+    payload["profile_generation_seconds"] = round(
+        time.perf_counter() - profile_started, 3
+    )
     return normalize_company_profile(parsed, snapshot), payload, None
 
 
@@ -348,12 +475,20 @@ def is_boilerplate_segment(segment: str) -> bool:
     )
 
 
-def compact_snapshot_for_llm(snapshot: dict[str, Any]) -> dict[str, Any]:
+def compact_snapshot_for_llm(
+    snapshot: dict[str, Any],
+    *,
+    selected_page_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    selected = set(selected_page_ids) if selected_page_ids is not None else None
     pages = []
     for index, page in enumerate(snapshot.get("pages", []), start=1):
+        page_id = f"page-{index:03d}"
+        if selected is not None and page_id not in selected:
+            continue
         pages.append(
             {
-                "page_id": f"page-{index:03d}",
+                "page_id": page_id,
                 "url": page.get("url", ""),
                 "title": page.get("title", ""),
                 "meta_description": page.get("meta_description", ""),
@@ -382,6 +517,13 @@ def normalize_company_profile(
     snapshot: dict[str, Any],
 ) -> dict[str, Any]:
     normalized = dict(profile)
+    for unused_field in (
+        "pricing_model",
+        "core_messaging",
+        "customer_segments",
+        "market_signals",
+    ):
+        normalized.pop(unused_field, None)
     page_texts, page_urls = build_page_evidence_index(snapshot)
     scalar_defaults = {
         "company_name": "Unknown",
@@ -390,7 +532,6 @@ def normalize_company_profile(
         "business_type": "Unknown",
         "delivery_model": "Unknown",
         "unique_value_proposition": "Unknown",
-        "pricing_model": "Unknown",
     }
     list_fields = (
         "company_name_variants",
@@ -401,9 +542,7 @@ def normalize_company_profile(
         "use_cases",
         "problems_solved",
         "keywords",
-        "core_messaging",
         "primary_offerings",
-        "customer_segments",
     )
     for field, fallback in scalar_defaults.items():
         normalized[field] = clean_scalar(normalized.get(field), fallback)
@@ -450,7 +589,6 @@ def normalize_company_profile(
         "use_cases",
         "problems_solved",
         "primary_offerings",
-        "customer_segments",
     ):
         normalized[field] = [
             value
@@ -473,11 +611,6 @@ def normalize_company_profile(
             validator=region_claim_describes_service_area,
         )
     ]
-    normalized["pricing_model"] = validated_pricing_value(
-        normalized["pricing_model"],
-        field_evidence,
-    )
-
     personas = []
     raw_personas = normalized.get("buyer_personas")
     if isinstance(raw_personas, list):
@@ -628,7 +761,6 @@ def normalize_company_profile(
     # Read off the pages rather than asked for. The model gave Zerodha "India"
     # on one run and "Unknown" on the next from identical input.
     normalized["primary_market"] = site_facts["primary_market"]
-    normalized["market_signals"] = site_facts["market_signals"]
     normalized.pop("market_position", None)
 
     scope = normalized.get("competitor_scope")
@@ -1177,40 +1309,6 @@ def organization_size_claim_is_explicit(claim: dict[str, str]) -> bool:
     }
     terms = aliases.get(value, (value,))
     return any(term and term in quote for term in terms)
-
-
-def validated_pricing_value(
-    value: str,
-    claims: list[dict[str, str]],
-) -> str:
-    if value == "Unknown":
-        return value
-    matches = matching_claims("pricing_model", value, claims)
-    return (
-        value
-        if any(pricing_claim_is_explicit(item) for item in matches)
-        else "Unknown"
-    )
-
-
-def pricing_claim_is_explicit(claim: dict[str, str]) -> bool:
-    quote = normalize_evidence_text(claim.get("quote", ""))
-    if quote_describes_missing_data(quote):
-        return False
-    return any(
-        term in quote
-        for term in (
-            "price",
-            "pricing",
-            "cost",
-            "per month",
-            "per year",
-            "subscription",
-            "plan",
-            "request a quote",
-            "contact for a quote",
-        )
-    )
 
 
 def quote_describes_missing_data(value: str) -> bool:

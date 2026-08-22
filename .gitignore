@@ -37,6 +37,13 @@ coverage/
 test-results/
 playwright-report/
 *.log
+GEO/.test-tmp/
+
+# Audit experiments keep their reusable source, but not local model runs,
+# scraped pages, prompts, or latency captures.
+GEO/experiments/*_runs/
+GEO/experiments/**/runs/
+GEO/experiments/writer_rechecks/
 
 # Scratch and local working files
 tmp/

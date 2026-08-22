@@ -13,12 +13,17 @@ def extract_json_object(raw_text: str) -> dict[str, Any]:
 
     try:
         value = json.loads(text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as original_error:
         start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise
-        value = json.loads(text[start : end + 1])
+        if start == -1:
+            raise original_error
+        try:
+            value, _ = json.JSONDecoder().raw_decode(text, start)
+        except json.JSONDecodeError:
+            end = text.rfind("}")
+            if end == -1 or end <= start:
+                raise original_error
+            value = json.loads(text[start : end + 1])
 
     if not isinstance(value, dict):
         raise ValueError("Expected a JSON object.")
@@ -44,4 +49,3 @@ def extract_json_array(raw_text: str) -> list[Any]:
     if not isinstance(value, list):
         raise ValueError("Expected a JSON array.")
     return value
-

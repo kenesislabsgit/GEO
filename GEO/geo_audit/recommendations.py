@@ -29,16 +29,19 @@ from .llm import (
 from .source_analysis import verify_source_url
 
 
-# Assistants kept naming the maker instead of the product: the answer said
-# "Google Docs Voice Typing" but the company field said "Google". That splits one
-# product across several spellings and pushes real competitors out of the top list.
-# Every prompt that fills in a company name repeats this rule.
-COMPANY_NAMING_RULE = """SECOND TASK, AS IMPORTANT AS THE ANSWER ITSELF: name every recommendation exactly as the answer names it.
+# Standard names reduce avoidable spelling differences before the later merge
+# sees the complete set from every provider. The merge still exists because no
+# independent model call can guarantee that every other call chooses the same
+# label, especially for renamed brands and branded products.
+COMPANY_NAMING_RULE = """SECOND TASK, AS IMPORTANT AS THE ANSWER: standardize every recommendation name in the structured company_name field.
 
-Whatever name the answer recommends, put that exact name in company_name. Same words, same spelling, same order.
-Do not shorten it to the maker, the parent company, or the brand family. Do not expand it, translate it, or tidy it up.
-Say the answer recommends "Google Docs Voice Typing". Then company_name is "Google Docs Voice Typing". It is never "Google", never "Google LLC", never "Google Docs".
-The name you write in the answer and the name you write in company_name are the same string. Writing a different one is as wrong as recommending a different product."""
+company_name must be the current, commonly used public brand name of the exact company or product being recommended. Use the name a buyer would recognize on its official website.
+Use the same spelling for the same identity across every question.
+Do not include a descriptive phrase, legal suffix, slogan, plan tier, or outdated brand name in company_name.
+Do not replace a specific recommended product with only its parent company's name.
+When a brand has been renamed and you confidently know its current public name, use the current name.
+Do not guess. When uncertain, use the clearest public name you know for the exact recommended offering.
+The natural answer may contain more explanation, but company_name is the clean counting label."""
 
 
 RECOMMENDATION_SYSTEM_PROMPT = """You are acting as a neutral assistant helping a customer choose software.
@@ -387,6 +390,7 @@ def collect_multi_model_recommendations(
     search_context_size: str | None = None,
     openai_search_batch_size: int = 1,
     progress_callback: Any = None,
+    result_callback: Any = None,
     market_country: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
     prompt_records = normalize_prompt_records(prompts)
@@ -518,6 +522,7 @@ def collect_multi_model_recommendations(
                     }
                 )
                 continue
+            completed_items = []
             for index, result, payload_preview, error in group_results:
                 payloads.append(payload_preview)
                 if error:
@@ -530,6 +535,12 @@ def collect_multi_model_recommendations(
                     )
                 elif result:
                     provider_items.append(result)
+                    completed_items.append(result)
+            if result_callback is not None and completed_items:
+                try:
+                    result_callback(completed_items)
+                except Exception:  # noqa: BLE001 - live checking is best-effort.
+                    pass
 
     payloads.sort(key=lambda item: (item.get("assistant", ""), item.get("prompt_index", 0)))
     provider_items.sort(key=lambda item: (item.get("assistant", ""), item.get("prompt_index", 0)))
@@ -1278,6 +1289,13 @@ def verify_provider_citations(
                     "error": str(exc),
                 }
 
+    return apply_provider_citation_verification(provider_results, verification)
+
+
+def apply_provider_citation_verification(
+    provider_results: list[dict[str, Any]],
+    verification: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
     verified_results = []
     for result in provider_results:
         item = dict(result)
@@ -1306,6 +1324,55 @@ def verify_provider_citations(
                 )
         verified_results.append(item)
     return verified_results
+
+
+class LiveCitationVerifier:
+    """Check each new citation while the remaining provider calls continue."""
+
+    def __init__(
+        self,
+        *,
+        concurrency: int = 6,
+        match_terms: tuple[str, ...] = (),
+    ) -> None:
+        self.match_terms = match_terms
+        self.executor = ThreadPoolExecutor(max_workers=max(1, concurrency))
+        self.futures: dict[str, Any] = {}
+
+    def submit(self, provider_results: list[dict[str, Any]]) -> None:
+        for result in provider_results:
+            for raw_url in result.get("provider_source_urls", []):
+                url = str(raw_url).strip()
+                if url and url not in self.futures:
+                    self.futures[url] = self.executor.submit(
+                        verify_source_url,
+                        url,
+                        match_terms=self.match_terms,
+                    )
+
+    def finish(
+        self,
+        provider_results: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        # Final analyzed rows should carry the same citations as the early
+        # rows, but submit them again defensively. The URL cache makes this a
+        # no-op for citations already being checked and prevents a missed
+        # callback from dropping a source.
+        self.submit(provider_results)
+        verification: dict[str, dict[str, Any]] = {}
+        try:
+            for url, future in self.futures.items():
+                try:
+                    verification[url] = future.result()
+                except Exception as exc:  # noqa: BLE001 - reject unverified URL.
+                    verification[url] = {
+                        "url": url,
+                        "verified": False,
+                        "error": str(exc),
+                    }
+        finally:
+            self.executor.shutdown(wait=True)
+        return apply_provider_citation_verification(provider_results, verification)
 
 
 def analyze_provider_answer_batch(

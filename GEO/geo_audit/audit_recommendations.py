@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
+from .crawler import fetch_html, parse_page
 from .evidence import readable_excerpt
 from .json_tools import extract_json_array, extract_json_object
 from .firecrawl import (
@@ -17,17 +21,21 @@ from .aggregation import build_user_keys
 from .llm import (
     LLMNotConfigured,
     build_chat_payload,
+    call_bedrock_tool_message,
     call_chat_completion,
     call_chat_message,
 )
 from .report_context import (
+    OPEN_COMPANY_SOURCES_TOOL,
     OPEN_PAGE_TOOL,
     OPEN_QUESTION_TOOL,
+    SAVE_FINDING_TOOL,
     anonymous_assistant_labels,
     assistant_and_model_names,
     build_headline_numbers,
     build_company_blocks,
     build_question_rows,
+    open_company_sources,
     open_page,
     trim_profile,
     open_question,
@@ -105,6 +113,12 @@ def build_free_preview_recommendations(
             "confidence": "Low",
             "evidence_types": [],
             "evidence_refs": [],
+            "competitor_evidence_reason": (
+                "The free preview does not verify a competitor page."
+            ),
+            "audited_company_evidence_reason": (
+                "The free preview does not select an audited-company evidence page."
+            ),
             "supporting_evidence": [],
             "evidence_validation": {
                 "mode": "free_preview_answer_only",
@@ -121,9 +135,45 @@ AUDIT_RECOMMENDATION_SYSTEM_PROMPT = """You are writing the improvements section
 WHAT THIS IS FOR
 
 A company pays to learn why AI assistants recommend rivals instead of them, and
-what to change on their website about it. We asked several assistants the same
-buyer questions and recorded every company each one named. Your job is to turn
-that into a short list of changes worth making.
+what to improve in their website content and wider public web presence. We
+asked several assistants the same buyer questions and recorded every company
+each one named. Your job is to turn that into a short list of changes that make
+the company easier for buyers and AI systems to understand and trust. The main
+priority is broad investigation, proof from both sides and a clear action: read
+different failed questions across the audit, understand the relevant pages of
+the audited company and the competitors that won, and only then give actions in
+plain words with links that let the user verify every comparison.
+
+NON-NEGOTIABLE METHOD
+
+Work in two phases. During the tool phase you are the research reader, not the
+final recommendation writer. Read questions and pages in small batches. After
+each page batch, immediately call save_evidence_analysis and add detailed notes
+to the evidence map. Each note must preserve the grouped question IDs, both page
+IDs, what each page says, why the competitor won, what appears weaker or unclear
+for the audited company, and a possible action direction. Do not rely on memory
+across page batches; put the useful reasoning in the map. When five strong and
+different analysis entries are stored, stop researching. A separate AI call
+will receive only this evidence map and turn it into the final recommendations.
+
+The goal is not general advice or product development. Every recommendation
+must improve either the audited company's own website or its legitimate public
+presence on other websites. It may improve, create, reorganise or better connect
+pages and proof on the audited website, or help the company earn accurate,
+useful independent coverage and mentions elsewhere. Never recommend building a
+new product capability or changing how the product works. Communicate and make
+discoverable what the company can genuinely support today.
+
+Each recommendation must explain a real loss: what a winning competitor proves
+on an opened page, what the audited company's relevant opened evidence shows is
+missing, weaker or hard to discover, and the precise website or public-presence
+change that closes that difference for the buyer question. Cite the pages used
+and briefly explain why you selected each one. When several questions reveal
+the same gap, combine them into one recommendation and use another proven gap
+for another recommendation. Do not understand the audit from only a few similar
+questions. Spread the investigation across different buyer needs and read enough
+relevant pages from both sides to understand each area before saving the five
+analysis entries.
 
 WHAT KIND OF DATA YOU HAVE
 
@@ -136,88 +186,206 @@ every_question_we_asked - each buyer question, how many times the audited
 company was recommended in the answers to it, and which other companies were
 recommended and how often.
 
-each_company - one block per company. The audited company, and the five rivals
-named most often across the answers. Other companies appear in the question
-lists but have no block here, so there is nothing to cite for them.
-  official_website - their front door.
-  pages_on_their_own_website - pages we read from that site. What they publish
-    about themselves. Marketing, so it shows what they say, never whether it is
-    true.
-  pages_the_assistants_cited_while_answering - pages an assistant pointed a
-    buyer at while answering. This is what AI reaches for today. An empty list
-    means AI pointed at this company not once.
-  pages_the_wider_internet_holds_about_them - reviews, comparisons, forum
-    threads written by other people. This matters twice over. It is what an
-    assistant finds when it searches the web today, and it is the same kind of
-    public material an assistant is built from, so it shapes what a model knows
-    about a company before anyone asks it anything. A company the internet does
-    not discuss is one an assistant has little to say about, whether it searches
-    or answers from what it already knows. Empty means nobody is writing about
-    them.
+companies_with_sources - the audited company and the five top competitors for
+which this audit holds source inventories. Questions may name other companies,
+but no pages are available for them. A question is eligible for investigation
+only when at least one company marked top_competitor in companies_with_sources
+was named in that question. Ignore a lost question when all of its winners are
+outside that top-five list. Never build a finding around an unlisted company.
+Call open_company_sources with the exact names of the relevant companies when
+they matter to an eligible lost question. It returns the official website and three groups:
+pages on its own website, pages assistants cited while answering, and pages the
+wider internet holds about it. Links are deliberately not pasted here because
+you should request and inspect only the companies relevant to the questions you
+choose.
 
-Read those last two lists as a pair. Cited tells you what AI reaches for.
-Written about tells you what there is to reach for. Together they say which
-problem a company has, and there are three:
+The address and title beside each page are an index for choosing what to open,
+not proof of what the page says. An address, including its domain and path, is
+usually a stronger identity signal than a title. A title is only an additional
+clue and may be incomplete or wrong. The opened page content decides what you
+may claim and how you describe that page to the reader.
 
-  Cited plenty, written about plenty.
-  People write about them, AI finds it and uses it. Nothing to fix here.
-
-  Cited none, written about plenty.
-  The material is out there and AI is not picking it up. The work is being
-  easier to find and easier to quote, not writing more.
-
-  Cited none, written about none.
-  Nobody is writing about them. Tidying their own website will not change this;
-  they need other people talking about them.
-
-Three different problems with three different answers, so decide which one the
-audited company has before you write anything.
+Assistant-cited pages show what sources influenced an answer, while wider-
+internet pages provide additional public context. Use both only when they help
+explain a specific lost question. Do not infer a website gap from the number of
+pages in either list; open the relevant content and compare it first.
 
 YOUR TOOLS
 
-open_question(question_id) - every assistant's full answer to that question,
-including the reason each gave for every company it named.
+open_company_sources(company_names) - the complete link inventories for the
+available companies you select. Request the audited company and the relevant
+top-five competitor before opening their pages. A company named in a question
+but absent from companies_with_sources has no citable source inventory; choose
+another winning company or question.
 
-open_page(page_id) - the first 6,000 characters of that page, which is usually
-the whole of what matters. If you need more, ask for the next part; the answer
+open_questions(question_ids) - every assistant's full answers to up to six questions,
+including the reason each gave for every company it named. When an answer cited
+a source that exists in the page inventory, assistant_cited_page_ids gives its
+page_id beside that company. An empty list means that answer supplied no mapped
+source. Treat these ids as the best pages to try first, but open each page and
+verify its content before using it as proof.
+
+open_pages(pages) - open up to eight selected pages together. Each request has
+page_id, part (use 1 first), and how (normally "text"). A result gives the first
+6,000 characters, which is usually the whole of what matters. If you need more,
+ask for the next part; the answer
 tells you how many parts there are.
 
-  open_page("p-014")             the first 6,000 characters
-  open_page("p-014", part=2)     the next 6,000, only if the first left you short
+  {"page_id":"p-014","part":1,"how":"text"}
+  {"page_id":"p-014","part":2,"how":"text"} only if part 1 left you short
 
 For a page under what the wider internet holds, you may ask for the parts that
 name that company instead of the page:
 
-  open_page("p-072", how="passages")
+  {"page_id":"p-072","part":1,"how":"passages"}
 
-Twelve opens in total. That is a budget, not a target. Most questions need no
-opening - the list already says who was named and how often. Open a question when
-the audited company is missing and the same rival keeps taking it, or when you
-are about to write about that question. Open a page before saying what is on it.
+save_evidence_analysis(findings) - after every page-reading batch, write detailed
+analysis into the persistent evidence map. For each entry, summarise what the
+competitor page says, what the audited-company page says, which question or
+grouped questions they explain, why the competitor won, and what appears weaker
+or unclear for the audited company. Always include both page IDs. Do not rush to
+final wording here. These are detailed reasoning notes for the later writer.
+The tool returns the full evidence map so earlier page analysis stays visible.
+Once five strong, different entries exist, a separate final AI call reads this
+map and creates the findings and recommendations.
+
+Question, source-inventory and page budgets are tracked separately. When the audit contains enough losses, investigate at
+least six distinct lost questions covering different buyer needs before
+finalising the five actions. Open questions together for speed, then use the
+remaining opens on the strongest competitor and audited-company pages needed to
+prove each distinct gap. Do not write all five from one or two subject areas.
+Once several questions clearly share the same gap, combine them and move to a
+different area. Do not request the same company inventory, question or page
+part twice: the conversation and notebook retain it. Do not spend extra parts
+on one long page unless truly needed. Open every page before saying what is on
+it. Save the detailed analysis immediately after each page-reading batch instead
+of trying to remember several comparisons until the end.
 
 HOW TO DECIDE WHAT TO WRITE
 
 Start with the questions the audited company was never recommended in. Those are
-what it is losing. For each, look at who took it, then at what that company
-publishes and what is written about them elsewhere.
+what it is losing. Keep only questions won by at least one listed top-five
+competitor. For each eligible question, look at which listed competitor took it,
+then at what that company publishes and what is written about them elsewhere.
 
-A gap is a job a rival's pages do for a buyer that none of the audited company's
-pages does. Open both pages before claiming one. If a page already does the job
-under a different name, it is not missing, and saying it is is the mistake
-readers notice fastest.
+Open the strongest lost questions and read why the winning companies were
+recommended. Sample the audit broadly instead of stopping after the first few
+losses. When available, inspect at least six failed questions from different
+buyer needs. You may open several questions or pages together for speed, but do
+not decide the actions yet. First read the returned page content, group questions
+that reveal the same underlying website gap, and compare the most relevant
+competitor page with the most relevant audited-company page for each distinct
+gap. Only then turn a proven difference into one recommendation. Do not decide
+an action first and then search for pages that appear to support it.
+
+STRICT UNIQUENESS RULE: all five recommendations must address meaningfully
+different reasons for losing. No two may cover the same underlying gap, buyer
+need, subject area, website area, content, proof or action.
+Changing the wording does not make a repeated idea
+unique. If several failed questions have the same
+underlying reason, group them into one recommendation. Then investigate
+different failed questions for the remaining recommendations.
+
+Do not open every listed page. First shortlist pages using the company, page
+address, address path and title. Then open the small set most likely to answer
+the lost question. Read the actual content of the relevant rival's official
+pages before deciding why it won. Read the audited company's relevant official
+pages before deciding what it lacks or should change. Also open an
+assistant-cited or wider-internet page when its address and title indicate that
+it may provide stronger or independent evidence. Prefer the source whose opened
+content most directly supports the recommendation, regardless of which list it
+came from.
+
+Never make a claim from an address or title alone. If opened content is empty,
+conflicts with the company identity, or does not support the topic, do not use
+that page. If an opened page is not useful for the buyer question, discard it
+and open the next likely page. If no available competitor and audited-company
+pages prove a meaningful difference, skip that question and investigate another
+one. If the title conflicts with the address and content, ignore the title.
+Describe cited pages in clear words based on their content instead of repeating
+an unreliable title.
+
+A gap is a communication or public-evidence job a rival's pages do for a buyer
+that the audited company's web presence does not. Before choosing the action,
+review the audited company's page inventory for every page whose address, title
+or description may cover that topic, and open the most relevant candidates. If
+an existing page already does the job, skip that gap. If the page exists but its
+content is weaker, update or expand that page. If the content exists but its
+name, location or connections make it difficult to find, rename, reposition or
+link to it more clearly. Create a
+new page only after checking that no existing page serves the same purpose.
+Where the proven gap is weak independent
+visibility, recommend an honest way to publish useful proof or earn relevant
+third-party coverage; do not invent endorsements or tell the company to edit a
+website it does not own. Never recommend creating a page merely because you
+opened a broad page instead of the topic-specific page.
 
 WHAT EACH RECOMMENDATION MUST BE
 
-One lost question, the company that took it, and the change that answers it. The
-question, the reason that company won, and the pages you cite must all be about
-the same thing.
+One proven website-content or public-presence gap, the lost question or
+questions caused by it, the company that took them, and the change that answers
+them. The questions, the reason that company won, and the pages you cite must
+all be about the same thing. The suggested change must be an action involving
+web content, website structure, published proof, or legitimate external
+visibility. It must not ask the company to create or alter a product feature.
+State the action so an ordinary user immediately understands what to do: name
+the existing page or public material to update, create, rename, reposition or
+connect; say what specific information or proof should change; and explain why
+the opened comparison justifies it. Avoid vague actions such as merely saying
+to improve, enhance or strengthen something.
 
-Cite two pages where you can: the rival's page showing what they do, and the
-audited company's page that should change. Put page_id values in evidence_refs.
-The citation carries the address to the reader, and it is the only address they
-get.
+HIGHEST-PRIORITY EVIDENCE RULE: this rule is more important than polished
+writing, variety or filling five slots. A recommendation without both links is not a recommendation.
+Do not return it. Write a recommendation only after reading the actual content
+of both sides of its comparison. For every recommendation,
+compare the actual opened content from the relevant competitor website with the
+actual opened content from the audited company's website.
+Do not ask the user to take an action without two verifiable page links.
+Every recommendation must include at least one opened competitor page and at
+least one opened audited-company page in evidence_refs. Both pages must directly
+support the same buyer question, gap and recommended action. The competitor
+page must belong to a company that actually won the affected question and its
+opened text must clearly show the evidence that helped it win. A parent-company
+page is valid only when its opened text is specifically about the winning
+product. Navigation labels, page titles, URLs and an assistant's answer are not
+substitutes for supporting page content. Read another part or another page when
+needed. The audited-company page must be the relevant own-site page whose
+opened text shows what is weaker, unclear or hard to discover and where the
+improvement belongs.
 
-Write at least three. More when the evidence supports it, never padding.
+These citations are part of the result, not decoration. They let the user open
+both pages, verify the comparison and understand the problem. Put the page_id of
+every page used for a claim in evidence_refs, using no more than the three
+strongest pages. The action should be the conclusion of what those two opened
+pages prove, not an idea followed by unrelated links. Confidence means being
+confident in the complete chain: why the competitor won, what is weaker on the
+audited website, and why the proposed action closes that exact difference.
+Prefer a smaller, precise action with strong evidence over a more impressive
+action based on assumptions. Never describe evidence from a page without citing
+it. Never add a broad or weakly related link merely to complete the pair. A
+recommendation that
+describes what competitors do but cites only the audited company's pages is
+unfinished. If you cannot find and open a valid page from
+both sides for a proposed finding, do not write that recommendation. Investigate
+a different failed question instead. When you cannot confidently provide both links, discard that action.
+
+Write exactly five distinct, evidence-backed recommendations. As a final check,
+compare all five with each other: no two may recommend substantially the same
+page, content, proof, or action, even when they came from different questions.
+Do not split one change into several recommendations or add unsupported advice
+to reach five.
+Use a different primary lost question for each recommendation whenever five or
+more lost questions exist. When several questions were lost because of the same
+proven gap, combine them into one recommendation and include their question_id
+values in affected_loss_refs. Then investigate other questions for the remaining
+recommendations instead of repeating that gap.
+
+Every page_id in evidence_refs must be a page you opened with open_pages during
+this run. A page merely listed in the input is not a citation you have read.
+Never cite an unopened page. Before claiming that the audited company's website
+lacks or should change something, open its most relevant page. If a valid
+competitor and audited-company evidence pair is unavailable, investigate a
+different question rather than returning an unsupported recommendation.
 
 WHERE OUR DATA IS WEAK
 
@@ -236,8 +404,9 @@ An official_website may be missing or point at a parent company. Where a
 company's pages do not hang together as one business, treat that company as
 unverified and do not cite it.
 
-Four of the assistants cannot browse the web, so they cite nothing. An empty
-cited list is a finding about the company, not about them.
+Some assistants cannot browse the web or provide citations. Do not treat an
+empty assistant-cited page list alone as evidence that the company lacks online
+visibility.
 
 NEVER
 
@@ -271,7 +440,59 @@ Avoid anything that would read the same for any company in this category.
 EVERY RECOMMENDATION RETURNS
 
 observation, evidence, suggested_change, expected_impact, confidence,
-evidence_types, evidence_refs, affected_loss_refs.
+evidence_types, evidence_refs, competitor_evidence_reason,
+audited_company_evidence_reason, affected_loss_refs.
+
+competitor_evidence_reason is one short sentence explaining why the selected
+competitor page proves what helped that competitor win. The
+audited_company_evidence_reason is one short sentence explaining why the
+selected audited-company page proves the corresponding weakness or gap. These
+reasons must describe the actual opened content, not the address or title.
+
+Before returning, compare all five recommendations with each other again. No
+two may cover the same underlying gap, buyer need, subject area, website area,
+content, proof or action.
+Changing the wording does not make a repeated idea
+unique. If several failed questions have the same
+underlying reason, group them into one recommendation. Then investigate
+different failed questions for the remaining recommendations.
+
+Every competitor
+capability you describe must be supported by an opened competitor page included
+in that recommendation's evidence_refs. Every gap you claim must be checked
+against the audited company's most relevant opened page, not one broad page
+reused without checking the topic-specific pages. Attach the relevant
+question_id values to each grouped finding. Confirm that each action
+changes website content, website structure, published proof or legitimate
+external visibility; reject any action that builds or changes the product.
+Confirm that website actions correctly say create, update, rename, reposition
+or improve linking based on what already exists. If any check fails, use the
+remaining tool calls to read a better page or question before answering.
+
+Repeat the highest-priority evidence check for each final recommendation.
+A recommendation without both links is not a recommendation.
+Do not return it. Inspect every proposed action one by one before answering.
+Do not ask the user to take an action without two verifiable page links.
+Every recommendation must include at least one opened competitor page and at
+least one opened audited-company page in evidence_refs. Confirm that both pages
+support the same buyer question, gap and action, and that every page used for a
+claim is cited. Confirm that the recommended action follows directly from the
+content of those pages rather than from an assumption. The user must be able to
+open both sides, verify why the competitor won, see what is weaker on the
+audited website and understand why the action is justified. Do not accept an
+irrelevant, generic or weak link merely because two citations are required.
+When you cannot confidently provide both links, discard that action. Use the
+remaining tool calls to find a different failed question and action with a
+strong, relevant evidence pair. The requirement to return five recommendations
+never permits lowering this evidence standard or padding the result with an
+unsupported action.
+
+Finally confirm that the main job was completed: the investigation covered
+different buyer needs across the audit rather than a narrow group of similar
+questions; each action came after reading relevant pages from both sides; every
+action includes both verifiable links; and the action is written in plain,
+specific words that tell the user exactly what website content or public
+presence to change and why.
 
 Use question_id values from every_question_we_asked in affected_loss_refs, up to
 three. Use page_id values in evidence_refs, up to three. Return an empty list
@@ -286,7 +507,8 @@ AUDIT_RECOMMENDATION_SCHEMA = {
     "properties": {
         "recommendations": {
             "type": "array",
-            "minItems": 3,
+            "minItems": 5,
+            "maxItems": 5,
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -309,6 +531,8 @@ AUDIT_RECOMMENDATION_SCHEMA = {
                         "items": {"type": "string"},
                         "maxItems": 3,
                     },
+                    "competitor_evidence_reason": {"type": "string"},
+                    "audited_company_evidence_reason": {"type": "string"},
                     "affected_loss_refs": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -323,6 +547,8 @@ AUDIT_RECOMMENDATION_SCHEMA = {
                     "confidence",
                     "evidence_types",
                     "evidence_refs",
+                    "competitor_evidence_reason",
+                    "audited_company_evidence_reason",
                     "affected_loss_refs",
                 ],
             },
@@ -344,11 +570,12 @@ def generate_audit_recommendations(
     firecrawl_client: FirecrawlClient | None = None,
     limit: int | None = None,
     raw_results: list[dict[str, Any]] | None = None,
+    web_presence: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
-    """limit keeps only the top N written actions. The model is asked for at
-    least three (schema-enforced via minItems); the free audit keeps the top
-    three. The deterministic top-competitor finding is kept only as a fallback
-    when the model returns nothing at all."""
+    """limit keeps only the top N written actions. The model returns five
+    schema-enforced actions; a caller may keep fewer. The deterministic
+    top-competitor finding is kept only as a fallback when the model returns
+    nothing at all."""
     evidence_catalog = build_verified_evidence_catalog(competitor_evidence)
     answers = raw_results or []
     company_name = str(company_profile.get("company_name", ""))
@@ -363,7 +590,7 @@ def generate_audit_recommendations(
     )
     pages, blocks = build_company_blocks(
         company_profile, competitor_evidence, recommendation_patterns,
-        answers, user_snapshot,
+        answers, user_snapshot=user_snapshot, web_presence=web_presence,
     )
     evidence_catalog = add_missing_pages_to_the_catalog(evidence_catalog, pages)
     labels = anonymous_assistant_labels(answers)
@@ -380,14 +607,30 @@ def generate_audit_recommendations(
         company_blocks=blocks,
     )
     if pages or question_rows:
-        payload["tools"] = [OPEN_PAGE_TOOL, OPEN_QUESTION_TOOL]
+        payload["tools"] = [
+            OPEN_QUESTION_TOOL,
+            OPEN_COMPANY_SOURCES_TOOL,
+            OPEN_PAGE_TOOL,
+            SAVE_FINDING_TOOL,
+        ]
     try:
         raw_response, opened = answer_with_open_tools(
-            payload, pages, question_rows, answers, labels
+            payload,
+            pages,
+            blocks,
+            question_rows,
+            answers,
+            labels,
+            audited_company=company_name,
+            firecrawl_client=firecrawl_client,
         )
     except LLMNotConfigured as exc:
         return None, payload, str(exc)
     payload["opened"] = opened
+    payload["writer_raw_response"] = raw_response
+    # Debug/export metadata is attached only after every API call has finished,
+    # so it is never sent as an unsupported API request field.
+    payload["_writer_company_blocks"] = blocks
 
     if raw_response.lstrip().startswith("["):
         parsed = extract_json_array(raw_response)
@@ -398,6 +641,7 @@ def generate_audit_recommendations(
         summary = strip_internal_references(
             concise_text(response.get("summary"), AUDIT_SUMMARY_LENGTH)
         )
+    notebook_enforced = "finding_notebook" in payload
     if not isinstance(parsed, list):
         parsed = []
     # Where the report stands is written once, in the call that already knows
@@ -417,10 +661,25 @@ def generate_audit_recommendations(
         hide_assistant_names(normalize_recommendation(item), hidden)
         for item in parsed
     ]
+    opened_page_ids = {
+        match.group(1)
+        for item in opened
+        if (match := re.match(r"^page\s+(\S+)", item))
+    }
+    for recommendation in normalized:
+        recommendation["evidence_refs"] = [
+            evidence_id
+            for evidence_id in recommendation.get("evidence_refs", [])
+            if evidence_id in opened_page_ids
+        ]
     if limit:
         normalized = normalized[:limit]
-    if limit and normalized:
-        with_top_finding = normalized
+    if normalized:
+        with_top_finding = normalized[: limit or 5]
+    elif notebook_enforced:
+        # Never manufacture a deterministic fallback after the notebook agent
+        # explicitly failed to prove five evidence pairs.
+        with_top_finding = []
     else:
         with_top_finding = ensure_top_competitor_finding(
             normalized,
@@ -429,16 +688,15 @@ def generate_audit_recommendations(
             evidence_catalog=evidence_catalog,
             company_name=str(company_profile.get("company_name", "")),
             prompt_losses=prompt_losses,
-        )[: limit or None]
+        )[: limit or 5]
     resolved = resolve_recommendation_evidence(
         with_top_finding, evidence_catalog
     )
     resolved = resolve_affected_prompts(resolved, prompt_losses, question_rows)
     resolved = keep_evidence_from_the_companies_that_won(resolved, company_name)
-    if firecrawl_client is not None:
-        resolved = verify_selected_evidence_with_firecrawl(
-            resolved, firecrawl_client
-        )
+    resolved = verify_selected_evidence_with_firecrawl(
+        resolved, firecrawl_client
+    )
     return resolved, payload, None
 
 
@@ -478,13 +736,21 @@ def build_audit_recommendations_payload(
         # One row per question, with who was named across every assistant.
         # Sending answers instead sent the same question five times over.
         "every_question_we_asked": rows,
-        # One block per company rather than one list per source. Within a block
-        # the three lists answer three different questions: what the company
-        # publishes, what AI reaches for, and what the wider internet holds.
-        # The last two read together are the diagnosis - a company nobody cites
-        # but everybody writes about has a different problem from one nobody
-        # writes about at all, and the old shape could not express either.
-        "each_company": company_blocks or {},
+        # Only names travel up front. The writer requests one company's links
+        # through open_company_sources when a chosen question needs them.
+        "companies_with_sources": [
+            {
+                "company_name": name,
+                "relationship": (
+                    "audited_company" if name == company_name else "top_competitor"
+                ),
+            }
+            for name in (company_blocks or {})
+        ],
+        "source_scope_note": (
+            "Only these companies have stored source inventories. Companies "
+            "named in questions but absent here cannot be cited."
+        ),
     }
     payload = build_chat_payload(
         AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
@@ -492,6 +758,23 @@ def build_audit_recommendations_payload(
         temperature=0.2,
         json_response=True,
     )
+    # The writer has to plan, use several tools, compare evidence and maintain
+    # five distinct findings. Keep cheaper models for the high-volume audit
+    # calls, but use a stronger dedicated default for this one final call.
+    writer_provider = os.environ.get("AUDIT_WRITER_PROVIDER", "openai")
+    if writer_provider == "bedrock_claude":
+        payload["model"] = (
+            os.environ.get("AUDIT_WRITER_BEDROCK_MODEL")
+            or "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        )
+    else:
+        payload["model"] = (
+            os.environ.get("AUDIT_WRITER_MODEL")
+            or os.environ.get("LLM_MODEL")
+            or "gpt-5-mini"
+        )
+    if str(payload["model"]).startswith("gpt-5"):
+        payload.pop("temperature", None)
     payload["response_format"] = {
         "type": "json_schema",
         "json_schema": {
@@ -839,10 +1122,11 @@ def build_verified_evidence_catalog(
 
 def verify_selected_evidence_with_firecrawl(
     recommendations: list[dict[str, Any]],
-    client: FirecrawlClient,
+    client: FirecrawlClient | None,
 ) -> list[dict[str, Any]]:
+    """Improve selected evidence with a normal fetch, then Firecrawl fallback."""
     max_pages = max(0, environment_int("FIRECRAWL_MAX_FINAL_EVIDENCE_PAGES", 6))
-    cache: dict[str, dict[str, Any] | None] = {}
+    cache: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
     attempts = 0
     for recommendation in recommendations:
         verified_rows = []
@@ -861,18 +1145,36 @@ def verify_selected_evidence_with_firecrawl(
                 verified_rows.append(row)
                 continue
             key = canonical_url(url)
-            if key not in cache and attempts < max_pages and client.can_request():
+            if key not in cache and attempts < max_pages:
                 attempts += 1
                 try:
-                    document = client.scrape(url)
-                    cache[key] = document
-                except FirecrawlError:
-                    cache[key] = None
-            document = cache.get(key)
-            if not document:
+                    html, status_code, final_url = fetch_html(url)
+                    standard_page = parse_page(final_url, html, status_code)
+                    if meaningful_text(standard_page.get("main_text")):
+                        standard_page["fetch_provider"] = "deterministic_crawler"
+                        standard_page["fetched_at"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
+                        cache[key] = (standard_page, "deterministic_crawler")
+                    else:
+                        cache[key] = (None, None)
+                except Exception:  # noqa: BLE001 - Firecrawl is the recovery path.
+                    cache[key] = (None, None)
+
+                if cache[key][0] is None and client is not None and client.can_request():
+                    try:
+                        document = client.scrape(url)
+                        cache[key] = (
+                            firecrawl_document_to_page(document, url),
+                            "firecrawl",
+                        )
+                    except FirecrawlError:
+                        pass
+
+            page, provider = cache.get(key, (None, None))
+            if not page:
                 verified_rows.append(row)
                 continue
-            page = firecrawl_document_to_page(document, url)
             # The page is re-read to give the reader a better extract, not to
             # second-guess the choice. Deciding whether a page proved a point
             # by hunting for the word "pricing" threw away real citations - a
@@ -884,9 +1186,13 @@ def verify_selected_evidence_with_firecrawl(
                     **row,
                     "title": page.get("title") or row.get("title"),
                     "excerpt": page_excerpt(page),
-                    "provenance": "firecrawl_verified",
+                    "provenance": (
+                        "firecrawl_verified"
+                        if provider == "firecrawl"
+                        else "standard_crawler_verified"
+                    ),
                     "verification": {
-                        "provider": "firecrawl",
+                        "provider": provider,
                         "status": "verified",
                         "url": page.get("url") or url,
                         "fetched_at": page.get("fetched_at"),
@@ -905,11 +1211,12 @@ def verify_selected_evidence_with_firecrawl(
 # a live report printed them inside the sentence the customer reads: "suitable
 # for industrial sites (ev-004, ev-005, ev-006)". Asking the prompt not to do
 # it is the kind of rule that does not stick; removing them afterwards does.
-INTERNAL_ID = r"(?:ev|loss)-\d+"
-# A bracketed run of nothing but ids goes whole, brackets included. Taking the
-# ids out first left the closing bracket stranded: "...low inference latency )."
+INTERNAL_ID = r"(?:ev|loss|p|q)-\d+"
+# A bracketed note containing an internal id goes whole, brackets included.
+# Writers sometimes add text such as "(q-09 answers)" around the id; leaving
+# that note behind exposes implementation labels to the customer.
 BRACKETED_IDS = re.compile(
-    rf"\s*[(\[]\s*{INTERNAL_ID}(?:\s*(?:,|and|&)\s*{INTERNAL_ID})*\s*[)\]]",
+    rf"\s*[(\[][^(\[)\]]*\b{INTERNAL_ID}\b[^(\[)\]]*[)\]]",
     re.IGNORECASE,
 )
 LOOSE_IDS = re.compile(
@@ -942,6 +1249,8 @@ def normalize_recommendation(item: Any) -> dict[str, Any]:
             "confidence": "Low",
             "evidence_types": [],
             "evidence_refs": [],
+            "competitor_evidence_reason": "Unknown",
+            "audited_company_evidence_reason": "Unknown",
             "affected_loss_refs": [],
         }
     return {
@@ -956,6 +1265,12 @@ def normalize_recommendation(item: Any) -> dict[str, Any]:
         "confidence": normalize_confidence(item.get("confidence", "Low")),
         "evidence_types": normalize_evidence_types(item.get("evidence_types", [])),
         "evidence_refs": normalize_string_list(item.get("evidence_refs", []))[:3],
+        "competitor_evidence_reason": strip_internal_references(
+            item.get("competitor_evidence_reason", "Unknown")
+        ),
+        "audited_company_evidence_reason": strip_internal_references(
+            item.get("audited_company_evidence_reason", "Unknown")
+        ),
         "affected_loss_refs": normalize_string_list(
             item.get("affected_loss_refs", [])
         )[:3],
@@ -1090,6 +1405,8 @@ def resolve_recommendation_evidence(
                         "evidence",
                         "suggested_change",
                         "expected_impact",
+                        "competitor_evidence_reason",
+                        "audited_company_evidence_reason",
                     )
                 },
                 "evidence_types": normalize_evidence_types(
@@ -1324,6 +1641,13 @@ def ensure_top_competitor_finding(
             dict.fromkeys(str(row["evidence_type"]) for row in preferred)
         ),
         "evidence_refs": [str(row["evidence_id"]) for row in preferred],
+        "competitor_evidence_reason": (
+            "These selected competitor pages provide the available evidence "
+            "for the most frequently recommended alternative."
+        ),
+        "audited_company_evidence_reason": (
+            "No audited-company page was selected because this is a fallback finding."
+        ),
         # Exact name match against the recorded winners for each lost question,
         # so this finding points only at questions this competitor actually won.
         "affected_loss_refs": [
@@ -1407,19 +1731,358 @@ def meaningful_text(value: Any) -> bool:
     return bool(text and text.lower() != "unknown" and len(text.split()) >= 3)
 
 
-# Reading pages is cheap and the writer only opens what it needs, but a loop
-# with no end is a loop that can bill forever. Past this the tools are taken
-# away and it answers with what it has read.
-MAX_OPENS = 12
-MAX_OPEN_TURNS = 8
+# One agent, with separate bounded budgets. A source-list request is cheap and
+# should not compete with reading the evidence itself. Repeated requests are
+# served from the conversation cache and consume no additional budget.
+MAX_QUESTION_OPENS = 10
+MAX_SOURCE_LOOKUPS = 8
+MAX_PAGE_OPENS = 24
+MAX_OPEN_TURNS = 16
+REQUIRED_FINDINGS = 5
+MAX_REJECTED_FINDINGS = 6
+WRITER_PAGE_FETCH_TIMEOUT_SECONDS = 30
+WRITER_PAGE_FETCH_STEP_TIMEOUT_SECONDS = WRITER_PAGE_FETCH_TIMEOUT_SECONDS // 2
+
+
+def normalized_passage(value: Any) -> str:
+    return " ".join(str(value or "").casefold().split())
+
+
+def passage_is_on_page(passage: Any, page: dict[str, Any]) -> bool:
+    """Accept exact extracts and careful combinations of nearby page lines.
+
+    Models commonly remove list markers or join two adjacent list items. That
+    should not invalidate good evidence. We still require most meaningful words
+    and a continuous phrase to be present on the selected page.
+    """
+    written = normalized_passage(passage)
+    words = written.split()
+    if len(words) < 6 or len(words) > 120:
+        return False
+    held = "\n".join(
+        [str(page.get("text") or ""), *[str(row) for row in page.get("passages", [])]]
+    )
+    page_text = normalized_passage(held)
+    if written in page_text:
+        return True
+
+    token_pattern = re.compile(r"[a-z0-9]+")
+    candidate_tokens = token_pattern.findall(written)
+    page_tokens = token_pattern.findall(page_text)
+    if len(candidate_tokens) < 6 or len(page_tokens) < 6:
+        return False
+    page_token_set = set(page_tokens)
+    stop_words = {
+        "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+        "in", "is", "it", "of", "on", "or", "that", "the", "their", "this",
+        "to", "with", "you", "your",
+    }
+    meaningful = [token for token in candidate_tokens if token not in stop_words]
+    if not meaningful:
+        return False
+    coverage = sum(token in page_token_set for token in meaningful) / len(meaningful)
+    continuous = any(
+        candidate_tokens[index : index + 5]
+        == page_tokens[offset : offset + 5]
+        for index in range(max(1, len(candidate_tokens) - 4))
+        for offset in range(max(1, len(page_tokens) - 4))
+    )
+    return coverage >= 0.8 and continuous
+
+
+def finding_text_similarity(left: Any, right: Any) -> float:
+    ignored = {
+        "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+        "in", "is", "it", "of", "on", "or", "that", "the", "their", "this",
+        "to", "with", "you", "your", "website", "page", "linear",
+    }
+    tokens = lambda value: {
+        token
+        for token in re.findall(r"[a-z0-9]+", normalized_passage(value))
+        if token not in ignored
+    }
+    a, b = tokens(left), tokens(right)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def names_match(left: Any, right: Any) -> bool:
+    a, b = normalize_name(left), normalize_name(right)
+    return bool(a and b and (a == b or a in b or b in a))
+
+
+def validate_and_save_finding(
+    arguments: dict[str, Any],
+    *,
+    pages: dict[str, dict[str, Any]],
+    question_rows: list[dict[str, Any]],
+    company_blocks: dict[str, dict[str, Any]],
+    audited_company: str,
+    opened_page_ids: set[str],
+    opened_question_ids: set[str],
+    findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Validate one evidence pair and add it to the agent's compact notebook."""
+    if len(findings) >= REQUIRED_FINDINGS:
+        return {
+            "accepted": False,
+            "errors": ["The notebook already has five findings. Write the final answer."],
+            "notebook": compact_finding_notebook(findings),
+        }
+
+    errors: list[str] = []
+    primary = str(arguments.get("primary_question_id", "")).strip()
+    row = next(
+        (item for item in question_rows if item.get("question_id") == primary),
+        None,
+    )
+    if row is None:
+        errors.append("primary_question_id is not in this audit")
+    elif primary not in opened_question_ids:
+        errors.append("open the primary question before saving its finding")
+
+    affected = list(
+        dict.fromkeys(
+            str(value).strip()
+            for value in arguments.get("affected_question_ids", []) or []
+            if str(value).strip()
+        )
+    )[:3]
+    if primary and primary not in affected:
+        affected.insert(0, primary)
+        affected = affected[:3]
+    known_question_ids = {str(item.get("question_id")) for item in question_rows}
+    if any(question_id not in known_question_ids for question_id in affected):
+        errors.append("an affected_question_id is not in this audit")
+
+    competitor_name = str(arguments.get("competitor_company", "")).strip()
+    block_name = next(
+        (name for name in company_blocks if names_match(name, competitor_name)),
+        None,
+    )
+    if block_name is None or names_match(block_name, audited_company):
+        errors.append("competitor_company must be an available top competitor")
+    if row is not None and block_name is not None:
+        named = [str(item.get("company", "")) for item in row.get("who_was_named", [])]
+        if not any(names_match(block_name, name) for name in named):
+            errors.append("that competitor was not named in the primary question")
+
+    competitor_id = str(arguments.get("competitor_page_id", "")).strip()
+    audited_id = str(arguments.get("audited_page_id", "")).strip()
+    competitor_page = pages.get(competitor_id)
+    audited_page = pages.get(audited_id)
+    if competitor_id not in opened_page_ids:
+        errors.append("open the competitor page before saving the finding")
+    if audited_id not in opened_page_ids:
+        errors.append("open the audited-company page before saving the finding")
+    if competitor_page is None:
+        errors.append("competitor_page_id is unknown")
+    elif block_name is not None and not names_match(
+        competitor_page.get("company_name"), block_name
+    ):
+        errors.append("competitor_page_id belongs to a different company")
+    if audited_page is None:
+        errors.append("audited_page_id is unknown")
+    elif not names_match(audited_page.get("company_name"), audited_company):
+        errors.append("audited_page_id does not belong to the audited company")
+
+    action = " ".join(str(arguments.get("suggested_change", "")).split())
+    if any(item.get("primary_question_id") == primary for item in findings):
+        errors.append("another analysis entry already uses this primary question")
+    if errors:
+        return {
+            "accepted": False,
+            "errors": list(dict.fromkeys(errors)),
+            "notebook": compact_finding_notebook(findings),
+        }
+
+    finding = {
+        "finding_id": f"finding-{len(findings) + 1:02d}",
+        "primary_question_id": primary,
+        "affected_question_ids": affected,
+        "competitor_company": block_name or competitor_name,
+        "competitor_page_id": competitor_id,
+        "competitor_passage": str(arguments.get("competitor_passage", "")).strip(),
+        "audited_page_id": audited_id,
+        "audited_passage": str(arguments.get("audited_passage", "")).strip(),
+        "observation": str(arguments.get("observation", "")).strip(),
+        "suggested_change": action,
+        "expected_impact": str(arguments.get("expected_impact", "")).strip(),
+        "competitor_evidence_reason": str(
+            arguments.get("competitor_evidence_reason", "")
+        ).strip(),
+        "audited_company_evidence_reason": str(
+            arguments.get("audited_company_evidence_reason", "")
+        ).strip(),
+        "confidence": normalize_confidence(arguments.get("confidence")),
+    }
+    findings.append(finding)
+    return {
+        "accepted": True,
+        "finding_id": finding["finding_id"],
+        "findings_saved": len(findings),
+        "findings_still_needed": REQUIRED_FINDINGS - len(findings),
+        "notebook": compact_finding_notebook(findings),
+    }
+
+
+def compact_finding_notebook(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "finding_id": item.get("finding_id"),
+            "primary_question_id": item.get("primary_question_id"),
+            "affected_question_ids": item.get("affected_question_ids", []),
+            "competitor_company": item.get("competitor_company"),
+            "competitor_page_id": item.get("competitor_page_id"),
+            "competitor_page_summary": item.get("competitor_passage"),
+            "audited_page_id": item.get("audited_page_id"),
+            "audited_company_page_summary": item.get("audited_passage"),
+            "comparison_reasoning": item.get("observation"),
+            "possible_action_direction": item.get("suggested_change"),
+            "expected_impact": item.get("expected_impact"),
+            "competitor_evidence_reason": item.get("competitor_evidence_reason"),
+            "audited_company_evidence_reason": item.get(
+                "audited_company_evidence_reason"
+            ),
+            "confidence": item.get("confidence"),
+        }
+        for item in findings
+    ]
+
+
+def recommendations_from_findings(
+    findings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """The notebook is the source of truth; final prose cannot add new evidence."""
+    return [
+        {
+            "observation": item.get("observation", ""),
+            "evidence": (
+                f"{item.get('competitor_evidence_reason', '')} "
+                f"{item.get('audited_company_evidence_reason', '')}"
+            ).strip(),
+            "suggested_change": item.get("suggested_change", ""),
+            "expected_impact": item.get("expected_impact", ""),
+            "confidence": item.get("confidence", "Low"),
+            "evidence_types": [],
+            "evidence_refs": [
+                item.get("competitor_page_id"),
+                item.get("audited_page_id"),
+            ],
+            "competitor_evidence_reason": item.get(
+                "competitor_evidence_reason", ""
+            ),
+            "audited_company_evidence_reason": item.get(
+                "audited_company_evidence_reason", ""
+            ),
+            "affected_loss_refs": item.get("affected_question_ids", []),
+        }
+        for item in findings[:REQUIRED_FINDINGS]
+    ]
+
+
+def write_from_evidence_map(
+    parent_payload: dict[str, Any], findings: list[dict[str, Any]]
+) -> str:
+    evidence_map = compact_finding_notebook(findings)
+    final_prompt = """You are the final recommendation writer. You receive a detailed
+evidence analysis map created by a separate research agent after it read the
+questions and pages. Read the whole map before writing. Create exactly five
+meaningfully different website or public-presence recommendations. Group related
+questions when one gap explains several losses. Every recommendation must use
+one competitor page_id and one audited-company page_id from the same analysis
+entry. Explain why both pages were chosen. Do not invent facts, page IDs, product
+features, or evidence outside the map. Return the required JSON only."""
+    final_payload = build_chat_payload(
+        final_prompt,
+        json.dumps(
+            {"evidence_analysis_map": evidence_map},
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ),
+        model=str(parent_payload.get("model") or ""),
+        temperature=0.2,
+        json_response=True,
+    )
+    final_payload["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "audit_recommendations",
+            "strict": True,
+            "schema": AUDIT_RECOMMENDATION_SCHEMA,
+        },
+    }
+    if str(final_payload.get("model", "")).startswith("gpt-5"):
+        final_payload.pop("temperature", None)
+    parent_payload["final_writer_input"] = {"evidence_analysis_map": evidence_map}
+    return str(call_writer_message(final_payload).get("content") or "")
+
+
+def hydrate_writer_page(
+    page: dict[str, Any],
+    firecrawl_client: FirecrawlClient | None = None,
+) -> dict[str, Any]:
+    """Fetch a selected page only when its stored content is missing.
+
+    Assistant-cited pages often arrive as addresses without page text. Fetching
+    every cited address before the writer knows which ones matter wastes time.
+    This keeps that index light and fills only the pages the writer chooses.
+    """
+    if meaningful_text(page.get("text")):
+        return page
+
+    url = valid_http_url(page.get("url"))
+    if not url:
+        return page
+
+    fetched: dict[str, Any] | None = None
+    try:
+        html, status_code, final_url = fetch_html(
+            url, timeout=WRITER_PAGE_FETCH_STEP_TIMEOUT_SECONDS
+        )
+        candidate = parse_page(final_url, html, status_code)
+        if meaningful_text(candidate.get("main_text")):
+            fetched = candidate
+    except Exception:  # noqa: BLE001 - Firecrawl is the recovery path.
+        fetched = None
+
+    if fetched is None and firecrawl_client is not None and firecrawl_client.can_request():
+        try:
+            candidate = firecrawl_document_to_page(
+                firecrawl_client.scrape(
+                    url, timeout=WRITER_PAGE_FETCH_STEP_TIMEOUT_SECONDS
+                ),
+                url,
+            )
+            if meaningful_text(candidate.get("main_text")):
+                fetched = candidate
+        except FirecrawlError:
+            fetched = None
+
+    if fetched is None:
+        return page
+
+    page["url"] = fetched.get("url") or page.get("url")
+    page["text"] = fetched.get("main_text") or ""
+    # Keep the inventory title as a clue, but use the fetched title when the
+    # inventory had none. The prompt tells the writer that content outranks it.
+    if not str(page.get("title") or "").strip():
+        page["title"] = fetched.get("title") or ""
+    page["fetch_provider"] = fetched.get("fetch_provider") or "deterministic_crawler"
+    return page
 
 
 def answer_with_open_tools(
     payload: dict[str, Any],
     pages: dict[str, dict[str, Any]],
+    company_blocks: dict[str, dict[str, Any]],
     question_rows: list[dict[str, Any]],
     raw_results: list[dict[str, Any]],
     labels: dict[str, str],
+    *,
+    audited_company: str,
+    firecrawl_client: FirecrawlClient | None = None,
 ) -> tuple[str, list[str]]:
     """Let the writer read what it needs, then return its text.
 
@@ -1432,11 +2095,46 @@ def answer_with_open_tools(
     hidden_names = assistant_and_model_names(raw_results)
     messages = payload["messages"]
     opened: list[str] = []
+    opened_page_ids: set[str] = set()
+    opened_question_ids: set[str] = set()
+    requested_companies: set[str] = set()
+    question_cache: dict[str, dict[str, Any]] = {}
+    source_cache: dict[str, dict[str, Any]] = {}
+    page_cache: dict[tuple[str, str, int], dict[str, Any]] = {}
+    findings: list[dict[str, Any]] = []
+    rejected_evidence_pairs: set[tuple[str, str, str]] = set()
+    rejected_findings = 0
+
+    def finish(content: str) -> tuple[str, list[str]]:
+        payload["finding_notebook"] = findings
+        payload["writer_tool_state"] = {
+            "opened_question_ids": sorted(opened_question_ids),
+            "requested_companies": sorted(requested_companies),
+            "opened_page_ids": sorted(opened_page_ids),
+            "rejected_findings": rejected_findings,
+        }
+        return content, opened
+
     for _turn in range(MAX_OPEN_TURNS):
-        message = call_chat_message(payload)
+        message = call_writer_message(payload)
         calls = message.get("tool_calls") or []
         if not calls:
-            return str(message.get("content") or ""), opened
+            content = str(message.get("content") or "")
+            if len(findings) >= REQUIRED_FINDINGS:
+                return finish(content)
+            messages.append({"role": "assistant", "content": content})
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        f"The final answer is premature: only {len(findings)} of "
+                        f"{REQUIRED_FINDINGS} validated findings are saved. Continue "
+                        "the investigation with the available tools. Do not repeat "
+                        "requests already present in the conversation."
+                    ),
+                }
+            )
+            continue
         messages.append(
             {
                 "role": "assistant",
@@ -1444,6 +2142,44 @@ def answer_with_open_tools(
                 "tool_calls": calls,
             }
         )
+
+        # Fill selected missing pages concurrently. One tool call may contain
+        # several pages so the agent does not spend one model turn per page.
+        selected_page_ids: list[str] = []
+        for call in calls:
+            function = call.get("function") or {}
+            if str(function.get("name", "")) != "open_pages":
+                continue
+            try:
+                selected_arguments = json.loads(function.get("arguments") or "{}")
+            except (TypeError, ValueError):
+                selected_arguments = {}
+            for request in selected_arguments.get("pages", []) or []:
+                selected_id = str(request.get("page_id", ""))
+                selected_page = pages.get(selected_id)
+                selected_company = str((selected_page or {}).get("company_name", ""))
+                company_was_requested = any(
+                    names_match(selected_company, name) for name in requested_companies
+                )
+                if (
+                    selected_page
+                    and company_was_requested
+                    and selected_id not in opened_page_ids
+                    and selected_id not in selected_page_ids
+                    and len(opened_page_ids) + len(selected_page_ids) < MAX_PAGE_OPENS
+                ):
+                    selected_page_ids.append(selected_id)
+        if selected_page_ids:
+            with ThreadPoolExecutor(max_workers=min(4, len(selected_page_ids))) as executor:
+                list(
+                    executor.map(
+                        lambda selected_id: hydrate_writer_page(
+                            pages[selected_id], firecrawl_client
+                        ),
+                        selected_page_ids,
+                    )
+                )
+
         for call in calls:
             function = call.get("function") or {}
             name = str(function.get("name", ""))
@@ -1451,18 +2187,100 @@ def answer_with_open_tools(
                 arguments = json.loads(function.get("arguments") or "{}")
             except (TypeError, ValueError):
                 arguments = {}
-            if name == "open_page":
-                wanted = str(arguments.get("page_id", ""))
-                how = str(arguments.get("how", "text"))
-                part = arguments.get("part", 1)
-                result = open_page(wanted, pages, how, part)
-                opened.append(f"page {wanted} ({how} part {result.get('part', 1)})")
-            elif name == "open_question":
-                wanted = str(arguments.get("question_id", ""))
-                result = open_question(
-                    wanted, question_rows, raw_results, labels, hidden_names
-                )
-                opened.append(f"question {wanted}")
+            if name == "open_company_sources":
+                source_results = []
+                for wanted_value in arguments.get("company_names", []) or []:
+                    wanted = str(wanted_value).strip()
+                    key = normalize_name(wanted)
+                    if key in source_cache:
+                        item = {**source_cache[key], "note": "Already returned earlier."}
+                    elif len(source_cache) >= MAX_SOURCE_LOOKUPS:
+                        item = {"company_name": wanted, "error": "Source lookup budget exhausted."}
+                    else:
+                        item = open_company_sources(wanted, company_blocks)
+                        if not item.get("error"):
+                            actual_name = str(item.get("company_name", wanted))
+                            requested_companies.add(actual_name)
+                            source_cache[key] = item
+                            opened.append(f"sources {actual_name}")
+                    source_results.append(item)
+                result = {"companies": source_results}
+            elif name == "open_pages":
+                page_results = []
+                for request in arguments.get("pages", []) or []:
+                    wanted = str(request.get("page_id", ""))
+                    how = str(request.get("how", "text"))
+                    try:
+                        part = max(1, int(request.get("part", 1)))
+                    except (TypeError, ValueError):
+                        part = 1
+                    cache_key = (wanted, how, part)
+                    page = pages.get(wanted)
+                    page_company = str((page or {}).get("company_name", ""))
+                    company_was_requested = any(
+                        names_match(page_company, company) for company in requested_companies
+                    )
+                    if cache_key in page_cache:
+                        item = {**page_cache[cache_key], "note": "Already returned earlier."}
+                    elif page is None:
+                        item = {"error": f"No page called {wanted}."}
+                    elif not company_was_requested:
+                        item = {"error": "Request this company's sources first.", "company_name": page_company}
+                    elif len(opened_page_ids) >= MAX_PAGE_OPENS:
+                        item = {"error": "The page-open budget is exhausted."}
+                    else:
+                        hydrate_writer_page(page, firecrawl_client)
+                        item = open_page(wanted, pages, how, part)
+                        page_cache[cache_key] = item
+                        opened_page_ids.add(wanted)
+                        opened.append(f"page {wanted} ({how} part {item.get('part', 1)})")
+                    page_results.append(item)
+                result = {"pages": page_results}
+            elif name == "open_questions":
+                question_results = []
+                for wanted_value in arguments.get("question_ids", []) or []:
+                    wanted = str(wanted_value)
+                    if wanted in question_cache:
+                        item = {**question_cache[wanted], "note": "Already returned earlier."}
+                    elif len(opened_question_ids) >= MAX_QUESTION_OPENS:
+                        item = {"error": "The question-open budget is exhausted."}
+                    else:
+                        item = open_question(
+                            wanted, question_rows, raw_results, labels, hidden_names, pages=pages
+                        )
+                        if not item.get("error"):
+                            question_cache[wanted] = item
+                            opened_question_ids.add(wanted)
+                            opened.append(f"question {wanted}")
+                    question_results.append(item)
+                result = {"questions": question_results}
+            elif name == "save_evidence_analysis":
+                finding_results = []
+                for candidate in arguments.get("findings", []) or []:
+                    pair_key = (
+                        str(candidate.get("primary_question_id", "")).strip(),
+                        str(candidate.get("competitor_page_id", "")).strip(),
+                        str(candidate.get("audited_page_id", "")).strip(),
+                    )
+                    if pair_key in rejected_evidence_pairs:
+                        item = {"accepted": False, "errors": ["This evidence pair was already rejected; use another."]}
+                    else:
+                        item = validate_and_save_finding(
+                            candidate, pages=pages, question_rows=question_rows,
+                            company_blocks=company_blocks, audited_company=audited_company,
+                            opened_page_ids=opened_page_ids,
+                            opened_question_ids=opened_question_ids, findings=findings,
+                        )
+                    if item.get("accepted"):
+                        opened.append(f"finding {item.get('finding_id')}")
+                    else:
+                        rejected_findings += 1
+                        errors = " ".join(item.get("errors") or []).casefold()
+                        if any(marker in errors for marker in ("passage", "belongs to a different company", "does not belong to the audited company")):
+                            rejected_evidence_pairs.add(pair_key)
+                            item["next_step"] = "Discard this pair and use another page or question."
+                    finding_results.append(item)
+                result = {"results": finding_results, "notebook": compact_finding_notebook(findings)}
             else:
                 result = {"error": f"There is no tool called {name}."}
             messages.append(
@@ -1472,10 +2290,72 @@ def answer_with_open_tools(
                     "content": json.dumps(result, ensure_ascii=False),
                 }
             )
-        if len(opened) >= MAX_OPENS:
+        if len(findings) >= REQUIRED_FINDINGS:
+            payload["_writer_tools"] = payload.get("tools") or []
             payload.pop("tools", None)
-            break
-    return str(call_chat_message(payload).get("content") or ""), opened
+            content = write_from_evidence_map(payload, findings)
+            return finish(content)
+
+        question_target = min(6, len(question_rows))
+        if len(opened_question_ids) < question_target:
+            next_step = (
+                f"Open {question_target - len(opened_question_ids)} more distinct "
+                "questions from different buyer needs, preferably together."
+            )
+        elif not any(
+            names_match(audited_company, company) for company in requested_companies
+        ):
+            next_step = "Request the audited company's source inventory."
+        elif len(opened_page_ids) < 2:
+            next_step = (
+                "Open the most relevant audited-company and winning-competitor pages."
+            )
+        else:
+            next_step = (
+                "Save every complete, distinct evidence pair you already proved, "
+                "in one batched save_evidence_analysis call. For missing "
+                "pairs, open another relevant source or page instead of repeating one."
+            )
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Investigation progress: "
+                    f"{len(opened_question_ids)}/{question_target} target questions opened; "
+                    f"{len(requested_companies)} company inventories requested; "
+                    f"{len(opened_page_ids)} pages opened; "
+                    f"{len(findings)}/{REQUIRED_FINDINGS} evidence-analysis entries saved. "
+                    f"Next priority: {next_step} The earlier tool results and accepted "
+                    "notebook findings remain valid; do not request them again."
+                ),
+            }
+        )
+
+    # A bounded run that cannot prove five actions must fail safely rather than
+    # forcing the writer to invent the missing recommendations.
+    payload["_writer_tools"] = payload.get("tools") or []
+    payload.pop("tools", None)
+    if len(findings) < REQUIRED_FINDINGS:
+        return finish(
+            json.dumps(
+                {
+                    "recommendations": [],
+                    "summary": (
+                        f"Only {len(findings)} of {REQUIRED_FINDINGS} required "
+                        "evidence-backed findings could be validated."
+                    ),
+                }
+            )
+        )
+    return finish(write_from_evidence_map(payload, findings))
+
+
+def call_writer_message(payload: dict[str, Any]) -> dict[str, Any]:
+    if os.environ.get("AUDIT_WRITER_PROVIDER", "openai") == "bedrock_claude":
+        return call_bedrock_tool_message(payload, model=str(payload.get("model") or ""))
+    return call_chat_message(
+        {key: value for key, value in payload.items() if not key.startswith("_")}
+    )
 
 
 def hide_assistant_names(
@@ -1497,6 +2377,8 @@ def hide_assistant_names(
                 "evidence",
                 "suggested_change",
                 "expected_impact",
+                "competitor_evidence_reason",
+                "audited_company_evidence_reason",
             )
         },
     }

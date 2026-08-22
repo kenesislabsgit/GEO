@@ -160,15 +160,13 @@ running this application needs `bedrock-agentcore:InvokeGateway` for that
 Gateway ARN. Gateway creation is an AWS account setup task; the audit does not
 create or modify cloud resources at runtime.
 
-Firecrawl is the primary crawler for the audited company. It maps the site and
-scrapes up to six diverse homepage, offering, industry, use-case, customer,
-pricing, about, or contact pages for profiling. The standard crawler runs only
-when Firecrawl is unavailable, fails, or returns incomplete buyer context.
-Firecrawl pages remain preferred when fallback pages are merged. The result is
-saved to `user_site_firecrawl.json`. Firecrawl is also used for weak
-top-competitor sites and to recheck selected final evidence. Requests use the
-basic proxy and a seven-day cache. Every attempt, error, and reported credit
-count is saved to `firecrawl_usage.json` in the audit output folder.
+The standard crawler reads the audited company and competitor websites first.
+Firecrawl is used only when that first read fails or does not contain enough
+usable buyer context. Final evidence links follow the same rule: normal fetch
+first, then Firecrawl only for a failed or empty fetch. The audited-site result
+is saved to `user_site_firecrawl.json`. Firecrawl requests use the basic proxy
+and a seven-day cache. Every attempt, error, and reported credit count is saved
+to `firecrawl_usage.json` in the audit output folder.
 
 Set `FIRECRAWL_API_KEY` to enable it. The optional
 `FIRECRAWL_USER_PROFILE_MAX_PAGES` setting defaults to `6`.
