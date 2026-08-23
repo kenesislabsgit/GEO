@@ -139,25 +139,59 @@ function AnswerCard() {
 
 /* ------------------------------------------------------ blueprint marks -- */
 
+/**
+ * Registration mark: a 13px plus whose 1px arms sit on a 1px border that
+ * lives just outside the parent's padding box. `top/left: 0` is the inner
+ * edge of that border, so the box shifts 7px toward the outside.
+ */
+const CROSS_PX = 13;
+const CROSS_LINE = 6;
+const CROSS_SHIFT = 7;
+
+type CrossCorner = "tl" | "tr" | "bl" | "br";
+
+const CROSS_ANCHOR: Record<CrossCorner, string> = {
+  tl: "top-0 left-0",
+  tr: "top-0 right-0",
+  bl: "bottom-0 left-0",
+  br: "bottom-0 right-0",
+};
+
+const CROSS_OFFSET: Record<CrossCorner, { x: number; y: number }> = {
+  tl: { x: -CROSS_SHIFT, y: -CROSS_SHIFT },
+  tr: { x: CROSS_SHIFT, y: -CROSS_SHIFT },
+  bl: { x: -CROSS_SHIFT, y: CROSS_SHIFT },
+  br: { x: CROSS_SHIFT, y: CROSS_SHIFT },
+};
+
 function Cross({
-  className,
+  corner,
   tone = "light",
 }: {
-  className: string;
+  corner: CrossCorner;
   tone?: "light" | "dark";
 }) {
-  const surface =
-    tone === "dark"
-      ? "bg-[color:var(--arc-ink)] text-white/40"
-      : "bg-background text-foreground/45";
+  const color = tone === "dark" ? "text-white/40" : "text-foreground/45";
+  const offset = CROSS_OFFSET[corner];
 
   return (
     <span
       aria-hidden
-      className={`pointer-events-none absolute z-10 size-5 -translate-x-1/2 -translate-y-1/2 ${surface} ${className}`}
+      className={`pointer-events-none absolute z-10 ${CROSS_ANCHOR[corner]} ${color}`}
+      style={{
+        width: CROSS_PX,
+        height: CROSS_PX,
+        transform: `translate(${offset.x}px, ${offset.y}px)`,
+      }}
     >
-      <span className="absolute top-[10px] left-[4px] h-px w-[13px] bg-current" />
-      <span className="absolute top-[4px] left-[10px] h-[13px] w-px bg-current" />
+      <span
+        className="absolute left-0 h-px w-full bg-current"
+        style={{ top: CROSS_LINE }}
+      />
+      <span
+        className="absolute top-0 h-full w-px bg-current"
+        style={{ left: CROSS_LINE }}
+      />
     </span>
   );
 }
@@ -166,18 +200,37 @@ function Cross({
  * The hero's technical frame, as a non-interactive overlay: the max-w-6xl
  * guide rails plus corner registration marks, laid over a section without
  * touching its layout. `tone="dark"` is for ink sections.
+ *
+ * Default marks are the top corners only so adjacent sections don't stamp
+ * two pluses on the same seam. The last section passes `marks="both"`.
  */
-function SectionFrame({ tone = "light" }: { tone?: "light" | "dark" }) {
+function SectionFrame({
+  tone = "light",
+  marks = "top",
+}: {
+  tone?: "light" | "dark";
+  marks?: "top" | "bottom" | "both";
+}) {
   const rail = tone === "dark" ? "border-white/10" : "border-border";
+  const showTop = marks === "top" || marks === "both";
+  const showBottom = marks === "bottom" || marks === "both";
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
       <div
         className={`absolute inset-y-0 left-1/2 w-full max-w-6xl -translate-x-1/2 border-x ${rail}`}
       >
-        <Cross className="top-0 left-0" tone={tone} />
-        <Cross className="top-0 right-0" tone={tone} />
-        <Cross className="bottom-0 left-0" tone={tone} />
-        <Cross className="bottom-0 right-0" tone={tone} />
+        {showTop ? (
+          <>
+            <Cross corner="tl" tone={tone} />
+            <Cross corner="tr" tone={tone} />
+          </>
+        ) : null}
+        {showBottom ? (
+          <>
+            <Cross corner="bl" tone={tone} />
+            <Cross corner="br" tone={tone} />
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -504,11 +557,11 @@ export default function HomePage() {
         <section className="relative bg-background">
           <div aria-hidden className="arc-hatch h-8 border-b border-border" />
           <div className="mx-auto max-w-6xl">
-            <div className="relative overflow-hidden border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
-              <Cross className="top-0 left-0" />
-              <Cross className="top-0 right-0" />
-              <Cross className="bottom-0 left-0" />
-              <Cross className="bottom-0 right-0" />
+            <div className="relative border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
+              <Cross corner="tl" />
+              <Cross corner="tr" />
+              <Cross corner="bl" />
+              <Cross corner="br" />
 
               <div
                 aria-hidden
@@ -573,10 +626,11 @@ export default function HomePage() {
         </section>
 
         {/* The shift - why AI answers decide who gets found */}
-        <section className="relative overflow-hidden border-b border-border bg-background">
+        <section className="relative border-b border-border bg-background">
           <SectionFrame />
 
-          <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-24">
+          <div className="relative overflow-hidden">
+            <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-24">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">The shift</p>
@@ -631,9 +685,10 @@ export default function HomePage() {
               ))}
             </div>
           </Reveal>
+          </div>
         </section>
         {/* Bento - the evidence grid */}
-        <section className="relative overflow-hidden bg-background">
+        <section className="relative bg-background">
           <SectionFrame />
           <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
             <Reveal className="max-w-2xl">
@@ -1118,13 +1173,13 @@ export default function HomePage() {
         <div aria-hidden className="arc-hatch h-8 border-t border-border" />
 
         {/* Final CTA */}
-        <section className="relative overflow-hidden bg-[color:var(--arc-ink)]">
+        <section className="relative bg-[color:var(--arc-ink)]">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--arc-accent)_35%,transparent),transparent_60%)]"
           />
           <div aria-hidden className="arc-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
-          <SectionFrame tone="dark" />
+          <SectionFrame tone="dark" marks="both" />
           <Reveal className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
             <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
               <Sparkles className="arc-pulse-soft size-3" aria-hidden />
