@@ -54,7 +54,7 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
   founder: [
     { text: "20 buyer questions per audit" },
     {
-      text: "4 AI providers compared side by side",
+      text: `${PLAN_CONFIG.founder.features.providers.length} AI providers compared side by side`,
       providers: PLAN_CONFIG.founder.features.providers,
     },
     { text: "Full answers, sources & verified mentions" },
@@ -108,7 +108,7 @@ const COMPARISON: Array<{
             providers: PLAN_CONFIG.free.features.providers,
           },
           {
-            label: "4",
+            label: String(PLAN_CONFIG.founder.features.providers.length),
             providers: PLAN_CONFIG.founder.features.providers,
           },
           {
@@ -185,7 +185,7 @@ const COMPARISON: Array<{
 const FAQS = [
   {
     q: "What counts as a provider check?",
-    a: "One question asked to one AI provider. A 20-question Plus audit across 4 providers uses 80 checks. Monthly limits reset on the 1st.",
+    a: `One question asked to one AI provider. A 20-question Plus audit across ${PLAN_CONFIG.founder.features.providers.length} providers uses ${20 * PLAN_CONFIG.founder.features.providers.length} checks. Monthly limits reset on the 1st.`,
   },
   {
     q: "How do 500 tracked questions fit into audits of 20?",
@@ -193,7 +193,7 @@ const FAQS = [
   },
   {
     q: "How do the AI providers work on each plan?",
-    a: "Plus checks ChatGPT (with live web search), Claude, Gemini, and Mistral on every audit. Pro unlocks all 14 AI providers - also Perplexity, Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
+    a: "Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all 14 AI providers - also Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
   },
   {
     q: "What does the free audit include?",

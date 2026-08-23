@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertCanCreateBrand,
   canRunProviderCheck,
+  defaultScanProviders,
   EntitlementError,
   PLAN_CONFIG,
 } from "@/lib/billing/entitlements";
@@ -45,5 +46,13 @@ describe("entitlements", () => {
     });
     expect(ok).toBe(true);
     expect(blocked).toBe(false);
+  });
+
+  it("includes Perplexity in every Plus audit", () => {
+    expect(PLAN_CONFIG.founder.features.providers).toContain("perplexity");
+    expect(defaultScanProviders("founder")).toContain("perplexity");
+    expect(defaultScanProviders("founder")).toHaveLength(
+      PLAN_CONFIG.founder.features.providersPerScan,
+    );
   });
 });

@@ -96,8 +96,14 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     features: {
       brands: 1,
       activePrompts: 20,
-      providers: ["openai_search", "bedrock_claude", "gemini", "bedrock_mistral"],
-      providersPerScan: 4,
+      providers: [
+        "openai_search",
+        "bedrock_claude",
+        "gemini",
+        "perplexity",
+        "bedrock_mistral",
+      ],
+      providersPerScan: 5,
       competitorsPerBrand: 5,
       countries: 1,
       languages: 1,
