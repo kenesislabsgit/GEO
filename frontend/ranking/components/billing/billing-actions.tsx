@@ -2,18 +2,25 @@
 
 import { useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
-import { SUPPORT_EMAIL } from "@/lib/constants";
+import {
+  PRO_CONTACT_HREF,
+  yearlySavingsUsd,
+  type BillingInterval,
+} from "@/lib/billing/pricing";
 
 export function BillingActions({
   highlightedPlan,
+  highlightedInterval,
   hasSubscription,
   returnTo = null,
 }: {
   highlightedPlan?: string;
+  highlightedInterval?: BillingInterval;
   hasSubscription: boolean;
   returnTo?: string | null;
 }) {
@@ -93,6 +100,9 @@ export function BillingActions({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   or ${plan.yearlyPriceUsd}/year
+                  {yearlySavingsUsd(plan) > 0
+                    ? ` · save $${yearlySavingsUsd(plan)}`
+                    : ""}
                   {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
                 </p>
                 <p className="mt-3 flex-1 text-sm text-muted-foreground">
@@ -101,6 +111,7 @@ export function BillingActions({
                 <div className="mt-4 flex flex-col gap-2">
                   <Button
                     size="sm"
+                    variant={highlightedInterval === "yearly" ? "outline" : "default"}
                     disabled={loading !== null}
                     onClick={() => checkout(planId, "monthly")}
                   >
@@ -118,7 +129,7 @@ export function BillingActions({
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant={highlightedInterval === "yearly" ? "default" : "outline"}
                     disabled={loading !== null}
                     onClick={() => checkout(planId, "yearly")}
                   >
@@ -131,7 +142,7 @@ export function BillingActions({
                         Redirecting…
                       </>
                     ) : (
-                      "Subscribe yearly"
+                      `Subscribe yearly · save $${yearlySavingsUsd(plan)}`
                     )}
                   </Button>
                 </div>
@@ -139,6 +150,9 @@ export function BillingActions({
             );
           })}
           <div className="relative flex flex-col rounded-xl border border-border bg-card p-5">
+            <span className="absolute -top-2.5 right-4 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              By request
+            </span>
             <p className="text-sm font-medium">{PLAN_CONFIG.agency.name}</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight">
               ${PLAN_CONFIG.agency.monthlyPriceUsd}
@@ -146,15 +160,16 @@ export function BillingActions({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               or ${PLAN_CONFIG.agency.yearlyPriceUsd}/year
+              {yearlySavingsUsd(PLAN_CONFIG.agency) > 0
+                ? ` · save $${yearlySavingsUsd(PLAN_CONFIG.agency)}`
+                : ""}
             </p>
             <p className="mt-3 flex-1 text-sm text-muted-foreground">
               {PLAN_CONFIG.agency.description} Set up with our team.
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <Button asChild size="sm" variant="outline">
-                <a href={`mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`}>
-                  Contact us
-                </a>
+                <Link href={PRO_CONTACT_HREF}>Contact us</Link>
               </Button>
             </div>
           </div>

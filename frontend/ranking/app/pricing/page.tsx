@@ -4,16 +4,15 @@ import { Check, Minus } from "lucide-react";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProviderStack } from "@/components/providers/provider-logo";
 import { JsonLd } from "@/components/site/json-ld";
-import { Button } from "@/components/ui/button";
+import { PricingPlans } from "@/components/site/pricing-plans";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import { SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
-import { APP_NAME, SUPPORT_EMAIL } from "@/lib/constants";
+import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-// "growth" (the old Pro+ tier) is grandfathered in PLAN_CONFIG for its one
-// existing subscriber but deliberately excluded here - it's no longer sold.
-const PLAN_IDS: PlanId[] = ["free", "founder", "agency"];
+const PLAN_IDS: PlanId[] = SOLD_PLAN_IDS;
 
 export const metadata = {
   title: "Pricing",
@@ -26,56 +25,6 @@ function formatChecks(count: number): string {
     ? `${(count / 1000).toFixed(count % 1000 ? 1 : 0)}k`
     : String(count);
 }
-
-const CONTACT_HREF = `mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`;
-
-/**
- * The short sell per card. Every line here corresponds to something the app
- * actually does - the full grid below is the exhaustive version. A line that
- * names providers carries their ids so the card can show the marks.
- */
-type CardFeature = { text: string; providers?: readonly string[] };
-
-// Keyed by PlanId (not just the 3 sold plans) so PLAN_CONFIG.growth stays
-// type-checkable if it's ever read here - PLAN_IDS is what actually decides
-// what renders, and it skips growth entirely.
-const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
-  free: [
-    { text: "1 website, 1 free audit every 30 days" },
-    { text: "5 real buyer questions" },
-    {
-      text: "ChatGPT with live web search",
-      providers: PLAN_CONFIG.free.features.providers,
-    },
-    { text: "Visibility score with full breakdown" },
-    { text: "Your top competitor, with evidence" },
-    { text: "One prioritized website fix" },
-  ],
-  founder: [
-    { text: "20 buyer questions per audit" },
-    {
-      text: `${PLAN_CONFIG.founder.features.providers.length} AI providers compared side by side`,
-      providers: PLAN_CONFIG.founder.features.providers,
-    },
-    { text: "Full answers, sources & verified mentions" },
-    { text: "Citation gaps - where rivals are cited, you aren't" },
-    { text: "Complete action plan + copy-paste AI prompt" },
-    { text: "Weekly monitoring, score alerts, history" },
-    { text: "Private or public report link" },
-  ],
-  agency: [
-    { text: "Everything in Plus" },
-    {
-      text: `${PLAN_CONFIG.agency.features.providers.length} AI providers - run any ${PLAN_CONFIG.agency.features.providersPerScan} per audit`,
-      providers: PLAN_CONFIG.agency.features.providers,
-    },
-    { text: "20 websites, 500 tracked questions" },
-    { text: "Daily monitoring that rotates through your questions" },
-    { text: "CSV exports + PDF reports" },
-    { text: "Impact tracking on completed fixes" },
-    { text: "Priority support - talk to us before you buy" },
-  ],
-};
 
 type Cell =
   | string
@@ -235,15 +184,6 @@ export default async function PricingPage() {
   const user = await getSessionUser();
   const planIds = PLAN_IDS;
 
-  const ctaFor = (planId: PlanId) => {
-    if (planId === "free") {
-      return user ? routes.newScan() : routes.freeAuditSignup;
-    }
-    return user
-      ? routes.billing({ plan: planId })
-      : routes.login({ returnTo: routes.billing({ plan: planId }) });
-  };
-
   return (
     <MarketingShell className="py-10 md:py-16">
       <JsonLd
@@ -295,72 +235,8 @@ export default async function PricingPage() {
         </p>
       </div>
 
-      <div className="mt-14 grid gap-4 md:grid-cols-3">
-        {planIds.map((planId) => {
-          const plan = PLAN_CONFIG[planId];
-          const popular = planId === "founder";
-          return (
-            <div
-              key={planId}
-              className={`relative flex flex-col rounded-xl border bg-card p-6 ${
-                popular ? "border-foreground" : "border-border"
-              }`}
-            >
-              {popular ? (
-                <span className="absolute -top-2.5 left-5 rounded-full bg-foreground px-2.5 py-0.5 text-[11px] font-medium text-background">
-                  Most popular
-                </span>
-              ) : null}
-              <h2 className="text-sm font-medium">{plan.name}</h2>
-              <p className="font-heading mt-3 text-4xl font-semibold tracking-tight">
-                ${plan.monthlyPriceUsd}
-                {plan.monthlyPriceUsd > 0 ? (
-                  <span className="text-sm font-normal text-muted-foreground">
-                    /mo
-                  </span>
-                ) : null}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {plan.yearlyPriceUsd > 0
-                  ? `$${plan.yearlyPriceUsd}/year - 2 months free`
-                  : "No card required"}
-                {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
-              </p>
-              <ul className="mt-5 flex-1 space-y-2.5">
-                {(CARD_FEATURES[planId] ?? []).map((feature) => (
-                  <li
-                    key={feature.text}
-                    className="flex items-start gap-2 text-sm"
-                  >
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-[color:var(--arc-green)]" />
-                    <span className="text-foreground/80">
-                      {feature.text}
-                      {feature.providers ? (
-                        <ProviderStack
-                          providers={feature.providers}
-                          className="mt-1.5 flex"
-                        />
-                      ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                asChild
-                variant={popular ? "default" : "outline"}
-                className="mt-6"
-              >
-                {planId === "agency" ? (
-                  <a href={CONTACT_HREF}>Contact us</a>
-                ) : (
-                  <Link href={ctaFor(planId)}>
-                    {planId === "free" ? "Run free audit" : "Get started"}
-                  </Link>
-                )}
-              </Button>
-            </div>
-          );
-        })}
+      <div className="mt-14">
+        <PricingPlans variant="full" signedIn={Boolean(user)} />
       </div>
 
       {/* Full comparison */}

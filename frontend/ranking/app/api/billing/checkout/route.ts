@@ -22,6 +22,15 @@ export async function POST(request: Request) {
   }
 
   const body = schema.parse(await request.json());
+  if (body.plan === "agency") {
+    return NextResponse.json(
+      {
+        error:
+          "The Pro plan is set up with our team. Contact us to get started.",
+      },
+      { status: 403 },
+    );
+  }
   const productId = getProductIdForPlan(body.plan as PlanId, body.interval);
 
   // No payment processor, no plan - in every environment. The simulation

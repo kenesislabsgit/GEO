@@ -11,12 +11,11 @@ import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { RainbowButton } from "@/components/ui/rainbow-button";
-import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { PricingPlans } from "@/components/site/pricing-plans";
 import {
   APP_NAME,
   APP_TAGLINE,
   DEFAULT_SCAN_PROVIDERS,
-  SUPPORT_EMAIL,
   providerDisplayName,
 } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -428,7 +427,7 @@ function EvidencePanel() {
           <mark className="arc-highlight-sweep rounded bg-transparent px-1 py-0.5 font-medium text-foreground">
             Kenesis
           </mark>{" "}
-          — an on-prem edge platform where everything runs on your own
+          , an on-prem edge platform where everything runs on your own
           hardware, from camera to alert&hellip;&rdquo;
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -1067,63 +1066,8 @@ export default function HomePage() {
               </p>
             </Reveal>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              {Object.values(PLAN_CONFIG)
-                .filter((plan) => plan.id !== "growth")
-                .map((plan, index) => {
-                const popular = plan.id === "founder";
-                return (
-                  <Reveal key={plan.id} delay={index * 90}>
-                  <div
-                    className={`arc-card-hover relative flex h-full flex-col rounded-xl border bg-background p-6 ${
-                      popular
-                        ? "border-[color:var(--arc-accent)]/50 shadow-[0_0_0_1px_color-mix(in_srgb,var(--arc-accent)_35%,transparent),0_16px_48px_-24px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]"
-                        : "border-border"
-                    }`}
-                  >
-                    {popular ? (
-                      <span className="absolute -top-2.5 left-5 rounded-full bg-[color:var(--arc-accent)] px-2.5 py-0.5 text-[11px] font-medium text-white">
-                        Most popular
-                      </span>
-                    ) : null}
-                    <p className="text-sm font-medium">{plan.name}</p>
-                    <p className="arc-tabular mt-3 font-heading text-3xl font-semibold tracking-tight">
-                      {plan.monthlyPriceUsd === 0 ? "$0" : `$${plan.monthlyPriceUsd}`}
-                      {plan.monthlyPriceUsd > 0 ? (
-                        <span className="text-sm font-normal text-muted-foreground">
-                          /mo
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="mt-3 flex-1 text-sm text-muted-foreground">
-                      {plan.description}
-                    </p>
-                    <Button
-                      asChild
-                      variant={popular ? "default" : "outline"}
-                      size="sm"
-                      className="mt-5"
-                    >
-                      {plan.id === "agency" ? (
-                        <a href={`mailto:${SUPPORT_EMAIL}?subject=Arcanoris%20Pro%20plan`}>
-                          Contact us
-                        </a>
-                      ) : (
-                        <Link
-                          href={
-                            plan.id === "free"
-                              ? routes.login({ mode: "signup", returnTo: routes.newScan() })
-                              : routes.billing({ plan: plan.id })
-                          }
-                        >
-                          {plan.id === "free" ? "Run free audit" : "Get started"}
-                        </Link>
-                      )}
-                    </Button>
-                  </div>
-                  </Reveal>
-                );
-              })}
+            <div className="mt-12">
+              <PricingPlans variant="teaser" />
             </div>
 
             <div className="mt-8 text-center">

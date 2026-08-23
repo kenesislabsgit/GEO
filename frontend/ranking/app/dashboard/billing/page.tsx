@@ -8,7 +8,12 @@ import { BillingActions } from "@/components/billing/billing-actions";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; returnTo?: string; status?: string }>;
+  searchParams: Promise<{
+    plan?: string;
+    returnTo?: string;
+    status?: string;
+    interval?: string;
+  }>;
 }) {
   const user = await getSessionUser();
   if (!user) return null;
@@ -94,6 +99,11 @@ export default async function BillingPage({
 
       <BillingActions
         highlightedPlan={params.plan}
+        highlightedInterval={
+          params.interval === "yearly" || params.interval === "monthly"
+            ? params.interval
+            : undefined
+        }
         hasSubscription={Boolean(subscription)}
         returnTo={params.returnTo ?? null}
       />
