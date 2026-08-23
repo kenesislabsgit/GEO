@@ -5,6 +5,7 @@ import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProviderStack } from "@/components/providers/provider-logo";
 import { JsonLd } from "@/components/site/json-ld";
 import { PricingPlans } from "@/components/site/pricing-plans";
+import { HorizontalScrollHint } from "@/components/site/scroll-hint";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import { SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
@@ -249,7 +250,8 @@ export default async function PricingPage() {
             Every capability in the product, and the plan it comes with.
           </p>
         </div>
-        <div className="mt-8 overflow-x-auto">
+        <div className="mt-8">
+          <HorizontalScrollHint label="Swipe to compare plans">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
               <tr className="border-b border-border">
@@ -294,6 +296,7 @@ export default async function PricingPage() {
               ))}
             </tbody>
           </table>
+          </HorizontalScrollHint>
         </div>
       </div>
 

@@ -60,7 +60,7 @@ function delayStyle(ms: number): CSSProperties {
 function AnswerCard() {
   return (
     <div className="relative mx-auto w-full max-w-md">
-      <div aria-hidden className="arc-glow absolute -inset-x-12 inset-y-0" />
+      <div aria-hidden className="arc-glow absolute inset-y-0 -inset-x-4 sm:-inset-x-12" />
       <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_24px_64px_-32px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="inline-flex items-center gap-2 text-sm font-medium">
@@ -216,7 +216,7 @@ function SectionFrame({
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
       <div
-        className={`absolute inset-y-0 left-1/2 w-full max-w-6xl -translate-x-1/2 border-x ${rail}`}
+        className={`absolute inset-y-0 left-1/2 w-[calc(100%-1rem)] max-w-6xl -translate-x-1/2 border-x sm:w-full ${rail}`}
       >
         {showTop ? (
           <>
@@ -551,11 +551,11 @@ export default function HomePage() {
       />
       <SiteHeader />
 
-      <main>
+      <main className="overflow-x-clip">
         {/* Hero - editorial blueprint */}
         <section className="relative bg-background">
           <div aria-hidden className="arc-hatch h-8 border-b border-border" />
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-6xl px-2 sm:px-0">
             <div className="relative border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
               <Cross corner="tl" />
               <Cross corner="tr" />
@@ -591,19 +591,29 @@ export default function HomePage() {
                   <form
                     action={routes.login()}
                     method="GET"
-                    className="arc-fade-up arc-fade-up-delay-2 mt-7 flex max-w-md flex-col gap-2.5 sm:flex-row"
+                    className="arc-fade-up arc-fade-up-delay-2 mt-7 w-full max-w-md space-y-2.5"
                   >
                     <input type="hidden" name="mode" value="signup" />
-                    <input
-                      type="text"
-                      name="domain"
-                      inputMode="url"
-                      placeholder="yourcompany.com"
-                      aria-label="Your website"
-                      className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-card px-4 text-sm shadow-sm outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:ring-1 focus:ring-ring"
-                    />
-                    <RainbowButton type="submit" className="shrink-0">
-                      See where your brand comes up
+                    <div className="flex h-12 items-center rounded-xl border border-border bg-card px-3.5 shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+                      <span
+                        aria-hidden
+                        className="mr-2 shrink-0 select-none font-mono text-xs text-muted-foreground"
+                      >
+                        https://
+                      </span>
+                      <input
+                        type="text"
+                        name="domain"
+                        inputMode="url"
+                        autoComplete="url"
+                        spellCheck={false}
+                        placeholder="yourcompany.com"
+                        aria-label="Your website"
+                        className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                    <RainbowButton type="submit" className="h-12 w-full">
+                      Get your free report
                       <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
                     </RainbowButton>
                   </form>
@@ -701,31 +711,33 @@ export default function HomePage() {
               </p>
             </Reveal>
 
-            <div className="mt-12 grid gap-4 lg:grid-cols-3">
+            <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {/* Visibility score - stat + bars */}
-              <Reveal className="lg:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-8">
+              <Reveal className="sm:col-span-2">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6 md:p-8">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                   Visibility score
                 </p>
-                <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
                   A score that moves when you do
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
                   Mentions, position and evidence quality compiled into one number -
                   comparable scan after scan, never a black box.
                 </p>
-                <div className="mt-8 flex items-end justify-between gap-4">
-                  <p className="arc-tabular font-heading text-5xl font-semibold tracking-tight">
+                <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
+                  <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
                     62<span className="text-foreground/35">.4</span>
                   </p>
-                  <p className="text-sm font-medium text-[color:var(--arc-green)]">+6.2 this month</p>
+                  <p className="text-xs font-medium text-[color:var(--arc-green)] sm:text-sm">
+                    +6.2 this month
+                  </p>
                 </div>
-                <div className="mt-4 flex h-20 items-stretch gap-1 md:gap-1.5">
-                  {Array.from({ length: 40 }, (_, i) => (
+                <div className="mt-4 flex h-14 items-stretch gap-1 sm:h-20 sm:gap-1.5">
+                  {Array.from({ length: 24 }, (_, i) => (
                     <span
                       key={i}
-                      className={`flex-1 rounded-full ${i < 25 ? "arc-light-up bg-[color:var(--arc-accent)]" : "bg-[color:var(--arc-accent)]/15"}`}
+                      className={`flex-1 rounded-full ${i < 15 ? "arc-light-up bg-[color:var(--arc-accent)]" : "bg-[color:var(--arc-accent)]/15"}`}
                       style={delayStyle(200 + i * 18)}
                     />
                   ))}
@@ -736,15 +748,15 @@ export default function HomePage() {
               {/* Regional growth - interactive globe */}
               <Reveal delay={100} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-                <div className="relative flex min-h-56 flex-1 items-center justify-center" aria-hidden>
+                <div className="relative flex min-h-44 flex-1 items-center justify-center sm:min-h-56" aria-hidden>
                   <div className="arc-glow absolute inset-0" />
-                  <RegionalGlobe className="relative aspect-square w-full max-w-[380px]" />
+                  <RegionalGlobe className="relative aspect-square w-full max-w-[220px] sm:max-w-[380px]" />
                 </div>
-                <div className="p-6 md:p-8">
+                <div className="p-5 sm:p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Regional growth
                   </p>
-                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
                     Grow across every market
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
@@ -758,10 +770,10 @@ export default function HomePage() {
               {/* Providers - floating pills */}
               <Reveal delay={150} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-                <div className="relative min-h-72 flex-1">
+                <div className="relative min-h-52 flex-1 sm:min-h-72">
                   {/* The radar dial: rings, crosshair, and a sweeping beam. */}
                   <div aria-hidden className="absolute inset-0 grid place-items-center">
-                    <div className="relative aspect-square w-[86%]">
+                    <div className="relative aspect-square w-[72%] sm:w-[86%]">
                       <div className="absolute inset-0 rounded-full border border-border" />
                       <div className="absolute inset-[17%] rounded-full border border-border" />
                       <div className="absolute inset-[34%] rounded-full border border-border" />
@@ -774,18 +786,18 @@ export default function HomePage() {
                   {RADAR_BLIPS.map((blip, index) => (
                     <span
                       key={blip.id}
-                      className={`arc-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-sm ${blip.className}`}
+                      className={`arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm sm:size-9 ${blip.className} ${index >= 6 ? "hidden sm:grid" : ""}`}
                       style={delayStyle(index * 550)}
                     >
-                      <ProviderLogo provider={blip.id} className="size-4" />
+                      <ProviderLogo provider={blip.id} className="size-3.5 sm:size-4" />
                     </span>
                   ))}
                 </div>
-                <div className="p-6 md:p-8">
+                <div className="p-5 sm:p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Providers
                   </p>
-                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
                     One method, every model
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
@@ -797,17 +809,17 @@ export default function HomePage() {
               </Reveal>
 
               {/* Big stat card */}
-              <Reveal delay={100}>
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-6 text-center md:p-8">
-                <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-6xl font-semibold tracking-tight text-transparent">
+              <Reveal delay={100} className="sm:col-span-2 lg:col-span-1">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8">
+                <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                   200
                 </p>
-                <p className="relative mt-1 text-foreground/70">
+                <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
                   provider answers per Pro audit - 20 questions × 10 AIs
                 </p>
-                <div className="mt-6 flex flex-col gap-2">
-                  <div className="arc-marquee-mask relative -mx-6 md:-mx-8">
-                    <div className="arc-marquee flex w-max items-center gap-2 px-6 md:px-8">
+                <div className="mt-6 flex flex-col gap-2 overflow-hidden">
+                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
+                    <div className="arc-marquee flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
                       {[...STAT_CHIPS_ROW_1, ...STAT_CHIPS_ROW_1].map((chip, i) => (
                         <span
                           key={`${chip}-${i}`}
@@ -818,8 +830,8 @@ export default function HomePage() {
                       ))}
                     </div>
                   </div>
-                  <div className="arc-marquee-mask relative -mx-6 md:-mx-8">
-                    <div className="arc-marquee arc-marquee--reverse flex w-max items-center gap-2 px-6 md:px-8">
+                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
+                    <div className="arc-marquee arc-marquee--reverse flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
                       {[...STAT_CHIPS_ROW_2, ...STAT_CHIPS_ROW_2].map((chip, i) => (
                         <span
                           key={`${chip}-${i}`}
@@ -835,18 +847,18 @@ export default function HomePage() {
               </Reveal>
 
               {/* Monitoring - trend chart */}
-              <Reveal delay={150} className="lg:col-span-2">
+              <Reveal delay={150} className="sm:col-span-2">
               <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card">
-                <div className="relative px-2 pt-14">
+                <div className="relative px-2 pt-12 sm:pt-14">
                   <span
-                    className="arc-fade-late absolute top-4 left-[31%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
+                    className="arc-fade-late absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:left-[31%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
                     style={delayStyle(900)}
                   >
                     <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
                     Avg 62.4
                   </span>
                   <span
-                    className="arc-fade-late absolute top-4 left-[69%] inline-flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium whitespace-nowrap text-foreground/80 shadow-sm"
+                    className="arc-fade-late absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:right-auto sm:left-[69%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
                     style={delayStyle(1100)}
                   >
                     <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
@@ -854,19 +866,19 @@ export default function HomePage() {
                   </span>
                   <span
                     aria-hidden
-                    className="arc-fade-late absolute top-14 bottom-0 left-[31%] w-px border-l border-dashed border-foreground/20"
+                    className="arc-fade-late absolute top-12 bottom-0 left-[31%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
                   />
                   <span
                     aria-hidden
-                    className="arc-fade-late absolute top-14 bottom-0 left-[69%] w-px border-l border-dashed border-foreground/20"
+                    className="arc-fade-late absolute top-12 bottom-0 left-[69%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
                   />
                   <MonitoringChart />
                 </div>
-                <div className="p-6 pt-4 md:p-8 md:pt-4">
+                <div className="p-5 pt-4 sm:p-6 md:p-8 md:pt-4">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                     Monitoring
                   </p>
-                  <h3 className="font-heading mt-2 text-xl font-semibold tracking-tight">
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
                     Catch the moves that matter
                   </h3>
                   <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">

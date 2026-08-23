@@ -16,8 +16,8 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-8">
           <Logo />
           <nav className="hidden items-center gap-1 md:flex">
             {nav.map((item) => (
@@ -31,15 +31,18 @@ export async function SiteHeader() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
           {user ? (
             <>
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
                 <Link href={routes.dashboard}>Dashboard</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href={routes.newScan()}>Run an audit</Link>
+                <Link href={routes.newScan()}>
+                  <span className="sm:hidden">Audit</span>
+                  <span className="hidden sm:inline">Run an audit</span>
+                </Link>
               </Button>
             </>
           ) : (
@@ -48,7 +51,10 @@ export async function SiteHeader() {
                 <Link href={routes.login({ mode: "signin" })}>Sign in</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href={routes.pricing}>Choose a plan</Link>
+                <Link href={routes.pricing}>
+                  <span className="sm:hidden">Start</span>
+                  <span className="hidden sm:inline">Choose a plan</span>
+                </Link>
               </Button>
             </>
           )}
