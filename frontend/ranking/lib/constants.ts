@@ -97,10 +97,11 @@ export const FREE_PROMPT_COUNT = 10;
  */
 export const FREE_AUDIT_PROVIDER = "openai_search" as const;
 export const FREE_AUDIT_QUESTION_COUNT = 5;
-/** Websites read for the most-recommended competitor, to ground one action. */
+/** Answer-cited competitor pages checked to ground one action. */
 export const FREE_AUDIT_COMPETITORS_CRAWLED = 1;
 export const FREE_AUDIT_COMPETITOR_PAGES = 3;
-export const FREE_AUDIT_ACTION_COUNT = 5;
+/** One checked action is the entire free improvement preview. */
+export const FREE_AUDIT_ACTION_COUNT = 1;
 /** Caps how much searching each free question does, so runs stay predictable. */
 export const FREE_AUDIT_SEARCH_CONTEXT = "low" as const;
 export const PRO_AUDIT_SEARCH_CONTEXT = "medium" as const;

@@ -11,6 +11,14 @@ What to do when something breaks, in the order you'll need it.
    (default 180s) automatically.
 3. Persistent backlog → raise `WORKER_CONCURRENCY` or add a worker process.
 
+## AI calls are waiting or retrying
+
+Worker health shows active and waiting calls separately for each provider.
+Raise `MAX_ACTIVE_AUDITS` only while provider RPM/TPM capacity remains. A 429
+means configured limits exceed the account's real capacity; temporary 5xx
+responses retry three times. Multiple workers must share the same ElastiCache
+Valkey connection or their limits will not be global.
+
 ## A scan is stuck `running`
 
 Wait one heartbeat timeout — the reaper requeues or times it out on its own.

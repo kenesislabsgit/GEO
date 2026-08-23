@@ -61,6 +61,11 @@ GEO_AUDIT_ROOT=/srv/GEO npm run worker
 ```
 
 - Same `DATABASE_URL` as the web app; `GEO_AUDIT_ROOT` required.
+- Set `ELASTICACHE_HOST`, `ELASTICACHE_PORT` (normally `6379`), and
+  `ELASTICACHE_USERNAME`. Inject `ELASTICACHE_PASSWORD` from AWS Secrets
+  Manager; never store it in the image or repository. The cache must be AWS
+  ElastiCache Serverless Valkey, reachable from the worker VPC over TLS. Every
+  worker then shares the same AI-provider capacity instead of multiplying it.
 - Provider keys live in `GEO/.env` on the worker host (the engine loads it
   with override) — the worker passes only an allowlisted environment to
   Python, never its own secrets.
@@ -70,6 +75,17 @@ GEO_AUDIT_ROOT=/srv/GEO npm run worker
 - Scale by running more worker processes; the queue is claim-safe. Restrict
   the worker's egress from internal ranges (metadata service included) as
   the second SSRF layer.
+- For ECS, deploy the worker as its own service with a dedicated CloudWatch
+  log group. `infra/ecs-audit-worker-autoscaling.yml` keeps two workers warm,
+  adds workers when scans wait, and removes them only after the whole queue is
+  idle for ten minutes. Each worker must use the same database and Valkey.
+- `MAX_ACTIVE_AUDITS` controls how many audits one worker advances together
+  (default 3). AI calls are scheduled fairly between them. Provider limits are
+  configured independently: `AI_OPENAI_MAX_CONCURRENT`, `AI_OPENAI_RPM`,
+  `AI_OPENAI_TPM`, and the same pattern for `ANTHROPIC`, `GEMINI`, each
+  `BEDROCK_*` provider, and other configured providers. Copy RPM/TPM values
+  from the provider dashboards; `0` disables that rate check. The safe
+  concurrency defaults still apply when RPM/TPM are unset.
 - Compatibility: deploy migrations first, then workers, then web. A worker
   older than the schema fails loudly at claim time; `db:migrate:check` in CI
   prevents shipping web code ahead of migrations.

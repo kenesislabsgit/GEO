@@ -31,6 +31,18 @@ const REQUIRED_IN_PRODUCTION: Requirement[] = [
 const REQUIRED_FOR_WORKER: Requirement[] = [
   { name: "DATABASE_URL", why: "the database" },
   { name: "GEO_AUDIT_ROOT", why: "locating the audit engine" },
+  {
+    name: "ELASTICACHE_HOST",
+    why: "sharing AI provider capacity across audit workers",
+  },
+  {
+    name: "ELASTICACHE_USERNAME",
+    why: "authenticating the AI capacity controller",
+  },
+  {
+    name: "ELASTICACHE_PASSWORD",
+    why: "sharing AI provider capacity across audit workers",
+  },
 ];
 
 export function validateEnv(role: "web" | "worker"): void {

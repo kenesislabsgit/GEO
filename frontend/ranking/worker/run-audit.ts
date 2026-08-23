@@ -36,7 +36,10 @@ export type RunningAudit = {
  * Only what the engine needs crosses the process boundary. The worker's own
  * environment (DATABASE_URL, auth secrets, billing keys) stays here.
  */
-function pythonEnv(snapshot: ScanInputSnapshot): Record<string, string | undefined> {
+function pythonEnv(
+  snapshot: ScanInputSnapshot,
+  auditId: string,
+): Record<string, string | undefined> {
   const allowPrefixes = [
     "OPENAI_",
     "LLM_",
@@ -49,6 +52,7 @@ function pythonEnv(snapshot: ScanInputSnapshot): Record<string, string | undefin
     "GEO_BEDROCK_",
     "AGENTCORE_",
     "GATEWAY_",
+    "AI_CONTROLLER_",
     "FIRECRAWL_",
     "PERPLEXITY_",
     "XAI_",
@@ -79,6 +83,7 @@ function pythonEnv(snapshot: ScanInputSnapshot): Record<string, string | undefin
   const env: Record<string, string | undefined> = {
     PYTHONIOENCODING: "utf-8",
     NODE_ENV: process.env.NODE_ENV,
+    GEO_AUDIT_ID: auditId,
   };
   for (const [key, value] of Object.entries(process.env)) {
     if (
@@ -227,7 +232,7 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
       const proc = spawn(pythonCommand, args, {
         cwd: geoRoot,
         windowsHide: true,
-        env: pythonEnv(snapshot) as NodeJS.ProcessEnv,
+        env: pythonEnv(snapshot, scan.id) as NodeJS.ProcessEnv,
       });
       child = proc;
 

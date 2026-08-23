@@ -1,4 +1,5 @@
 import "./env";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import os from "node:os";
 import { validateEnv } from "@/lib/env";
@@ -11,6 +12,7 @@ import {
   heartbeatScan,
   markScanCancelled,
   reapStaleScans,
+  scanQueueSnapshot,
 } from "@/lib/scans/queue";
 import { exec } from "@/lib/db/pg";
 import { log } from "@/lib/log";
@@ -20,6 +22,7 @@ import { runRetentionSweep } from "./retention";
 import { reconcileSubscriptions } from "./reconcile";
 import { detectAlertsForScan } from "./alerts";
 import { getScanRun } from "@/lib/db/repository";
+import { AiCallController, readJsonBody, sendJson } from "./ai-controller";
 
 /**
  * The audit worker. Deployed separately from the web app; the web app only
@@ -32,11 +35,20 @@ import { getScanRun } from "@/lib/db/repository";
 
 const WORKER_ID = `${os.hostname()}-${process.pid}`;
 const WORKER_VERSION = process.env.WORKER_VERSION ?? "dev";
-const CONCURRENCY = Math.max(1, Number(process.env.WORKER_CONCURRENCY ?? "2"));
+const CONCURRENCY = Math.max(
+  1,
+  Number(process.env.MAX_ACTIVE_AUDITS ?? process.env.WORKER_CONCURRENCY ?? "3"),
+);
 const POLL_MS = Math.max(500, Number(process.env.WORKER_POLL_MS ?? "3000"));
 const HEARTBEAT_MS = 15_000;
 const SCHEDULER_EVERY_MS = 5 * 60_000;
 const RETENTION_EVERY_MS = 6 * 3_600_000;
+const CAPACITY_METRICS_MS = Math.max(
+  10_000,
+  Number(process.env.WORKER_CAPACITY_METRICS_MS ?? "30000"),
+);
+const aiController = new AiCallController();
+const aiControllerToken = process.env.AI_CONTROLLER_TOKEN ?? randomUUID();
 
 type ActiveJob = {
   scanId: string;
@@ -48,6 +60,20 @@ const active = new Map<string, ActiveJob>();
 let shuttingDown = false;
 let lastSchedulerAt = 0;
 let lastRetentionAt = 0;
+let lastCapacityMetricsAt = 0;
+
+async function recordCapacityMetrics(): Promise<void> {
+  const queue = await scanQueueSnapshot();
+  log.info("worker_capacity", {
+    queued: queue.queued,
+    running: queue.running,
+    outstanding: queue.queued + queue.running,
+    oldestQueuedSeconds: Math.round(queue.oldestQueuedSeconds),
+    localActive: active.size,
+    localCapacity: CONCURRENCY,
+    localFreeSlots: Math.max(0, CONCURRENCY - active.size),
+  });
+}
 
 async function startJob(scanId: string, audit: RunningAudit): Promise<void> {
   const heartbeat = setInterval(async () => {
@@ -137,6 +163,10 @@ async function loop(): Promise<void> {
         await runRetentionSweep();
         await reconcileSubscriptions();
       }
+      if (Date.now() - lastCapacityMetricsAt > CAPACITY_METRICS_MS) {
+        lastCapacityMetricsAt = Date.now();
+        await recordCapacityMetrics();
+      }
 
       while (active.size < CONCURRENCY && !shuttingDown) {
         const scan = await claimNextScan(WORKER_ID, WORKER_VERSION);
@@ -162,6 +192,50 @@ async function loop(): Promise<void> {
 function startHealthServer(): http.Server {
   const port = Number(process.env.WORKER_HEALTH_PORT ?? "8787");
   const server = http.createServer(async (req, res) => {
+    if (req.url === "/internal/ai/acquire" && req.method === "POST") {
+      if (req.headers.authorization !== `Bearer ${aiControllerToken}`) {
+        sendJson(res, 401, { error: "unauthorized" });
+        return;
+      }
+      try {
+        const body = await readJsonBody(req);
+        const waiting = aiController.acquire({
+          auditId: String(body.auditId ?? ""),
+          provider: String(body.provider ?? ""),
+          estimatedTokens: Number(body.estimatedTokens ?? 1),
+        });
+        let answered = false;
+        res.on("close", () => {
+          if (!answered) waiting.cancel();
+        });
+        const lease = await waiting.promise;
+        answered = true;
+        sendJson(res, 200, lease);
+      } catch (error) {
+        if (!res.writableEnded) {
+          sendJson(res, 400, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      return;
+    }
+    if (req.url === "/internal/ai/release" && req.method === "POST") {
+      if (req.headers.authorization !== `Bearer ${aiControllerToken}`) {
+        sendJson(res, 401, { error: "unauthorized" });
+        return;
+      }
+      try {
+        const body = await readJsonBody(req);
+        const released = await aiController.release(String(body.leaseId ?? ""));
+        sendJson(res, 200, { released });
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
     if (req.url === "/healthz" || req.url === "/readyz") {
       try {
         await one("select 1 as ok");
@@ -170,6 +244,7 @@ function startHealthServer(): http.Server {
           workerId: WORKER_ID,
           version: WORKER_VERSION,
           activeJobs: active.size,
+          aiCalls: aiController.snapshot(),
           shuttingDown,
         });
         res.writeHead(shuttingDown && req.url === "/readyz" ? 503 : 200, {
@@ -186,6 +261,8 @@ function startHealthServer(): http.Server {
     res.end();
   });
   server.listen(port, () => log.info("worker_health_listening", { port }));
+  process.env.AI_CONTROLLER_URL = `http://127.0.0.1:${port}`;
+  process.env.AI_CONTROLLER_TOKEN = aiControllerToken;
   return server;
 }
 
@@ -193,6 +270,7 @@ async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info("worker_shutdown", { signal, activeJobs: active.size });
+  await aiController.close();
 
   // Stop the children and hand their jobs back to the queue. A graceful
   // shutdown is not the job's fault, so the attempt is refunded.

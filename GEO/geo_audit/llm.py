@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import re
-import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from .ai_control import run_ai_call
 
 
 DEFAULT_API_BASE = "https://api.openai.com/v1"
@@ -146,9 +146,12 @@ def call_openai_compatible(
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=120) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call(provider, payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(
@@ -211,9 +214,12 @@ def call_chat_completion(payload: dict[str, Any]) -> str:
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=120) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call("openai", payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"LLM request failed: {exc.code} {detail}") from exc
@@ -248,9 +254,12 @@ def call_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=120) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call("openai", payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"LLM request failed: {exc.code} {detail}") from exc
@@ -322,9 +331,12 @@ def call_openai_response(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=180) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call("openai", payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"OpenAI Responses request failed: {exc.code} {detail}") from exc
@@ -383,20 +395,26 @@ def call_bedrock_converse(
         "AWS_DEFAULT_REGION", DEFAULT_BEDROCK_REGION
     )
     client = boto3.client("bedrock-runtime", region_name=region)
+    request_payload = {
+        "modelId": selected_model,
+        "system": [{"text": system_prompt}],
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"text": user_prompt}],
+            }
+        ],
+        "inferenceConfig": {
+            "temperature": temperature,
+            "maxTokens": max_tokens,
+        },
+    }
+
     try:
-        response = client.converse(
-            modelId=selected_model,
-            system=[{"text": system_prompt}],
-            messages=[
-                {
-                    "role": "user",
-                    "content": [{"text": user_prompt}],
-                }
-            ],
-            inferenceConfig={
-                "temperature": temperature,
-                "maxTokens": max_tokens,
-            },
+        response = run_ai_call(
+            provider,
+            request_payload,
+            lambda: client.converse(**request_payload),
         )
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError(f"Bedrock {provider} request failed: {exc}") from exc
@@ -527,7 +545,11 @@ def call_bedrock_tool_message(
 
     client = boto3.client("bedrock-runtime", region_name=region)
     try:
-        response = client.converse(**request)
+        response = run_ai_call(
+            "bedrock_claude",
+            request,
+            lambda: client.converse(**request),
+        )
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError(f"Bedrock writer request failed: {exc}") from exc
 
@@ -597,9 +619,12 @@ def call_anthropic_message(payload: dict[str, Any]) -> str:
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=120) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call("anthropic", payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"Claude request failed: {exc.code} {detail}") from exc
@@ -657,24 +682,15 @@ def call_gemini_generate_content(
         method="POST",
     )
 
-    try:
+    def send() -> dict[str, Any]:
         with urlopen(request, timeout=120) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
+
+    try:
+        body = run_ai_call("gemini", payload, send)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        retry_seconds = parse_retry_delay(detail)
-        if exc.code == 429 and retry_seconds and retry_seconds <= 20:
-            time.sleep(retry_seconds + 1)
-            try:
-                with urlopen(request, timeout=120) as response:
-                    body = json.loads(response.read().decode("utf-8"))
-            except HTTPError as retry_exc:
-                retry_detail = retry_exc.read().decode("utf-8", errors="replace")
-                raise RuntimeError(
-                    f"Gemini request failed: {retry_exc.code} {retry_detail}"
-                ) from retry_exc
-        else:
-            raise RuntimeError(f"Gemini request failed: {exc.code} {detail}") from exc
+        raise RuntimeError(f"Gemini request failed: {exc.code} {detail}") from exc
     except URLError as exc:
         raise RuntimeError(f"Gemini request failed: {exc}") from exc
 
@@ -685,16 +701,6 @@ def call_gemini_generate_content(
     parts = candidates[0].get("content", {}).get("parts", [])
     text = "\n".join(part.get("text", "") for part in parts if "text" in part)
     return text, body
-
-
-def parse_retry_delay(detail: str) -> int | None:
-    match = re.search(r'"retryDelay"\s*:\s*"(\d+)s"', detail)
-    if match:
-        return int(match.group(1))
-    match = re.search(r"retry in ([0-9.]+)s", detail, flags=re.IGNORECASE)
-    if match:
-        return int(float(match.group(1)))
-    return None
 
 
 def load_dotenv(path: str = ".env", override: bool = False) -> None:

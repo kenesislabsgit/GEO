@@ -35,6 +35,7 @@ from .firecrawl import (
     environment_int,
     should_enrich_user_snapshot,
 )
+from .free_recommendations import generate_free_recommendation
 from .intents import (
     WORLD_MARKETS,
     detect_market,
@@ -842,7 +843,7 @@ def main() -> None:
     run_parser.add_argument(
         "--max-recommendations",
         type=int,
-        help="Keep only the top N generated improvement actions. The free audit uses 5.",
+        help="Keep only the top N generated improvement actions. The free audit uses 1.",
     )
     run_parser.add_argument(
         "--market",
@@ -1806,10 +1807,20 @@ def main() -> None:
                 ),
             )
         merge_started = time.perf_counter()
-        company_aliases, merge_artifact, merge_error = generate_candidate_company_aliases(
-            raw_results,
-            profile.get("company_name"),
-        )
+        if args.free_preview:
+            company_aliases = {}
+            merge_artifact = {
+                "mode": "free_preview_skipped",
+                "reason": "One searching provider supplies the five free answers.",
+            }
+            merge_error = None
+        else:
+            company_aliases, merge_artifact, merge_error = (
+                generate_candidate_company_aliases(
+                    raw_results,
+                    profile.get("company_name"),
+                )
+            )
         research_stage_timings["company_merge_seconds"] = round(
             time.perf_counter() - merge_started, 3
         )
@@ -1985,7 +1996,16 @@ def main() -> None:
         )
 
         competitor_started = time.perf_counter()
-        if competitor_evidence is None:
+        if args.free_preview:
+            competitor_evidence = {
+                "competitors": [],
+                "summary": {
+                    "competitors_checked": 0,
+                    "with_website_evidence": 0,
+                    "mode": "free_action_uses_answer_attached_citation",
+                },
+            }
+        elif competitor_evidence is None:
             competitor_evidence = build_competitor_evidence(
                 patterns,
                 web_presence=web_presence,
@@ -2039,34 +2059,46 @@ def main() -> None:
         else:
             emit_run_progress("improvement_recommendations", 91, "Generating improvement recommendations")
             writer_started = time.perf_counter()
-            audit_recs, rec_payload, rec_error = generate_audit_recommendations(
-                profile,
-                user_evidence,
-                patterns,
-                competitor_evidence,
-                comparison,
-                user_snapshot=snapshot,
-                # The free audit already reads the one competitor page it cites,
-                # so it skips the extra Firecrawl re-check to stay fast.
-                firecrawl_client=None if args.free_preview else firecrawl_client,
-                limit=args.max_recommendations,
-                # The answers themselves, so the writer can group the questions
-                # and open any one of them in full rather than being handed a
-                # tenth of them chosen in advance.
-                raw_results=raw_results,
-                # Includes independently searched pages for the audited
-                # company. Rival pages are already carried by competitor_evidence.
-                web_presence=web_presence,
-            )
+            if args.free_preview:
+                audit_recs, rec_payload, free_diagnostics, rec_error = (
+                    generate_free_recommendation(
+                        profile,
+                        snapshot,
+                        raw_results,
+                    )
+                )
+                (run_dir / "free_recommendation_diagnostics.json").write_text(
+                    json.dumps(free_diagnostics, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+            else:
+                audit_recs, rec_payload, rec_error = generate_audit_recommendations(
+                    profile,
+                    user_evidence,
+                    patterns,
+                    competitor_evidence,
+                    comparison,
+                    user_snapshot=snapshot,
+                    firecrawl_client=firecrawl_client,
+                    limit=args.max_recommendations,
+                    # The answers themselves, so the writer can group the questions
+                    # and open any one of them in full rather than being handed a
+                    # tenth of them chosen in advance.
+                    raw_results=raw_results,
+                    # Includes independently searched pages for the audited
+                    # company. Rival pages are already carried by competitor_evidence.
+                    web_presence=web_presence,
+                )
             writer_seconds = time.perf_counter() - writer_started
             pipeline_stage_timings["final_writer"] = round(writer_seconds, 3)
             (run_dir / "audit_recommendations_prompt.json").write_text(
                 json.dumps(rec_payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-            save_writer_debug_artifacts(
-                run_dir, rec_payload, duration_seconds=writer_seconds
-            )
+            if not args.free_preview:
+                save_writer_debug_artifacts(
+                    run_dir, rec_payload, duration_seconds=writer_seconds
+                )
             if audit_recs is None:
                 audit_recs = []
                 (run_dir / "audit_recommendations_error.txt").write_text(
@@ -2089,7 +2121,7 @@ def main() -> None:
         audit_summary = build_standing_sentence(
             str(profile.get("company_name", "")), patterns
         )
-        if not args.skip_audit_recommendations:
+        if not args.skip_audit_recommendations and not args.free_preview:
             verdict_started = time.perf_counter()
             emit_run_progress("executive_verdict", 93, "Writing the executive verdict")
             audit_summary, summary_payload, summary_error = generate_audit_summary(

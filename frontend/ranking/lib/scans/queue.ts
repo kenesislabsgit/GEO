@@ -278,6 +278,31 @@ export async function heartbeatScan(
   return row?.status ?? null;
 }
 
+export async function scanQueueSnapshot(): Promise<{
+  queued: number;
+  running: number;
+  oldestQueuedSeconds: number;
+}> {
+  const row = await one<{
+    queued: number;
+    running: number;
+    oldest_queued_seconds: number;
+  }>(
+    `select
+       count(*) filter (where status = 'queued')::int as queued,
+       count(*) filter (where status in ('running', 'cancel_requested'))::int as running,
+       coalesce(extract(epoch from (
+         now() - min(queued_at) filter (where status = 'queued')
+       )), 0)::float as oldest_queued_seconds
+     from scan_runs`,
+  );
+  return {
+    queued: row?.queued ?? 0,
+    running: row?.running ?? 0,
+    oldestQueuedSeconds: Math.max(0, row?.oldest_queued_seconds ?? 0),
+  };
+}
+
 /** Mark a claimed scan failed, or requeue it if attempts remain. */
 export async function failOrRequeueScan(
   scanId: string,

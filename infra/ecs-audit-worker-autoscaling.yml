@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Scale the GEO audit worker from the durable audit queue.
+
+Parameters:
+  ClusterName:
+    Type: String
+  WorkerServiceName:
+    Type: String
+  WorkerLogGroupName:
+    Type: String
+  MinWorkers:
+    Type: Number
+    Default: 2
+    MinValue: 1
+  MaxWorkers:
+    Type: Number
+    Default: 10
+    MinValue: 2
+
+Resources:
+  QueuedAuditMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref WorkerLogGroupName
+      FilterName: geo-audit-queued
+      FilterPattern: '{ $.event = "worker_capacity" }'
+      MetricTransformations:
+        - MetricNamespace: GEO/AuditWorker
+          MetricName: QueuedAudits
+          MetricValue: $.queued
+          Unit: Count
+
+  OutstandingAuditMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref WorkerLogGroupName
+      FilterName: geo-audit-outstanding
+      FilterPattern: '{ $.event = "worker_capacity" }'
+      MetricTransformations:
+        - MetricNamespace: GEO/AuditWorker
+          MetricName: OutstandingAudits
+          MetricValue: $.outstanding
+          Unit: Count
+
+  WorkerDesiredCount:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: !Ref MaxWorkers
+      MinCapacity: !Ref MinWorkers
+      ResourceId: !Sub service/${ClusterName}/${WorkerServiceName}
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: geo-audit-worker-scale-out
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref WorkerDesiredCount
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 30
+        MetricAggregationType: Maximum
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 3
+            ScalingAdjustment: 1
+          - MetricIntervalLowerBound: 3
+            MetricIntervalUpperBound: 10
+            ScalingAdjustment: 2
+          - MetricIntervalLowerBound: 10
+            ScalingAdjustment: 4
+
+  ScaleInPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: geo-audit-worker-scale-in
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref WorkerDesiredCount
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 300
+        MetricAggregationType: Maximum
+        StepAdjustments:
+          - MetricIntervalUpperBound: 0
+            ScalingAdjustment: -1
+
+  QueueWaitingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Add audit workers when scans are waiting.
+      Namespace: GEO/AuditWorker
+      MetricName: QueuedAudits
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+
+  WorkerIdleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Remove one worker only when no audit is queued or running.
+      Namespace: GEO/AuditWorker
+      MetricName: OutstandingAudits
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 10
+      DatapointsToAlarm: 10
+      Threshold: 0
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ScaleInPolicy
+
+Outputs:
+  ScalableTarget:
+    Value: !Ref WorkerDesiredCount
