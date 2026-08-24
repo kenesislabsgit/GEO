@@ -4,8 +4,7 @@ import { JsonLd } from "@/components/site/json-ld";
 import { Reveal } from "@/components/site/reveal";
 import { BLOG_CATEGORIES, blogPosts } from "@/lib/blog";
 import { routes } from "@/lib/routes";
-
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata = {
   title: "Blog",
@@ -36,12 +35,12 @@ export default function BlogIndexPage() {
           "@context": "https://schema.org",
           "@type": "Blog",
           name: "Arcanoris Blog",
-          url: `${appUrl}/blog`,
+          url: `${SITE_URL}/blog`,
           description: metadata.description,
           blogPost: posts.map((post) => ({
             "@type": "BlogPosting",
             headline: post.title,
-            url: `${appUrl}${routes.blogPost(post.slug)}`,
+            url: `${SITE_URL}${routes.blogPost(post.slug)}`,
             datePublished: post.published,
             dateModified: post.updated,
           })),

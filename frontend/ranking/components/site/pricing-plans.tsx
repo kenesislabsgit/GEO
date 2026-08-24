@@ -67,12 +67,7 @@ function planCta(
     return { href: PRO_CONTACT_HREF, label: "Contact us" };
   }
   if (planId === "free") {
-    const href =
-      variant === "teaser"
-        ? routes.login({ mode: "signup", returnTo: routes.newScan() })
-        : signedIn
-          ? routes.newScan()
-          : routes.freeAuditSignup;
+    const href = signedIn ? routes.newScan() : routes.freeAuditSignup;
     return { href, label: "Run free audit" };
   }
   const billing = routes.billing({ plan: planId, interval });

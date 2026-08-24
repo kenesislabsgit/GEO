@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { BLOG_CATEGORIES, blogPosts, getPost, type PostBlock } from "@/lib/blog";
 import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+import { SITE_URL } from "@/lib/site";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -149,29 +148,29 @@ export default async function BlogPostPage({ params }: Props) {
               description: post.description,
               datePublished: post.published,
               dateModified: post.updated,
-              url: `${appUrl}${routes.blogPost(post.slug)}`,
-              author: { "@type": "Organization", name: APP_NAME, url: appUrl },
-              publisher: { "@type": "Organization", name: APP_NAME, url: appUrl },
+              url: `${SITE_URL}${routes.blogPost(post.slug)}`,
+              author: { "@type": "Organization", name: APP_NAME, url: SITE_URL },
+              publisher: { "@type": "Organization", name: APP_NAME, url: SITE_URL },
               mainEntityOfPage: {
                 "@type": "WebPage",
-                "@id": `${appUrl}${routes.blogPost(post.slug)}`,
+                "@id": `${SITE_URL}${routes.blogPost(post.slug)}`,
               },
             },
             {
               "@type": "BreadcrumbList",
               itemListElement: [
-                { "@type": "ListItem", position: 1, name: "Home", item: appUrl },
+                { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
                 {
                   "@type": "ListItem",
                   position: 2,
                   name: "Blog",
-                  item: `${appUrl}${routes.blog}`,
+                  item: `${SITE_URL}${routes.blog}`,
                 },
                 {
                   "@type": "ListItem",
                   position: 3,
                   name: post.title,
-                  item: `${appUrl}${routes.blogPost(post.slug)}`,
+                  item: `${SITE_URL}${routes.blogPost(post.slug)}`,
                 },
               ],
             },

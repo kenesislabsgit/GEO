@@ -9,10 +9,10 @@ import { HorizontalScrollHint } from "@/components/site/scroll-hint";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import { SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
-import { APP_NAME } from "@/lib/constants";
+import { ALL_PROVIDERS, APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { SITE_URL } from "@/lib/site";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const PLAN_IDS: PlanId[] = SOLD_PLAN_IDS;
 
 export const metadata = {
@@ -143,7 +143,7 @@ const FAQS = [
   },
   {
     q: "How do the AI providers work on each plan?",
-    a: "Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all 14 AI providers - also Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.",
+    a: `Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all ${ALL_PROVIDERS.length} AI providers - also Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
   },
   {
     q: "What does the free audit include?",
@@ -194,7 +194,7 @@ export default async function PricingPage() {
           name: `${APP_NAME} AI visibility monitoring`,
           description:
             "AI visibility monitoring: measures whether AI answer engines like ChatGPT, Claude, and Gemini mention and recommend your brand.",
-          brand: { "@type": "Organization", name: APP_NAME, url: appUrl },
+          brand: { "@type": "Organization", name: APP_NAME, url: SITE_URL },
           offers: {
             "@type": "AggregateOffer",
             priceCurrency: "USD",
@@ -209,7 +209,7 @@ export default async function PricingPage() {
                 description: plan.description,
                 price: String(plan.monthlyPriceUsd),
                 priceCurrency: "USD",
-                url: `${appUrl}${routes.pricing}`,
+                url: `${SITE_URL}${routes.pricing}`,
                 ...(plan.monthlyPriceUsd > 0
                   ? {
                       priceSpecification: {

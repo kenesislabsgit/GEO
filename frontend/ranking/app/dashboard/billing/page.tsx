@@ -90,7 +90,7 @@ export default async function BillingPage({
           </p>
           <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full ${usagePct >= 90 ? "bg-destructive" : "bg-foreground"}`}
+              className="h-full rounded-full bg-foreground"
               style={{ width: `${usagePct}%` }}
             />
           </div>

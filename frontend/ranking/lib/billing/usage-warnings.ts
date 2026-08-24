@@ -12,14 +12,15 @@ export function getUsageWarningLevel(
   return "none";
 }
 
-export function usageWarningMessage(level: UsageWarningLevel): string | null {
+/** Calm one-liner for the dashboard. Not a warning. */
+export function usageNudgeCopy(level: UsageWarningLevel): string | null {
   switch (level) {
     case "warn70":
-      return "You have used 70% of your monthly AI checks. Consider upgrading or pausing low-priority questions.";
+      return "You've used 70% of this month's checks. Upgrade anytime if you want more room.";
     case "warn80":
-      return "You have used 80% of your monthly AI checks. Scheduled scans may skip if you hit the limit.";
+      return "You've used 80% of this month's checks. Add more from billing if you want to keep going.";
     case "exhausted":
-      return "Monthly AI check limit reached. Upgrade your plan or wait until the next billing period.";
+      return "This month's checks are used up. They refresh next period, or you can add more from billing.";
     default:
       return null;
   }

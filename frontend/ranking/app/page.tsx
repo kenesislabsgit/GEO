@@ -15,16 +15,15 @@ import { PricingPlans } from "@/components/site/pricing-plans";
 import {
   APP_NAME,
   APP_TAGLINE,
-  DEFAULT_SCAN_PROVIDERS,
+  ALL_PROVIDERS,
   providerDisplayName,
 } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata = {
   alternates: { canonical: "/" },
 };
-
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const faqs = [
   {
@@ -48,6 +47,22 @@ const faqs = [
 /** Inline stagger for children inside a <Reveal>. */
 function delayStyle(ms: number): CSSProperties {
   return { "--arc-delay": `${ms}ms` } as CSSProperties;
+}
+
+/** A provider name with its brand mark for mentions inside marketing copy. */
+function InlineProviderName({
+  provider,
+  children,
+}: {
+  provider: string;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-foreground">
+      <ProviderLogo provider={provider} className="size-4" />
+      {children}
+    </span>
+  );
 }
 
 /* ------------------------------------------------ the shift: AI answer -- */
@@ -450,23 +465,13 @@ function EvidencePanel() {
   );
 }
 
-// The default ten plus Qwen, so the hero strip reflects the full catalog
-// without changing what an audit pre-selects by default.
-// The full 14-provider library (matches PLAN_CONFIG.agency.providers) -
-// DEFAULT_SCAN_PROVIDERS is only the 10 pre-selected for a default scan.
-const PROVIDER_STRIP = [
-  ...DEFAULT_SCAN_PROVIDERS,
-  "groq",
-  "minimax",
-  "sarvam",
-  "qwen",
-] as const;
+const PROVIDER_STRIP = ALL_PROVIDERS;
 
 // What a Pro audit actually reports on - real feature names, not
 // filler. Two rows moving opposite ways so they don't read as one mechanical
 // strip; each is doubled at render time so its own loop has no visible seam.
 const STAT_CHIPS_ROW_1 = [
-  "14 providers available",
+  `${ALL_PROVIDERS.length} providers available`,
   "Cited sources",
   "Share of voice",
   "Position tracking",
@@ -509,24 +514,24 @@ export default function HomePage() {
           "@graph": [
             {
               "@type": "Organization",
-              "@id": `${appUrl}/#organization`,
+              "@id": `${SITE_URL}/#organization`,
               name: APP_NAME,
-              url: appUrl,
-              logo: `${appUrl}/icon.svg`,
+              url: SITE_URL,
+              logo: `${SITE_URL}/icon.svg`,
               description:
                 "AI visibility monitoring: measures whether AI answer engines like ChatGPT, Claude, and Gemini mention and recommend your brand.",
             },
             {
               "@type": "WebSite",
-              "@id": `${appUrl}/#website`,
+              "@id": `${SITE_URL}/#website`,
               name: APP_NAME,
-              url: appUrl,
-              publisher: { "@id": `${appUrl}/#organization` },
+              url: SITE_URL,
+              publisher: { "@id": `${SITE_URL}/#organization` },
             },
             {
               "@type": "SoftwareApplication",
               name: APP_NAME,
-              url: appUrl,
+              url: SITE_URL,
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description: `${APP_TAGLINE} Sampled AI visibility reports across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
@@ -536,7 +541,7 @@ export default function HomePage() {
                 priceCurrency: "USD",
                 description: "Free AI visibility audit - no card required.",
               },
-              publisher: { "@id": `${appUrl}/#organization` },
+              publisher: { "@id": `${SITE_URL}/#organization` },
             },
             {
               "@type": "FAQPage",
@@ -570,15 +575,19 @@ export default function HomePage() {
               <div className="relative z-10 grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
                 <div>
                   <h1 className="arc-fade-up font-heading text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
-                    Your buyers are asking AI.
+                    When buyers ask AI what to buy,
                     <span className="block text-muted-foreground">
-                      See who comes up.
+                      are you in the answer?
                     </span>
                   </h1>
 
                   <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-md text-base text-pretty text-muted-foreground md:text-lg">
-                    One buyer question, asked across ChatGPT, Claude, Gemini
-                    and seven more - measured into a score you can act on.
+                    See when{" "}
+                    <InlineProviderName provider="openai">ChatGPT</InlineProviderName>,{" "}
+                    <InlineProviderName provider="claude">Claude</InlineProviderName>,{" "}
+                    <InlineProviderName provider="gemini">Gemini</InlineProviderName>{" "}
+                    and other AI platforms recommend your brand, who outranks you,
+                    and what to fix.
                   </p>
 
                   {/* A GET form ignores any query string already on `action`
@@ -647,7 +656,9 @@ export default function HomePage() {
                   AI doesn&rsquo;t give ten links. It names two or three products.
                 </h2>
                 <p className="mt-4 max-w-md text-muted-foreground">
-                  Buyers ask ChatGPT what to use and get a short list of names.
+                  Buyers ask{" "}
+                  <InlineProviderName provider="openai">ChatGPT</InlineProviderName>{" "}
+                  what to use and get a short list of names.
                   There is no page two - if you&rsquo;re not on the list,
                   you&rsquo;re invisible.
                 </p>
@@ -679,7 +690,7 @@ export default function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Answers measured across 14 AI models
+              Answers measured across {ALL_PROVIDERS.length} AI providers
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {PROVIDER_STRIP.map((id, index) => (
@@ -706,8 +717,8 @@ export default function HomePage() {
                 Evidence, not vibes
               </h2>
               <p className="mt-3 text-muted-foreground">
-                Everything below ships in every paid report - and the free audit
-                is a real slice of it.
+                See where you appear, how often you win, and the answers and
+                sources behind every result.
               </p>
             </Reveal>
 
@@ -722,8 +733,8 @@ export default function HomePage() {
                   A score that moves when you do
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Mentions, position and evidence quality compiled into one number -
-                  comparable scan after scan, never a black box.
+                  Mentions and position rolled into a comparable 0-100 view,
+                  with evidence quality shown alongside it.
                 </p>
                 <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
                   <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -760,8 +771,8 @@ export default function HomePage() {
                     Grow across every market
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Track search performance across countries and discover
-                    where your brand has the most potential.
+                    Compare AI visibility across countries to see where your
+                    brand leads or falls behind.
                   </p>
                 </div>
               </div>
@@ -798,11 +809,11 @@ export default function HomePage() {
                     Providers
                   </p>
                   <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                    One method, every model
+                    One method, every provider
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    The same buyer questions asked across ChatGPT, Claude, Gemini
-                    and more - answers compared side by side.
+                    Compare the same buyer questions across 10 selected
+                    providers from a catalog of {ALL_PROVIDERS.length}.
                   </p>
                 </div>
               </div>
@@ -815,7 +826,7 @@ export default function HomePage() {
                   200
                 </p>
                 <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
-                  provider answers per Pro audit - 20 questions × 10 AIs
+                  provider answers per Pro audit - 20 questions × 10 selected providers
                 </p>
                 <div className="mt-6 flex flex-col gap-2 overflow-hidden">
                   <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
@@ -904,9 +915,8 @@ export default function HomePage() {
                 From a score to a plan
               </h2>
               <p className="mt-3 text-muted-foreground">
-                The report tells you where you stand. The dashboard turns it
-                into who is beating you, what to fix first, and the proof
-                behind every number.
+                Turn the findings into competitor insight, prioritized fixes,
+                ongoing monitoring, and results your team can use.
               </p>
             </Reveal>
 
@@ -977,24 +987,24 @@ export default function HomePage() {
               <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
                 <Reveal direction="right" delay={120} className="lg:order-2">
                   <span className="inline-flex rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium shadow-sm">
-                    Answers, kept
+                    Monitor and share
                   </span>
                   <h3 className="font-heading mt-5 max-w-md text-3xl font-semibold tracking-tight md:text-4xl">
-                    Proof you can show your team
+                    Track progress and share the proof
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    Every answer is stored word for word. When the score moves,
-                    you can open the exact answers that moved it.
+                    Scheduled scans flag meaningful changes, while shareable
+                    reports keep the underlying answers one click away.
                   </p>
                   <ul className="mt-6 space-y-3.5">
                     <CheckItem delay={200}>
-                      Full answer text, kept per scan
+                      Weekly or daily monitoring
                     </CheckItem>
                     <CheckItem delay={300}>
-                      Provider, position, and mention flagged
+                      Email alerts when visibility shifts
                     </CheckItem>
                     <CheckItem delay={400}>
-                      Citations linked to their source pages
+                      Public or private links, plus PDF and CSV exports
                     </CheckItem>
                   </ul>
                 </Reveal>
