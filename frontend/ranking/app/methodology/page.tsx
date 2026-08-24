@@ -1,6 +1,10 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { Badge } from "@/components/ui/badge";
-import { METHODOLOGY_VERSION, SCORE_WEIGHTS } from "@/lib/constants";
+import {
+  ALL_PROVIDERS,
+  METHODOLOGY_VERSION,
+  SCORE_WEIGHTS,
+} from "@/lib/constants";
 
 export const metadata = {
   title: "Methodology",
@@ -51,7 +55,7 @@ const providers = [
   {
     name: "Llama, Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam, Qwen",
     detail:
-      "Additional model perspectives via their APIs. The exact model is stored with every answer; a provider that cannot answer marks the scan partial rather than vanishing.",
+      "Additional providers queried through their APIs. The exact model is stored with every answer; a provider that cannot answer marks the scan partial rather than vanishing.",
   },
 ];
 
@@ -77,10 +81,10 @@ export default function MethodologyPage() {
           Provider sampling
         </h2>
         <p className="mt-3 leading-relaxed text-muted-foreground">
-          We query official provider APIs only - never scraped consumer
-          interfaces. API samples are not guaranteed to match what an
-          individual user sees in a consumer chat interface, and we
-          label every result accordingly.
+          Arcanoris supports {ALL_PROVIDERS.length} AI providers. We query
+          provider APIs only - never scraped consumer interfaces. API samples
+          are not guaranteed to match what an individual user sees in a
+          consumer chat interface, and we label every result accordingly.
         </p>
         <div className="arc-list mt-6 divide-y divide-border">
           {providers.map((provider) => (

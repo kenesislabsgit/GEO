@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blog";
 import { getPublicReportSitemapEntries } from "@/lib/db/repository";
+import { SITE_URL } from "@/lib/site";
 
 // This has no dynamic APIs (no cookies/headers), so Next prerenders it once
 // at build time and would otherwise serve that same snapshot until the next
@@ -10,7 +11,6 @@ import { getPublicReportSitemapEntries } from "@/lib/db/repository";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const latestPost = blogPosts
     .map((p) => p.updated)
     .sort()
@@ -21,27 +21,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // whoever already has the direct link.
   const publicReports = await getPublicReportSitemapEntries().catch(() => []);
   return [
-    { url: `${base}/`, changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/pricing`, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${base}/methodology`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE_URL}/pricing`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/methodology`, changeFrequency: "monthly", priority: 0.7 },
     {
-      url: `${base}/blog`,
+      url: `${SITE_URL}/blog`,
       changeFrequency: "weekly",
       priority: 0.7,
       lastModified: latestPost ? new Date(latestPost) : undefined,
     },
     ...blogPosts.map((post) => ({
-      url: `${base}/blog/${post.slug}`,
+      url: `${SITE_URL}/blog/${post.slug}`,
       changeFrequency: "monthly" as const,
       priority: 0.6,
       lastModified: new Date(post.updated),
     })),
     ...publicReports.map((report) => ({
-      url: `${base}/report/${report.slug}`,
+      url: `${SITE_URL}/report/${report.slug}`,
       changeFrequency: "weekly" as const,
       priority: 0.5,
       lastModified: new Date(report.updatedAt),
     })),
-    { url: `${base}/contact`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/contact`, changeFrequency: "yearly", priority: 0.3 },
   ];
 }

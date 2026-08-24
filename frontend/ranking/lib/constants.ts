@@ -38,15 +38,8 @@ export function providerDisplayName(id: string): string {
   return PROVIDER_DISPLAY_NAMES[id] ?? id;
 }
 
-/**
- * The ten providers pre-selected for a Pro+/Agency audit, in display order.
- * Every id here is genuinely integrated in the audit engine
- * (GEO/geo_audit/llm.py - the OpenAI-compatible registry covers Perplexity,
- * Grok, DeepSeek, Kimi, Groq, MiniMax, Sarvam and Qwen). Plans offer more than an
- * audit runs at once; users swap picks in the provider picker. This list is
- * also what the landing and pricing pages show.
- */
-export const DEFAULT_SCAN_PROVIDERS = [
+/** Complete customer-selectable provider catalog, in display order. */
+export const ALL_PROVIDERS = [
   "openai_search",
   "bedrock_claude",
   "gemini",
@@ -57,6 +50,22 @@ export const DEFAULT_SCAN_PROVIDERS = [
   "bedrock_mistral",
   "kimi",
   "bedrock_nova",
+  "groq",
+  "minimax",
+  "sarvam",
+  "qwen",
+] as const satisfies readonly ProviderId[];
+
+/**
+ * The ten providers pre-selected for a Pro+/Agency audit, in display order.
+ * Every id here is genuinely integrated in the audit engine
+ * (GEO/geo_audit/llm.py - the OpenAI-compatible registry covers Perplexity,
+ * Grok, DeepSeek, Kimi, Groq, MiniMax, Sarvam and Qwen). Plans offer more than an
+ * audit runs at once; users swap picks in the provider picker. This list is
+ * also what the landing and pricing pages show.
+ */
+export const DEFAULT_SCAN_PROVIDERS = [
+  ...ALL_PROVIDERS.slice(0, 10),
 ] as const satisfies readonly ProviderId[];
 
 export const SUPPORTED_COUNTRIES = [

@@ -29,8 +29,7 @@ import { toPublicReportDTO, type PublicReportDTO } from "@/lib/reports/public-dt
 import { APP_NAME, providerDisplayName } from "@/lib/constants";
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
-
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+import { SITE_URL } from "@/lib/site";
 
 function ordinal(position: number): string {
   const suffix =
@@ -148,7 +147,7 @@ export default async function ReportPage({
   // Structured data only for genuinely public reports, mirroring
   // generateMetadata's own indexing rule above - a private report stays
   // invisible to crawlers even when its owner is the one rendering this page.
-  const reportUrl = `${appUrl}${routes.publicReport(slug)}`;
+  const reportUrl = `${SITE_URL}${routes.publicReport(slug)}`;
 
   return (
     <>
@@ -160,7 +159,7 @@ export default async function ReportPage({
               {
                 "@type": "BreadcrumbList",
                 itemListElement: [
-                  { "@type": "ListItem", position: 1, name: "Home", item: appUrl },
+                  { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
                   {
                     "@type": "ListItem",
                     position: 2,
@@ -177,8 +176,8 @@ export default async function ReportPage({
                 url: reportUrl,
                 dateCreated: report.scan.createdAt,
                 dateModified: report.scan.completedAt ?? report.scan.createdAt,
-                creator: { "@id": `${appUrl}/#organization` },
-                publisher: { "@id": `${appUrl}/#organization` },
+                creator: { "@id": `${SITE_URL}/#organization` },
+                publisher: { "@id": `${SITE_URL}/#organization` },
                 about: {
                   "@type": "Organization",
                   name: report.brand.name,

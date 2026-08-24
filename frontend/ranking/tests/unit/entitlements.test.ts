@@ -6,6 +6,7 @@ import {
   EntitlementError,
   PLAN_CONFIG,
 } from "@/lib/billing/entitlements";
+import { ALL_PROVIDERS } from "@/lib/constants";
 
 describe("entitlements", () => {
   it("allows free plan one brand, then blocks the second", () => {
@@ -54,5 +55,11 @@ describe("entitlements", () => {
     expect(defaultScanProviders("founder")).toHaveLength(
       PLAN_CONFIG.founder.features.providersPerScan,
     );
+  });
+
+  it("offers all 14 providers on Pro and selects 10 per audit", () => {
+    expect(PLAN_CONFIG.agency.features.providers).toEqual([...ALL_PROVIDERS]);
+    expect(PLAN_CONFIG.agency.features.providersPerScan).toBe(10);
+    expect(defaultScanProviders("agency")).toHaveLength(10);
   });
 });

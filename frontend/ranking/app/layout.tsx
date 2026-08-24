@@ -9,6 +9,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const sans = Geist({
@@ -21,13 +22,11 @@ const mono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
 const description =
   "See how your brand appears across AI answers, which competitors are winning, and what sources are shaping the results.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL(SITE_URL),
   // The app already owns light/dark theming. Dark Reader rewrites SVG stroke
   // attributes before React hydrates, making the client DOM differ from the
   // server HTML and producing hydration errors on every Lucide icon.

@@ -51,10 +51,7 @@ export async function SiteHeader() {
                 <Link href={routes.login({ mode: "signin" })}>Sign in</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href={routes.pricing}>
-                  <span className="sm:hidden">Start</span>
-                  <span className="hidden sm:inline">Choose a plan</span>
-                </Link>
+                <Link href={routes.freeAuditSignup}>Run free audit</Link>
               </Button>
             </>
           )}

@@ -147,10 +147,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       providers: [
         "openai_search",
         "bedrock_claude",
-        // Gemini is out until it has a paid quota. On a free key it answered
-        // seven of ten questions and returned redirect addresses that identify
-        // nobody, so it cost a tenth of the run's answers and contributed no
-        // usable citations.
+        "gemini",
         "perplexity",
         "grok",
         "deepseek",
@@ -203,10 +200,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       providers: [
         "openai_search",
         "bedrock_claude",
-        // Gemini is out until it has a paid quota. On a free key it answered
-        // seven of ten questions and returned redirect addresses that identify
-        // nobody, so it cost a tenth of the run's answers and contributed no
-        // usable citations.
+        "gemini",
         "perplexity",
         "grok",
         "deepseek",

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site";
 
 const PUBLIC = ["/", "/pricing", "/methodology", "/blog", "/report/"];
 const PRIVATE = ["/dashboard", "/admin", "/api/", "/login"];
@@ -21,7 +22,6 @@ const AI_CRAWLERS = [
 ];
 
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   return {
     rules: [
       {
@@ -35,6 +35,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: PRIVATE,
       })),
     ],
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
