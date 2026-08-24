@@ -1163,6 +1163,7 @@ def main() -> None:
             top_n=args.top_n,
             user_company=user_company,
             user_aliases=aliases,
+            company_profile=profile if args.profile else None,
         )
 
         aggregate_path = raw_path.parent / "recommendation_patterns.json"
@@ -1842,6 +1843,7 @@ def main() -> None:
             user_company=profile.get("company_name"),
             user_aliases=aliases,
             company_aliases=company_aliases,
+            company_profile=profile,
         )
         patterns_path = run_dir / "recommendation_patterns.json"
         patterns_path.write_text(

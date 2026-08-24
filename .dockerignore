@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.env
+.env*.local
+outputs
+GEO/outputs
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo

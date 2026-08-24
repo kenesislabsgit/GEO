@@ -777,6 +777,7 @@ def normalize_company_profile(
             scope.get("excluded_provider_types")
         ),
     }
+    normalized["category_validation"] = build_category_validation(normalized)
 
     known_urls = {
         str(page.get("url", "")).rstrip("/")
@@ -821,6 +822,49 @@ def normalize_company_profile(
         },
     }
     return normalized
+
+
+def build_category_validation(profile: dict[str, Any]) -> dict[str, Any]:
+    signals = []
+    for field in (
+        "category",
+        "target_audience",
+        "industries",
+        "use_cases",
+        "problems_solved",
+        "primary_offerings",
+    ):
+        value = profile.get(field)
+        if isinstance(value, list):
+            signals.extend(str(item) for item in value if item)
+        elif value and value != "Unknown":
+            signals.append(str(value))
+
+    direct_scope = ""
+    scope = profile.get("competitor_scope")
+    if isinstance(scope, dict):
+        direct_scope = clean_scalar(scope.get("direct_peer_description"), "Unknown")
+        if direct_scope != "Unknown":
+            signals.append(direct_scope)
+
+    signal_count = len([signal for signal in signals if signal.strip()])
+    if signal_count >= 5 and direct_scope != "Unknown":
+        confidence = "High"
+    elif signal_count >= 3:
+        confidence = "Medium"
+    elif signal_count:
+        confidence = "Low"
+    else:
+        confidence = "Unknown"
+
+    return {
+        "confidence": confidence,
+        "supported_signal_count": signal_count,
+        "direct_peer_description_present": direct_scope != "Unknown",
+        "note": (
+            "Category confidence is derived from validated website profile fields."
+        ),
+    }
 
 
 def build_page_evidence_index(

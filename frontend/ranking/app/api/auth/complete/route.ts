@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
+import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
 import { listBrandsForOwner } from "@/lib/db/repository";
 import { routes, safeReturnTo } from "@/lib/routes";
 
@@ -18,13 +19,13 @@ async function resolveRedirect(input: {
     return `/claim/${input.claim}`;
   }
   const returnTo = safeReturnTo(input.returnTo);
-  if (returnTo) return returnTo;
+  if (returnTo) return canonicalDashboardRedirect(returnTo);
 
   // New accounts with nothing to show yet go straight into the signed-in
   // scan flow - never the public homepage hero.
   const brands = await listBrandsForOwner(input.userId);
-  if (brands.length === 0) return routes.newScan();
-  return routes.dashboard;
+  if (brands.length === 0) return canonicalDashboardRedirect(routes.newScan());
+  return canonicalDashboardRedirect(routes.dashboard);
 }
 
 async function sessionUserId(request: Request): Promise<string | null> {

@@ -82,6 +82,7 @@ def aggregate_recommendations(
     user_company: str | None = None,
     user_aliases: list[str] | None = None,
     company_aliases: dict[str, str] | None = None,
+    company_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """company_aliases maps a normalized spelling to its canonical display name
     (from company_merge). It changes only how mentions are grouped when counted;
@@ -250,10 +251,12 @@ def aggregate_recommendations(
         item["prompts"] = item["prompts"][:10]
         item["source_urls"] = sorted(item["source_urls"])
         item["source_analysis"] = analyze_sources(item["source_urls"])
+        item["category_fit"] = competitor_category_fit(item, company_profile)
         competitor_stats.append(item)
 
     competitor_stats.sort(
         key=lambda item: (
+            category_sort_rank(item),
             -item["mention_frequency"],
             item["average_rank"] if item["average_rank"] is not None else 999,
             -item["model_count"],
@@ -315,6 +318,7 @@ def aggregate_recommendations(
             raw_results,
             user_keys,
             company_aliases,
+            company_profile,
         ),
         "source_analysis": build_global_source_analysis(competitor_stats),
         "top_sources": sorted(
@@ -344,6 +348,7 @@ def rank_for_investigation(
     raw_results: list[dict[str, Any]],
     user_keys: set[str],
     company_aliases: dict[str, str] | None = None,
+    company_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Whose website is worth reading to explain why this company lost.
 
@@ -426,8 +431,10 @@ def rank_for_investigation(
     for entry in ranked:
         entry["question_count"] = len(entry["questions"])
         entry["questions"] = entry["questions"][:5]
+        entry["category_fit"] = competitor_category_fit(entry, company_profile)
     ranked.sort(
         key=lambda entry: (
+            category_sort_rank(entry),
             -entry["priority_score"],
             entry["best_rank"] if entry["best_rank"] is not None else 999,
             -entry["question_count"],
@@ -435,6 +442,132 @@ def rank_for_investigation(
         )
     )
     return ranked
+
+
+def category_sort_rank(item: dict[str, Any]) -> int:
+    fit = item.get("category_fit") or {}
+    return {
+        "direct_peer": 0,
+        "probable_peer": 1,
+        "broad_alternative": 2,
+        "weak_or_unclear": 3,
+    }.get(str(fit.get("classification")), 2)
+
+
+def competitor_category_fit(
+    item: dict[str, Any],
+    company_profile: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not company_profile:
+        return {
+            "classification": "not_evaluated",
+            "score": 0,
+            "matched_terms": [],
+            "excluded_terms": [],
+            "reason": "No audited company profile was supplied.",
+        }
+
+    profile_terms = profile_relevance_terms(company_profile)
+    excluded_terms = profile_excluded_terms(company_profile)
+    text = competitor_context_text(item)
+    matched = sorted({term for term in profile_terms if term in text})
+    excluded = sorted({term for term in excluded_terms if term in text})
+    score = len(matched) * 2 - len(excluded) * 3
+
+    if excluded and not matched:
+        classification = "weak_or_unclear"
+        reason = "Matched an excluded provider type and no direct category signal."
+    elif len(matched) >= 3:
+        classification = "direct_peer"
+        reason = "Multiple audited-company category terms appeared in AI answer context."
+    elif matched:
+        classification = "probable_peer"
+        reason = "Some audited-company category terms appeared in AI answer context."
+    else:
+        classification = "broad_alternative"
+        reason = "AI named it, but the answer context did not show a direct category match."
+
+    return {
+        "classification": classification,
+        "score": score,
+        "matched_terms": matched[:10],
+        "excluded_terms": excluded[:10],
+        "reason": reason,
+    }
+
+
+def profile_relevance_terms(company_profile: dict[str, Any]) -> set[str]:
+    values: list[Any] = [
+        company_profile.get("category"),
+        company_profile.get("target_audience"),
+        company_profile.get("business_type"),
+        company_profile.get("delivery_model"),
+        company_profile.get("unique_value_proposition"),
+        company_profile.get("competitor_scope", {}).get("direct_peer_description")
+        if isinstance(company_profile.get("competitor_scope"), dict)
+        else None,
+    ]
+    for field in (
+        "industries",
+        "use_cases",
+        "problems_solved",
+        "primary_offerings",
+    ):
+        values.extend(company_profile.get(field) or [])
+    for persona in company_profile.get("buyer_personas") or []:
+        if not isinstance(persona, dict):
+            continue
+        values.extend(persona.get("jobs_to_be_done") or [])
+        values.extend(persona.get("decision_factors") or [])
+
+    return {
+        term
+        for value in values
+        for term in tokenize_business_terms(value)
+        if len(term) >= 3
+    }
+
+
+def profile_excluded_terms(company_profile: dict[str, Any]) -> set[str]:
+    scope = company_profile.get("competitor_scope")
+    if not isinstance(scope, dict):
+        return set()
+    values = list(scope.get("excluded_provider_types") or [])
+    values.extend(scope.get("larger_alternative_types") or [])
+    return {
+        term
+        for value in values
+        for term in tokenize_business_terms(value)
+        if len(term) >= 4
+    }
+
+
+def tokenize_business_terms(value: Any) -> set[str]:
+    text = normalize_company_name(str(value or ""))
+    words = [
+        word
+        for word in re.findall(r"[a-z0-9]+", text)
+        if word not in COMPANY_SUFFIX_WORDS and len(word) >= 3
+    ]
+    terms = set(words)
+    for size in (2, 3):
+        for index in range(0, max(0, len(words) - size + 1)):
+            terms.add(" ".join(words[index : index + size]))
+    return terms
+
+
+def competitor_context_text(item: dict[str, Any]) -> str:
+    parts: list[str] = [
+        str(item.get("company_name", "")),
+        " ".join(str(value) for value in item.get("sample_reasoning", []) or []),
+    ]
+    for question in item.get("questions", []) or []:
+        if isinstance(question, dict):
+            parts.append(str(question.get("prompt", "")))
+            parts.append(str(question.get("reason", "")))
+        else:
+            parts.append(str(question))
+    return normalize_company_name(" ".join(parts))
 
 
 def user_rank_by_prompt(

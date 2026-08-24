@@ -14,6 +14,7 @@ import { enqueueScan } from "@/lib/scans/queue";
 import { hashIp } from "@/lib/security/hash";
 import { limitAuditStart } from "@/lib/rate-limit";
 import { normalizeDomain, UrlValidationError } from "@/lib/security/url";
+import { isEmailDeliveryConfigured } from "@/lib/email/resend";
 import type { ScanInputSnapshot } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
   // credit. Google accounts arrive verified; password accounts confirm once.
   // Only enforced when email sending is configured - otherwise nobody could
   // ever verify and the whole product would lock itself.
-  if (process.env.RESEND_API_KEY) {
+  if (isEmailDeliveryConfigured()) {
     const row = await one<{ emailVerified: boolean }>(
       `select "emailVerified" from "user" where id = $1`,
       [user.id],

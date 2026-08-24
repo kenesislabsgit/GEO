@@ -73,6 +73,7 @@ def build_scorecard(
             ),
             "average_rank": item.get("average_rank"),
             "mentions_by_assistant": item.get("mentions_by_assistant", {}),
+            "category_fit": item.get("category_fit", {}),
         }
         for item in recommendation_patterns.get("competitors", [])[:15]
     ]
@@ -101,6 +102,15 @@ def build_scorecard(
         ),
         "competitor_scores": competitor_scores,
         "weights": SCORE_WEIGHTS,
+        "score_explanation": build_score_explanation(
+            responses=responses,
+            user_mentions=user_mentions,
+            positions=positions,
+            citation_score=citation_score,
+            source_quality_score=source_quality_score,
+            data_confidence_score=data_confidence_score,
+            quality_summary=quality_summary or {},
+        ),
     }
 
 
@@ -149,3 +159,63 @@ def calculate_data_confidence_score(
     crawl_quality = with_evidence / checked
 
     return ((response_quality * 0.6) + (crawl_quality * 0.4)) * 100
+
+
+def build_score_explanation(
+    *,
+    responses: int,
+    user_mentions: int,
+    positions: list[Any],
+    citation_score: float,
+    source_quality_score: float,
+    data_confidence_score: float,
+    quality_summary: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "scope": (
+            "This score measures visibility in the sampled AI buyer answers, "
+            "not the company's overall market reputation or revenue."
+        ),
+        "components": [
+            {
+                "name": "mention",
+                "weight": SCORE_WEIGHTS["mention"],
+                "reason": f"The company appeared in {user_mentions} of {responses} collected answers.",
+            },
+            {
+                "name": "position",
+                "weight": SCORE_WEIGHTS["position"],
+                "reason": (
+                    "Average rank only counts answers where the company appeared."
+                    if positions
+                    else "The company did not appear, so no ranking position was available."
+                ),
+            },
+            {
+                "name": "citation",
+                "weight": SCORE_WEIGHTS["citation"],
+                "reason": (
+                    "Grounded source URLs were present in the sampled answers."
+                    if citation_score
+                    else "No usable grounded source URLs were found for the sampled answers."
+                ),
+            },
+            {
+                "name": "source_quality",
+                "weight": SCORE_WEIGHTS["source_quality"],
+                "reason": (
+                    "Source quality is reported but currently has zero scoring weight."
+                    if SCORE_WEIGHTS["source_quality"] == 0
+                    else "Source quality contributes to the score."
+                ),
+            },
+            {
+                "name": "data_confidence",
+                "weight": SCORE_WEIGHTS["data_confidence"],
+                "reason": (
+                    f"Data confidence is {round(data_confidence_score, 1)} based on parse success and competitor evidence coverage."
+                ),
+            },
+        ],
+        "warnings": quality_summary.get("warnings", []),
+    }

@@ -250,7 +250,7 @@ Once five strong, different entries exist, a separate final AI call reads this
 map and creates the findings and recommendations.
 
 Question, source-inventory and page budgets are tracked separately. When the audit contains enough losses, investigate at
-least six distinct lost questions covering different buyer needs before
+least five distinct lost questions covering different buyer needs before
 finalising the five actions. Open questions together for speed, then use the
 remaining opens on the strongest competitor and audited-company pages needed to
 prove each distinct gap. Do not write all five from one or two subject areas.
@@ -270,7 +270,7 @@ then at what that company publishes and what is written about them elsewhere.
 
 Open the strongest lost questions and read why the winning companies were
 recommended. Sample the audit broadly instead of stopping after the first few
-losses. When available, inspect at least six failed questions from different
+losses. When available, inspect at least five failed questions from different
 buyer needs. You may open several questions or pages together for speed, but do
 not decide the actions yet. First read the returned page content, group questions
 that reveal the same underlying website gap, and compare the most relevant
@@ -558,6 +558,47 @@ AUDIT_RECOMMENDATION_SCHEMA = {
     "required": ["recommendations", "summary"],
 }
 
+FINAL_WRITER_RECOMMENDATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "recommendations": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "finding_id": {"type": "string"},
+                    "observation": {"type": "string"},
+                    "evidence": {"type": "string"},
+                    "suggested_change": {"type": "string"},
+                    "expected_impact": {"type": "string"},
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["High", "Medium", "Low"],
+                    },
+                    "competitor_evidence_reason": {"type": "string"},
+                    "audited_company_evidence_reason": {"type": "string"},
+                },
+                "required": [
+                    "finding_id",
+                    "observation",
+                    "evidence",
+                    "suggested_change",
+                    "expected_impact",
+                    "confidence",
+                    "competitor_evidence_reason",
+                    "audited_company_evidence_reason",
+                ],
+            },
+        },
+        "summary": {"type": "string"},
+    },
+    "required": ["recommendations", "summary"],
+}
+
 
 def generate_audit_recommendations(
     company_profile: dict[str, Any],
@@ -644,6 +685,11 @@ def generate_audit_recommendations(
     notebook_enforced = "finding_notebook" in payload
     if not isinstance(parsed, list):
         parsed = []
+    if notebook_enforced:
+        parsed = recommendations_from_final_writer(
+            parsed,
+            payload.get("finding_notebook", []),
+        )
     # Where the report stands is written once, in the call that already knows
     # everything, and read straight off the payload afterwards. A dashboard
     # that picked one of three sentences off the mention rate was the only
@@ -692,11 +738,16 @@ def generate_audit_recommendations(
     resolved = resolve_recommendation_evidence(
         with_top_finding, evidence_catalog
     )
+    if notebook_enforced:
+        resolved = keep_complete_notebook_evidence_pairs(resolved)
     resolved = resolve_affected_prompts(resolved, prompt_losses, question_rows)
     resolved = keep_evidence_from_the_companies_that_won(resolved, company_name)
-    resolved = verify_selected_evidence_with_firecrawl(
-        resolved, firecrawl_client
-    )
+    if notebook_enforced:
+        resolved = keep_complete_notebook_evidence_pairs(resolved)
+    if not notebook_enforced:
+        resolved = verify_selected_evidence_with_firecrawl(
+            resolved, firecrawl_client
+        )
     return resolved, payload, None
 
 
@@ -818,9 +869,7 @@ def compact_recommendation_patterns(
                     ],
                 }
                 for position, item in enumerate(
-                    user_summary.get(
-                        "prompts_where_user_was_not_recommended", []
-                    )[:10],
+                    user_summary.get("prompts_where_user_was_not_recommended", []),
                     start=1,
                 )
             ],
@@ -1297,11 +1346,39 @@ def resolve_affected_prompts(
         for loss in prompt_losses
         if loss.get("loss_id")
     }
-    by_question = {
-        str(loss.get("prompt", "")).strip(): loss
-        for loss in prompt_losses
-        if loss.get("prompt")
-    }
+    by_question: dict[str, dict[str, Any]] = {}
+    for loss in prompt_losses:
+        question = str(loss.get("prompt", "")).strip()
+        if not question:
+            continue
+        current = by_question.get(question)
+        if current is None:
+            by_question[question] = {
+                **loss,
+                "recommended_instead": normalize_string_list(
+                    loss.get("recommended_instead", [])
+                ),
+                "winners": list(loss.get("winners", []) or []),
+            }
+            continue
+        current["recommended_instead"] = list(
+            dict.fromkeys(
+                [
+                    *normalize_string_list(current.get("recommended_instead", [])),
+                    *normalize_string_list(loss.get("recommended_instead", [])),
+                ]
+            )
+        )[:5]
+        winner_keys = {
+            normalize_name(winner.get("company_name") or winner.get("grouped_name"))
+            for winner in current.get("winners", [])
+            if winner.get("company_name") or winner.get("grouped_name")
+        }
+        for winner in loss.get("winners", []) or []:
+            key = normalize_name(winner.get("company_name") or winner.get("grouped_name"))
+            if key and key not in winner_keys:
+                current.setdefault("winners", []).append(winner)
+                winner_keys.add(key)
     for row in question_rows or []:
         loss = by_question.get(str(row.get("question", "")).strip())
         if loss is not None:
@@ -1499,7 +1576,7 @@ def keep_evidence_from_the_companies_that_won(
         kept = [
             row
             for row in supporting
-            if normalize_name(row.get("company_name")) in winners
+            if any(names_match(row.get("company_name"), winner) for winner in winners)
         ]
         dropped = [
             {
@@ -1508,7 +1585,7 @@ def keep_evidence_from_the_companies_that_won(
                 "reason": "company_did_not_win_the_cited_question",
             }
             for row in supporting
-            if normalize_name(row.get("company_name")) not in winners
+            if not any(names_match(row.get("company_name"), winner) for winner in winners)
         ]
         if not dropped:
             cleaned.append(recommendation)
@@ -1734,11 +1811,12 @@ def meaningful_text(value: Any) -> bool:
 # One agent, with separate bounded budgets. A source-list request is cheap and
 # should not compete with reading the evidence itself. Repeated requests are
 # served from the conversation cache and consume no additional budget.
-MAX_QUESTION_OPENS = 10
-MAX_SOURCE_LOOKUPS = 8
-MAX_PAGE_OPENS = 24
-MAX_OPEN_TURNS = 16
+MAX_QUESTION_OPENS = 8
+MAX_SOURCE_LOOKUPS = 6
+MAX_PAGE_OPENS = 16
+MAX_OPEN_TURNS = 12
 REQUIRED_FINDINGS = 5
+TARGET_QUESTION_OPENS = 5
 MAX_REJECTED_FINDINGS = 6
 WRITER_PAGE_FETCH_TIMEOUT_SECONDS = 30
 WRITER_PAGE_FETCH_STEP_TIMEOUT_SECONDS = WRITER_PAGE_FETCH_TIMEOUT_SECONDS // 2
@@ -1982,6 +2060,91 @@ def recommendations_from_findings(
     ]
 
 
+def recommendations_from_final_writer(
+    writer_items: list[Any],
+    findings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Copy evidence and question ids from the validated notebook.
+
+    The final writer is allowed to choose and polish a saved finding, but not to
+    restate the finding's question or page ids. A live run put `finding-01`
+    where `q-03` belonged; treating the notebook as the owner of those ids keeps
+    the prose call from corrupting the evidence mapping.
+    """
+    by_id = {
+        str(item.get("finding_id", "")).strip(): item
+        for item in findings
+        if str(item.get("finding_id", "")).strip()
+    }
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in writer_items:
+        if not isinstance(item, dict):
+            continue
+        finding_id = str(item.get("finding_id", "")).strip()
+        finding = by_id.get(finding_id)
+        if finding is None or finding_id in seen:
+            continue
+        seen.add(finding_id)
+        base = recommendations_from_findings([finding])[0]
+        rows.append(
+            {
+                **base,
+                "finding_id": finding_id,
+                "observation": item.get("observation") or base["observation"],
+                "evidence": item.get("evidence") or base["evidence"],
+                "suggested_change": (
+                    item.get("suggested_change") or base["suggested_change"]
+                ),
+                "expected_impact": (
+                    item.get("expected_impact") or base["expected_impact"]
+                ),
+                "confidence": item.get("confidence") or base["confidence"],
+                "competitor_evidence_reason": (
+                    item.get("competitor_evidence_reason")
+                    or base["competitor_evidence_reason"]
+                ),
+                "audited_company_evidence_reason": (
+                    item.get("audited_company_evidence_reason")
+                    or base["audited_company_evidence_reason"]
+                ),
+            }
+        )
+    for finding in findings:
+        finding_id = str(finding.get("finding_id", "")).strip()
+        if not finding_id or finding_id in seen:
+            continue
+        rows.append(
+            {
+                **recommendations_from_findings([finding])[0],
+                "finding_id": finding_id,
+            }
+        )
+        seen.add(finding_id)
+        if len(rows) >= REQUIRED_FINDINGS:
+            break
+    return rows
+
+
+def keep_complete_notebook_evidence_pairs(
+    recommendations: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Notebook-backed recommendations need both validated pages to publish."""
+    kept = []
+    for recommendation in recommendations:
+        expected = normalize_string_list(recommendation.get("evidence_refs", []))[:2]
+        accepted = {
+            str(row.get("evidence_id"))
+            for row in recommendation.get("supporting_evidence", [])
+            if row.get("evidence_id")
+        }
+        if len(expected) >= 2 and all(
+            evidence_id in accepted for evidence_id in expected
+        ):
+            kept.append(recommendation)
+    return kept
+
+
 def write_from_evidence_map(
     parent_payload: dict[str, Any], findings: list[dict[str, Any]]
 ) -> str:
@@ -1990,10 +2153,11 @@ def write_from_evidence_map(
 evidence analysis map created by a separate research agent after it read the
 questions and pages. Read the whole map before writing. Create exactly five
 meaningfully different website or public-presence recommendations. Group related
-questions when one gap explains several losses. Every recommendation must use
-one competitor page_id and one audited-company page_id from the same analysis
-entry. Explain why both pages were chosen. Do not invent facts, page IDs, product
-features, or evidence outside the map. Return the required JSON only."""
+questions when one gap explains several losses. Each recommendation must choose
+one saved finding_id from the map. Do not repeat question IDs or page IDs; the
+backend copies those from the saved finding. Explain why both pages were chosen
+from the analysis entry. Do not invent facts, IDs, product features, or evidence
+outside the map. Return the required JSON only."""
     final_payload = build_chat_payload(
         final_prompt,
         json.dumps(
@@ -2010,7 +2174,7 @@ features, or evidence outside the map. Return the required JSON only."""
         "json_schema": {
             "name": "audit_recommendations",
             "strict": True,
-            "schema": AUDIT_RECOMMENDATION_SCHEMA,
+            "schema": FINAL_WRITER_RECOMMENDATION_SCHEMA,
         },
     }
     if str(final_payload.get("model", "")).startswith("gpt-5"):
@@ -2296,7 +2460,7 @@ def answer_with_open_tools(
             content = write_from_evidence_map(payload, findings)
             return finish(content)
 
-        question_target = min(6, len(question_rows))
+        question_target = min(TARGET_QUESTION_OPENS, len(question_rows))
         if len(opened_question_ids) < question_target:
             next_step = (
                 f"Open {question_target - len(opened_question_ids)} more distinct "

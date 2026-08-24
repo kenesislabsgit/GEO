@@ -76,6 +76,35 @@ def build_quality_summary(
         warnings.append(
             "Competitor names come from AI answers only and were not independently verified."
         )
+    if (
+        recommendation_patterns.get("top_competitors")
+        and 0 < competitors_with_evidence < 2
+    ):
+        warnings.append(
+            "Only one competitor website had verified evidence, so comparative findings have limited coverage."
+        )
+    requested_providers = set(
+        recommendation_patterns.get("summary", {}).get("responses_by_assistant", {})
+    )
+    providers_with_no_recommendations = [
+        provider
+        for provider in requested_providers
+        if parsed_recommendations_by_assistant.get(provider, 0) == 0
+    ]
+    if providers_with_no_recommendations:
+        warnings.append(
+            "Some providers answered but produced no parsed recommendations."
+        )
+    weak_fit_competitors = [
+        item.get("company_name", "Unknown")
+        for item in recommendation_patterns.get("top_competitors", [])
+        if (item.get("category_fit") or {}).get("classification")
+        in {"broad_alternative", "weak_or_unclear"}
+    ]
+    if weak_fit_competitors:
+        warnings.append(
+            "Some top recommended companies look like broad alternatives or weak category matches, so competitor comparisons should be reviewed."
+        )
 
     return {
         "responses_by_assistant": dict(sorted(responses_by_assistant.items())),
@@ -92,6 +121,7 @@ def build_quality_summary(
             else "standard"
         ),
         "comparison_high_gaps": comparison.get("summary", {}).get("high_priority_gaps", []),
+        "weak_fit_competitors": weak_fit_competitors,
         "source_type_counts": source_analysis.get("source_type_counts", []),
         "top_source_domains": source_analysis.get("top_domains", [])[:15],
         "warnings": warnings,

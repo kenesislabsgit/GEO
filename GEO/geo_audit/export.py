@@ -75,6 +75,7 @@ def build_frontend_export(
             "name": brand_name,
             "domain": domain,
             "category": company_profile.get("category"),
+            "category_validation": company_profile.get("category_validation", {}),
             "description": company_profile.get("unique_value_proposition"),
             "target_audience": company_profile.get("target_audience"),
             "aliases": [brand_name],
@@ -94,6 +95,12 @@ def build_frontend_export(
             "provider_coverage": provider_coverage,
             "partial_providers": partial_providers,
             "preview_mode": free_preview,
+            "depth": "free_preview" if free_preview else "pro_evidence_review",
+            "depth_note": (
+                "Free preview uses a smaller provider/question set and one lightweight recommendation."
+                if free_preview
+                else "Pro review uses multi-provider answers, competitor evidence, comparison, and verified recommendations."
+            ),
             "data_confidence": (
                 "low"
                 if free_preview
@@ -117,6 +124,7 @@ def build_frontend_export(
                 "mentions": item.get("mentions", 0),
                 "average_rank": item.get("average_rank"),
                 "mentions_by_assistant": item.get("mentions_by_assistant", {}),
+                "category_fit": item.get("category_fit", {}),
             }
             for item in score["competitor_scores"]
         ],
@@ -126,6 +134,7 @@ def build_frontend_export(
         "comparison": {
             "summary": comparison.get("summary", {}),
             "recurring_patterns": comparison.get("recurring_competitor_patterns", []),
+            "differential_analysis": comparison.get("differential_analysis", {}),
         },
         "recommendations": build_action_rows(
             recommendations,

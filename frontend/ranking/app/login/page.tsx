@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
 import { googleConfigured } from "@/lib/auth/auth";
+import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveReturnTo } from "@/lib/routes";
 import { LoginForm } from "./login-form";
@@ -22,7 +23,7 @@ export default async function LoginPage({
   if (user) {
     const params = await searchParams;
     if (params.claim) redirect(`/claim/${encodeURIComponent(params.claim)}`);
-    redirect(resolveReturnTo(params) ?? "/dashboard");
+    redirect(canonicalDashboardRedirect(resolveReturnTo(params) ?? "/dashboard"));
   }
   return (
     <main className="arc-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">

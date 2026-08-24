@@ -36,11 +36,18 @@ export const googleConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
 );
 
+const trustedOrigins = [
+  process.env.BETTER_AUTH_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.DASHBOARD_APP_URL,
+].filter((origin): origin is string => Boolean(origin));
+
 export const auth = betterAuth({
   database: new Pool({ connectionString: databaseUrl }),
   // Where callbacks come back to. Google rejects a redirect it was not given,
   // so this has to match what is registered in the Google console exactly.
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  trustedOrigins,
   // The session-signing secret. A production box running on a guessable
   // default would let anyone forge a login cookie, so refuse to start.
   secret:
@@ -109,6 +116,16 @@ export const auth = betterAuth({
   // sign-in attempts, reset requests and verification resends.
   rateLimit: {
     enabled: true,
+  },
+  advanced: {
+    ...(process.env.AUTH_COOKIE_DOMAIN
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: process.env.AUTH_COOKIE_DOMAIN,
+          },
+        }
+      : {}),
   },
   account: {
     accountLinking: {

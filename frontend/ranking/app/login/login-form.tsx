@@ -63,7 +63,13 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not sign in.");
-      router.push(data.redirect || "/dashboard");
+      const redirectTo =
+        typeof data.redirect === "string" ? data.redirect : "/dashboard";
+      if (/^https?:\/\//i.test(redirectTo)) {
+        window.location.assign(redirectTo);
+        return;
+      }
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in.");

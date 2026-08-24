@@ -128,6 +128,17 @@ class ScorecardGoldens(unittest.TestCase):
         second = self.scorecard(raw, patterns(2, [1, 4], {"Rival": 1}))
         self.assertEqual(first, second)
 
+    def test_score_explanation_describes_scope_without_changing_formula(self) -> None:
+        card = self.scorecard([raw_result(sources=False)], patterns(0, []))
+        self.assertIn("sampled AI buyer answers", card["score_explanation"]["scope"])
+        component_names = {
+            item["name"] for item in card["score_explanation"]["components"]
+        }
+        self.assertEqual(
+            component_names,
+            {"mention", "position", "citation", "source_quality", "data_confidence"},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

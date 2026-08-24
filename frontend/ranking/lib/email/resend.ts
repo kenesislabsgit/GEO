@@ -1,12 +1,17 @@
 import { Resend } from "resend";
 import { APP_NAME } from "@/lib/constants";
 
+export function isEmailDeliveryConfigured(): boolean {
+  const key = process.env.RESEND_API_KEY?.trim();
+  return Boolean(key && !key.startsWith("re_dummy_"));
+}
+
 export async function sendAlertEmail(input: {
   to: string;
   subject: string;
   body: string;
 }): Promise<{ ok: boolean; demo?: boolean; id?: string; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailDeliveryConfigured()) {
     console.info(`[email:demo] to=${input.to} subject=${input.subject}`);
     return { ok: true, demo: true };
   }

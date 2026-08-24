@@ -15,13 +15,16 @@ from geo_audit.export import (
     build_query_results,
     host_from_value,
 )
+from geo_audit.comparison import compare_user_to_competitors
 from geo_audit.audit_recommendations import (
     AUDIT_RECOMMENDATION_SCHEMA,
     AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
+    FINAL_WRITER_RECOMMENDATION_SCHEMA,
     build_audit_recommendations_payload,
     build_free_preview_recommendations,
     add_missing_pages_to_the_catalog,
     build_verified_evidence_catalog,
+    compact_recommendation_patterns,
     compact_competitor_evidence,
     canonical_url,
     readable_evidence_row,
@@ -29,6 +32,7 @@ from geo_audit.audit_recommendations import (
     ensure_top_competitor_finding,
     hydrate_writer_page,
     keep_evidence_from_the_companies_that_won,
+    keep_complete_notebook_evidence_pairs,
     normalize_recommendation,
     passage_is_on_page,
     page_excerpt,
@@ -36,6 +40,8 @@ from geo_audit.audit_recommendations import (
     strip_internal_references,
     verify_selected_evidence_with_firecrawl,
     recommendations_from_findings,
+    recommendations_from_final_writer,
+    resolve_affected_prompts,
     validate_and_save_finding,
 )
 from geo_audit.competitor_evidence import enhance_competitor_snapshot
@@ -1665,6 +1671,86 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(quality["confidence_level"], "low")
         self.assertEqual(len(quality["warnings"]), 2)
 
+    def test_comparison_exports_evidence_backed_differential_analysis(self) -> None:
+        comparison = compare_user_to_competitors(
+            {
+                "homepage_headline": "AI safety analytics for factories",
+                "pricing_page_found": {"found": False, "urls": []},
+                "documentation_found": {"found": True, "urls": ["https://kenesis.ai/docs"]},
+            },
+            {
+                "competitors": [
+                    {
+                        "company_name": "Acme",
+                        "collection_status": "website_crawled",
+                        "website_evidence": {
+                            "homepage_headline": "Video safety platform",
+                            "pricing_page_found": {
+                                "found": True,
+                                "urls": ["https://acme.test/pricing"],
+                                "matches": [
+                                    {
+                                        "url": "https://acme.test/pricing",
+                                        "text": "Pricing",
+                                        "excerpt": "Plans for manufacturing teams.",
+                                    }
+                                ],
+                            },
+                            "documentation_found": {"found": False, "urls": []},
+                        },
+                    },
+                    {
+                        "company_name": "Beta",
+                        "collection_status": "website_crawled",
+                        "website_evidence": {
+                            "homepage_headline": "Factory safety software",
+                            "pricing_page_found": {
+                                "found": True,
+                                "urls": ["https://beta.test/pricing"],
+                            },
+                            "documentation_found": {"found": False, "urls": []},
+                        },
+                    },
+                ],
+            },
+        )
+
+        differential = comparison["differential_analysis"]
+        self.assertEqual(
+            differential["basis"]["competitors_with_website_evidence"],
+            2,
+        )
+        competitor_advantage_labels = {
+            item["label"] for item in differential["competitor_advantages"]
+        }
+        self.assertIn("Pricing clarity", competitor_advantage_labels)
+        audited_advantage_labels = {
+            item["label"] for item in differential["audited_company_advantages"]
+        }
+        self.assertIn("Documentation", audited_advantage_labels)
+
+    def test_comparison_does_not_treat_unknown_evidence_as_a_gap(self) -> None:
+        comparison = compare_user_to_competitors(
+            {},
+            {
+                "competitors": [
+                    {
+                        "company_name": "Acme",
+                        "collection_status": "website_failed",
+                        "website_evidence": None,
+                    }
+                ],
+            },
+        )
+
+        differential = comparison["differential_analysis"]
+        self.assertEqual(differential["competitor_advantages"], [])
+        self.assertTrue(differential["uncertain_or_uncollected"])
+        self.assertIn(
+            "Unknown means",
+            differential["basis"]["comparison_rule"],
+        )
+
     def test_structured_recommendations_require_answer_evidence(self) -> None:
         items = [
             {
@@ -2054,6 +2140,67 @@ class PipelineChangeTests(unittest.TestCase):
         self.assertEqual(
             [item["company_name"] for item in patterns["competitors"]],
             ["Acme Safety"],
+        )
+
+    def test_aggregation_demotes_broad_alternatives_when_profile_is_known(self) -> None:
+        profile = {
+            "category": "AI video analytics software for industrial safety",
+            "target_audience": "manufacturing safety teams",
+            "industries": ["manufacturing"],
+            "use_cases": ["PPE violation detection"],
+            "primary_offerings": ["video analytics"],
+            "competitor_scope": {
+                "direct_peer_description": (
+                    "AI video analytics software for manufacturing safety"
+                ),
+                "larger_alternative_types": ["IT consulting firms"],
+                "excluded_provider_types": ["consulting firms"],
+            },
+            "buyer_personas": [
+                {
+                    "jobs_to_be_done": ["detect PPE violations"],
+                    "decision_factors": ["on-premise video analytics"],
+                }
+            ],
+        }
+        patterns = aggregate_recommendations(
+            [
+                {
+                    "assistant": "test",
+                    "model": "test",
+                    "prompt": "Which vendors detect PPE violations?",
+                    "prompt_category": "Vendor",
+                    "recommended_companies": [
+                        {
+                            "company_name": "Infosys",
+                            "rank": 1,
+                            "reasoning": "A large IT consulting firm.",
+                        },
+                        {
+                            "company_name": "Acme Vision",
+                            "rank": 2,
+                            "reasoning": (
+                                "AI video analytics for manufacturing safety and PPE violation detection."
+                            ),
+                        },
+                    ],
+                }
+            ],
+            user_company="Kenesis",
+            company_profile=profile,
+        )
+
+        self.assertEqual(patterns["top_competitors"][0]["company_name"], "Acme Vision")
+        self.assertEqual(
+            patterns["top_competitors"][0]["category_fit"]["classification"],
+            "direct_peer",
+        )
+        infosys = next(
+            item for item in patterns["competitors"] if item["company_name"] == "Infosys"
+        )
+        self.assertIn(
+            infosys["category_fit"]["classification"],
+            {"broad_alternative", "weak_or_unclear"},
         )
 
     def test_search_queries_are_deterministic_and_contextual(self) -> None:
@@ -3210,6 +3357,128 @@ class PipelineChangeTests(unittest.TestCase):
             "Expand the website security page with deployment proof.",
         )
 
+    def test_final_writer_uses_finding_id_without_overwriting_question_ids(self) -> None:
+        findings = [
+            {
+                "finding_id": "finding-01",
+                "primary_question_id": "q-03",
+                "affected_question_ids": ["q-03", "q-08", "q-19"],
+                "competitor_company": "Agorapulse",
+                "competitor_page_id": "p-066",
+                "competitor_passage": "Agorapulse describes its inbox workflow.",
+                "audited_page_id": "p-017",
+                "audited_passage": "Buffer has a small-business page.",
+                "observation": "Agorapulse explains community inbox triage.",
+                "suggested_change": (
+                    "Update the website with a community inbox workflow."
+                ),
+                "expected_impact": "Buyers can compare moderation workflows.",
+                "competitor_evidence_reason": (
+                    "The competitor page proves the inbox workflow."
+                ),
+                "audited_company_evidence_reason": (
+                    "The audited page is where the gap belongs."
+                ),
+                "confidence": "High",
+            }
+        ]
+        writer_items = [
+            {
+                "finding_id": "finding-01",
+                "observation": "Community inbox buyers are sent to Agorapulse.",
+                "evidence": "Agorapulse shows a full inbox workflow.",
+                "suggested_change": "Add a clearer community inbox workflow section.",
+                "expected_impact": "Buyers can verify fit for community management.",
+                "confidence": "High",
+                "competitor_evidence_reason": "Agorapulse shows the workflow.",
+                "audited_company_evidence_reason": "Buffer's cited page is broader.",
+                # This is the live bug: a finding id was placed where question
+                # ids used to be expected. It must be ignored completely.
+                "affected_loss_refs": ["finding-01"],
+                "evidence_refs": ["finding-01"],
+            }
+        ]
+
+        recommendation = recommendations_from_final_writer(writer_items, findings)[0]
+
+        self.assertEqual(
+            recommendation["affected_loss_refs"], ["q-03", "q-08", "q-19"]
+        )
+        self.assertEqual(recommendation["evidence_refs"], ["p-066", "p-017"])
+        self.assertEqual(
+            recommendation["suggested_change"],
+            "Add a clearer community inbox workflow section.",
+        )
+
+    def test_final_writer_schema_no_longer_requests_page_or_question_refs(self) -> None:
+        item = FINAL_WRITER_RECOMMENDATION_SCHEMA["properties"]["recommendations"][
+            "items"
+        ]
+        self.assertIn("finding_id", item["required"])
+        self.assertNotIn("affected_loss_refs", item["properties"])
+        self.assertNotIn("evidence_refs", item["properties"])
+
+    def test_final_writer_missing_items_fall_back_to_validated_notebook(self) -> None:
+        findings = [
+            {
+                "finding_id": f"finding-{index:02d}",
+                "primary_question_id": f"q-{index:02d}",
+                "affected_question_ids": [f"q-{index:02d}"],
+                "competitor_page_id": f"p-{index:03d}",
+                "audited_page_id": f"p-{index + 10:03d}",
+                "observation": f"Observation {index}",
+                "suggested_change": f"Change {index}",
+                "expected_impact": f"Impact {index}",
+                "competitor_evidence_reason": f"Competitor reason {index}",
+                "audited_company_evidence_reason": f"Audited reason {index}",
+                "confidence": "High",
+            }
+            for index in range(1, 6)
+        ]
+        writer_items = [
+            {
+                "finding_id": "finding-02",
+                "observation": "Polished observation",
+                "evidence": "Polished evidence",
+                "suggested_change": "Polished change",
+                "expected_impact": "Polished impact",
+                "confidence": "High",
+                "competitor_evidence_reason": "Polished competitor reason",
+                "audited_company_evidence_reason": "Polished audited reason",
+            },
+            {"finding_id": "finding-99", "observation": "Unknown finding"},
+        ]
+
+        recommendations = recommendations_from_final_writer(writer_items, findings)
+
+        self.assertEqual(len(recommendations), 5)
+        self.assertEqual(recommendations[0]["finding_id"], "finding-02")
+        self.assertEqual(recommendations[0]["affected_loss_refs"], ["q-02"])
+        self.assertEqual(recommendations[0]["evidence_refs"], ["p-002", "p-012"])
+        self.assertEqual(recommendations[1]["finding_id"], "finding-01")
+        self.assertEqual(recommendations[1]["affected_loss_refs"], ["q-01"])
+
+    def test_notebook_recommendation_requires_both_resolved_pages(self) -> None:
+        recommendations = [
+            {
+                "finding_id": "finding-01",
+                "evidence_refs": ["p-066", "p-017"],
+                "supporting_evidence": [{"evidence_id": "p-066"}],
+            },
+            {
+                "finding_id": "finding-02",
+                "evidence_refs": ["p-051", "p-014"],
+                "supporting_evidence": [
+                    {"evidence_id": "p-051"},
+                    {"evidence_id": "p-014"},
+                ],
+            },
+        ]
+
+        kept = keep_complete_notebook_evidence_pairs(recommendations)
+
+        self.assertEqual([item["finding_id"] for item in kept], ["finding-02"])
+
     def test_evidence_map_rejects_unopened_pages(self) -> None:
         findings: list[dict] = []
         result = validate_and_save_finding(
@@ -3369,7 +3638,7 @@ class PipelineChangeTests(unittest.TestCase):
             AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "investigate at\nleast six distinct lost questions covering different buyer needs",
+            "investigate at\nleast five distinct lost questions covering different buyer needs",
             AUDIT_RECOMMENDATION_SYSTEM_PROMPT,
         )
         self.assertIn(
@@ -3885,6 +4154,72 @@ class PipelineChangeTests(unittest.TestCase):
         ]
         cleaned = keep_evidence_from_the_companies_that_won(recommendations)
         self.assertEqual(len(cleaned[0]["supporting_evidence"]), 1)
+
+    def test_prompt_resolution_merges_winners_from_repeated_provider_losses(self):
+        prompt = "Which providers ensure healthcare AI compliance?"
+        prompt_losses = [
+            {
+                "loss_id": "loss-001",
+                "prompt": prompt,
+                "category": "Compliance",
+                "recommended_instead": ["Microsoft", "Deloitte"],
+                "winners": [{"company_name": "Microsoft Azure", "rank": 1}],
+            },
+            {
+                "loss_id": "loss-002",
+                "prompt": prompt,
+                "category": "Compliance",
+                "recommended_instead": ["Accenture", "Capgemini"],
+                "winners": [{"company_name": "Accenture", "rank": 1}],
+            },
+        ]
+        recommendations = [
+            {
+                "affected_loss_refs": ["q-06"],
+                "supporting_evidence": [
+                    {"evidence_id": "p-065", "company_name": "Microsoft"}
+                ],
+                "evidence_validation": {"accepted_refs": ["p-065"]},
+            }
+        ]
+
+        resolved = resolve_affected_prompts(
+            recommendations,
+            prompt_losses,
+            [{"question_id": "q-06", "question": prompt}],
+        )
+        cleaned = keep_evidence_from_the_companies_that_won(resolved)
+
+        self.assertEqual(
+            [row["company_name"] for row in cleaned[0]["supporting_evidence"]],
+            ["Microsoft"],
+        )
+
+    def test_compact_patterns_keep_all_pro_loss_rows_for_question_resolution(self):
+        losses = [
+            {
+                "prompt": f"Question {index}",
+                "category": "Category",
+                "assistant": "assistant",
+                "recommended_instead": ["Accenture"],
+                "winners": [{"company_name": "Accenture", "rank": 1}],
+            }
+            for index in range(1, 21)
+        ]
+
+        compacted = compact_recommendation_patterns(
+            {"user_recommendation_summary": {"prompts_where_user_was_not_recommended": losses}}
+        )
+        prompt_losses = compacted["user_company_recommendation_summary"][
+            "prompt_losses"
+        ]
+        resolved = resolve_affected_prompts(
+            [{"affected_loss_refs": ["q-20"]}],
+            prompt_losses,
+            [{"question_id": "q-20", "question": "Question 20"}],
+        )
+
+        self.assertEqual(resolved[0]["affected_prompts"][0]["prompt"], "Question 20")
 
     def test_host_from_value_accepts_bare_hosts_and_urls(self):
         # The snapshot stores `domain` bare and `normalized_url` as a URL;
