@@ -38,7 +38,11 @@ export default async function DashboardLayout({
       planName={paid ? account.planName : "Free"}
       paid={paid}
       unreadAlerts={unreadAlerts}
-      brands={brands.map((brand) => ({ id: brand.id, name: brand.name }))}
+      brands={brands.map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+        domain: brand.canonical_domain,
+      }))}
     >
       {setupPending ? (
         <Link

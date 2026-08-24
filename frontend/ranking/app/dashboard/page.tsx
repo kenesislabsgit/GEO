@@ -20,7 +20,6 @@ import {
 } from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   ProviderAnswersChart,
   ProviderAnswersLegend,
@@ -31,7 +30,7 @@ import { roundForDisplay } from "@/lib/scores/format";
 import { routes } from "@/lib/routes";
 import {
   getUsageWarningLevel,
-  usageWarningMessage,
+  usageNudgeCopy,
 } from "@/lib/billing/usage-warnings";
 
 /**
@@ -152,7 +151,7 @@ export default async function DashboardPage() {
     entitlements.providerChecksUsed,
     plan.features.providerChecksPerMonth,
   );
-  const usageMessage = usageWarningMessage(usageLevel);
+  const usageNudge = usageNudgeCopy(usageLevel);
 
   // ── Chart data ────────────────────────────────────────────────────────────
   const barsByScan = new Map<string, ProviderBarRow & { at: number }>();
@@ -237,15 +236,7 @@ export default async function DashboardPage() {
       value: String(entitlements.providerChecksUsed),
       delta: (
         <p className="mt-3 text-[13px] text-muted-foreground">
-          <span
-            className={
-              usagePct >= 90
-                ? "text-destructive"
-                : "text-[color:var(--arc-green)]"
-            }
-          >
-            {usagePct}%
-          </span>{" "}
+          <span className="text-foreground">{usagePct}%</span>{" "}
           of {plan.features.providerChecksPerMonth} this month
         </p>
       ),
@@ -254,22 +245,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      {usageMessage ? (
-        <Alert variant={usageLevel === "exhausted" ? "destructive" : "default"}>
-          <AlertTitle>
-            {usageLevel === "exhausted"
-              ? "Usage limit reached"
-              : "Usage warning"}
-          </AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>{usageMessage}</span>
-            {usageLevel === "exhausted" || usageLevel === "warn80" ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href={routes.billing()}>View billing</Link>
-              </Button>
-            ) : null}
-          </AlertDescription>
-        </Alert>
+      {usageNudge ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-muted/40 px-4 py-3"
+        >
+          <p className="text-sm text-muted-foreground">{usageNudge}</p>
+          <Link
+            href={routes.billing()}
+            className="shrink-0 text-[13px] font-medium text-[color:var(--arc-accent)] hover:underline"
+          >
+            See plans
+          </Link>
+        </div>
       ) : null}
 
       {/* ── Header row: title left, pill chips right ───────────────────── */}

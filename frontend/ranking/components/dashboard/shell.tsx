@@ -32,27 +32,35 @@ import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 /**
- * Dashboard chrome: a slim icon rail, a collapsible grouped nav column, and
- * a full-width content area - panels divided by hairlines, in the style of
- * the reference analytics dashboards. Below lg the two columns give way to
- * a compact top bar with scrollable tabs.
+ * Dashboard chrome: one collapsible sidebar and a full-width content area.
+ * Open rows show icon + label; closed rows show the icon only. Below lg the
+ * sidebar gives way to a compact top bar with scrollable tabs.
  */
 
 type NavItem = {
   href: string;
   label: string;
-  // Required, not optional: the icon rail is the *only* navigation once the
-  // labeled column is collapsed, so an item without one doesn't just look
-  // bare there - it silently disappears from the app. Making this required
-  // means the compiler catches that the moment a new item is added, instead
-  // of a user discovering it's stranded behind the collapse toggle.
+  // Required: collapsed rows are icon-only, so a missing icon would drop
+  // that item from the nav. The compiler catches it when a new item is added.
   icon: LucideIcon;
   exact?: boolean;
 };
 
 type NavGroup = { label: string | null; items: NavItem[] };
 
-export type ShellBrand = { id: string; name: string };
+export type ShellBrand = { id: string; name: string; domain: string };
+
+function websiteLabel(brand: ShellBrand): string {
+  const name = brand.name.trim();
+  const domain = brand.domain.trim();
+  // Never use our product name as if it were the customer's site.
+  const ours = (value: string) =>
+    value.toLowerCase() === APP_NAME.toLowerCase() ||
+    value.toLowerCase().includes("arcanoris");
+  if (name && !ours(name)) return name;
+  if (domain && !ours(domain)) return domain;
+  return name || domain;
+}
 
 /** The per-website analysis sections - the heart of the product's nav. */
 const BRAND_SECTIONS: Array<{
@@ -86,7 +94,7 @@ function buildNav(
   ];
   if (activeBrand) {
     groups.push({
-      label: activeBrand.name,
+      label: websiteLabel(activeBrand),
       items: BRAND_SECTIONS.map((section) => ({
         href: `${routes.brand(activeBrand.id)}${section.path}`,
         label: section.label,
@@ -151,14 +159,19 @@ export function DashboardShell({
     brands.find((brand) => brand.id === pathBrandId) ?? brands[0] ?? null;
   const groups = buildNav(isAdmin, activeBrand);
   const [collapsed, setCollapsed] = useState(false);
+  // Width animation stays off until the stored choice is applied, so a
+  // remembered "closed" nav doesn't open-then-slide on first paint.
+  const [animateWidth, setAnimateWidth] = useState(false);
 
   // Remember the collapse choice per browser; read after mount (deferred a
   // tick) so SSR and the first client render agree.
   useEffect(() => {
     const stored = localStorage.getItem("rbai-nav-collapsed") === "1";
-    if (!stored) return;
-    const id = setTimeout(() => setCollapsed(true), 0);
-    return () => clearTimeout(id);
+    if (stored) setCollapsed(true);
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setAnimateWidth(true));
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
   const toggleCollapsed = () => {
     setCollapsed((current) => {
@@ -224,201 +237,193 @@ export function DashboardShell({
       </header>
 
       <div className="flex flex-1">
-        {/* ── Icon rail ──────────────────────────────────────────────── */}
-        {/* Both columns pin to the viewport: navigation never scrolls away,
-            and the account block sits at the bottom of the screen, not the
-            bottom of the page. */}
-        <aside className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col items-center border-r border-border lg:flex">
-          {/* Fixed to the same h-14 as the labeled column's header row, so
-              every row below starts from the same y-offset in both columns. */}
-          <Link
-            href={routes.dashboard}
-            title={APP_NAME}
-            className="flex h-14 w-full shrink-0 items-center justify-center"
-          >
-            <Emblem className="size-7" />
-            <span className="sr-only">{APP_NAME}</span>
-          </Link>
-          {/* Every item in every group renders here - this rail is the only
-              navigation once the labeled column is collapsed, so it has to
-              carry full parity with it, not just the top-level shortcuts.
-              Scrolls independently when the list outgrows the viewport,
-              same as the labeled column does. Row height (size-9), row gap
-              (gap-1) and group gap (gap-4) all match the labeled column's
-              link/space-y-1/space-y-4 exactly, and the h-6 divider spacer
-              matches its h-6 group label, so every icon lines up with its
-              text row instead of drifting group by group. */}
-          <div className="arc-scrollbar-none flex w-full flex-1 flex-col items-center gap-4 overflow-y-auto px-1 pb-4">
-            {groups.map((group, index) => (
-              <div
-                key={group.label ?? index}
-                className="flex w-full flex-col items-center gap-1"
-              >
-                {index > 0 ? (
-                  <div
-                    aria-hidden
-                    className="flex h-6 w-full shrink-0 items-center justify-center"
-                  >
-                    <div className="h-px w-6 bg-border" />
-                  </div>
-                ) : null}
-                {group.items.map((item) => {
-                  const active = isActive(pathname, item);
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.href}
-                      href={item.href}
-                      title={item.label}
-                      className={cn(
-                        "relative flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        active
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="size-[15px]" />
-                      {item.href === routes.alerts && unreadAlerts > 0 ? (
-                        <span className="absolute top-1 right-1 size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
-                      ) : null}
-                      <span className="sr-only">{item.label}</span>
-                    </NavLink>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-          <div className="mt-auto flex flex-col items-center gap-1.5 pb-4">
-            <span
-              title={email}
-              className="flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold uppercase"
-            >
-              {email[0] ?? "?"}
-            </span>
-            <ThemeToggle />
-            <form action="/api/auth/signout" method="POST">
-              <button
-                type="submit"
-                title="Sign out"
-                className="flex size-9 items-center justify-center rounded-lg text-destructive/80 transition-colors hover:bg-destructive/10 hover:text-destructive"
-              >
-                <LogOut className="size-[17px]" />
-                <span className="sr-only">Sign out</span>
-              </button>
-            </form>
-          </div>
-        </aside>
-
-        {/* ── Nav column ─────────────────────────────────────────────── */}
-        {/* Width and border-color both transition (never toggled with a
-            hard class swap), and overflow-hidden stays on permanently so
-            the fixed-width content below gets clipped smoothly as the
-            column shrinks instead of reflowing/wrapping mid-animation. */}
-        <aside
+        {/* Width lives on this wrapper so the toggle can sit on the
+            right edge without being clipped. Inner chrome stays 240px
+            so icons never jump while labels fade and get clipped. */}
+        <div
           className={cn(
-            "sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r transition-[width,border-color] duration-300 ease-in-out lg:flex",
-            collapsed ? "w-0 border-transparent" : "w-60 border-border",
+            "relative sticky top-0 z-20 hidden h-screen shrink-0 lg:block motion-reduce:transition-none",
+            animateWidth
+              ? "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "",
+            collapsed ? "w-16" : "w-60",
           )}
         >
-          {/* Locked to the expanded width so text never squeezes into a
-              vertical sliver while the column above it is animating - it
-              just fades out a little faster than the column collapses. */}
-          <div
-            className={cn(
-              "flex h-full w-60 shrink-0 flex-col transition-opacity duration-150 ease-in-out",
-              collapsed ? "pointer-events-none opacity-0" : "opacity-100",
-            )}
-          >
-            <div className="flex h-14 shrink-0 items-center justify-between px-5">
-              <Wordmark className="h-4 w-auto text-foreground" />
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                title="Collapse navigation"
-                tabIndex={collapsed ? -1 : 0}
-                className="flex size-7 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ChevronsLeft className="size-3.5" />
-              </button>
-            </div>
-            {/* Long section lists scroll inside the column; the account block
-                below stays pinned to the bottom of the viewport. Row height
-                (h-9), row gap (space-y-1), group gap (space-y-4) and the h-6
-                label row all match the icon rail's own row/gap/divider sizing,
-                so every link lines up with its icon next door. */}
-            <nav className="arc-scrollbar-none flex-1 space-y-4 overflow-y-auto px-3 pb-4">
-              {groups.map((group, index) => (
-                <div key={group.label ?? index} className="flex flex-col gap-1">
-                  {group.label ? (
-                    <p className="flex h-6 items-center truncate px-2.5 font-mono text-[11px] tracking-[0.12em] text-muted-foreground/70 lowercase">
-                      {group.label}
-                    </p>
-                  ) : null}
-                  <div className="space-y-1">
+          <aside className="flex h-full w-full flex-col overflow-hidden border-r border-border">
+            <div className="flex h-full w-60 flex-col">
+              <div className="flex h-14 shrink-0 items-center">
+                <Link
+                  href={routes.dashboard}
+                  title={APP_NAME}
+                  className="flex w-16 shrink-0 items-center justify-center"
+                >
+                  <Emblem className="size-7" />
+                  <span className="sr-only">{APP_NAME}</span>
+                </Link>
+                <Wordmark
+                  className={cn(
+                    "h-4 w-auto min-w-0 text-foreground transition-opacity duration-200 ease-out motion-reduce:transition-none",
+                    collapsed ? "opacity-0" : "opacity-100 delay-100",
+                  )}
+                />
+              </div>
+
+              <nav className="arc-scrollbar-none flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
+                {groups.map((group, index) => (
+                  <div key={group.label ?? index} className="flex flex-col gap-1">
+                    {index > 0 ? (
+                      collapsed ? (
+                        <div
+                          aria-hidden
+                          className="flex h-5 shrink-0 items-center justify-center"
+                        >
+                          <div className="h-px w-4 bg-border" />
+                        </div>
+                      ) : group.label ? (
+                        <p className="pointer-events-none select-none px-4 pt-3 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/50">
+                          {group.label}
+                        </p>
+                      ) : (
+                        <div className="h-2 shrink-0" />
+                      )
+                    ) : null}
                     {group.items.map((item) => {
                       const active = isActive(pathname, item);
+                      const Icon = item.icon;
+                      const showAlert = item.href === routes.alerts;
                       return (
                         <NavLink
                           key={item.href}
                           href={item.href}
-                          tabIndex={collapsed ? -1 : 0}
+                          title={item.label}
                           className={cn(
-                            "flex h-9 items-center gap-2 rounded-lg px-2.5 text-[13.5px] transition-colors",
+                            "relative flex h-9 items-center rounded-lg text-[13.5px] transition-colors",
                             active
-                              ? "border border-border bg-muted/60 font-medium text-foreground"
-                              : "border border-transparent text-muted-foreground hover:text-foreground",
+                              ? "bg-muted font-medium text-foreground"
+                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                           )}
                         >
-                          {item.label}
-                          {item.href === routes.alerts ? alertBadge : null}
+                          <span className="relative flex w-16 shrink-0 items-center justify-center">
+                            <Icon className="size-[15px]" />
+                            {showAlert && unreadAlerts > 0 ? (
+                              <span
+                                className={cn(
+                                  "absolute top-1.5 right-3.5 size-1.5 rounded-full bg-[color:var(--arc-accent)] transition-opacity duration-200 motion-reduce:transition-none",
+                                  collapsed
+                                    ? "opacity-100 delay-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            ) : null}
+                          </span>
+                          <span
+                            className={cn(
+                              "min-w-0 truncate whitespace-nowrap pr-4 transition-opacity duration-200 ease-out motion-reduce:transition-none",
+                              collapsed
+                                ? "opacity-0"
+                                : "opacity-100 delay-100",
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                          {showAlert ? (
+                            <span
+                              className={cn(
+                                "transition-opacity duration-200 ease-out motion-reduce:transition-none",
+                                collapsed
+                                  ? "opacity-0"
+                                  : "opacity-100 delay-100",
+                              )}
+                            >
+                              {alertBadge}
+                            </span>
+                          ) : null}
                         </NavLink>
                       );
                     })}
                   </div>
-                </div>
-              ))}
-            </nav>
-            <div className="border-t border-border px-5 py-3">
-              <p className="truncate text-xs text-muted-foreground" title={email}>
-                {email}
-              </p>
-              <div className="mt-1.5 flex items-center justify-between">
-                <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {planName}
-                </span>
-                {!paid ? (
-                  <Link
-                    href={routes.billing()}
-                    tabIndex={collapsed ? -1 : 0}
-                    className="text-[12px] font-medium text-[color:var(--arc-accent)] hover:underline"
-                  >
-                    Upgrade
-                  </Link>
-                ) : null}
+                ))}
+              </nav>
+
+              <div className="mt-auto border-t border-border">
+                {collapsed ? (
+                  <div className="flex w-16 flex-col items-center gap-1 py-3">
+                    <span
+                      title={email}
+                      className="flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold uppercase"
+                    >
+                      {email[0] ?? "?"}
+                    </span>
+                    <ThemeToggle className="size-8 text-muted-foreground" />
+                    <form action="/api/auth/signout" method="POST">
+                      <button
+                        type="submit"
+                        title="Sign out"
+                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <LogOut className="size-3.5" />
+                        <span className="sr-only">Sign out</span>
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 px-3 py-3">
+                    <span
+                      title={email}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold uppercase"
+                    >
+                      {email[0] ?? "?"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-[12px] text-muted-foreground"
+                        title={email}
+                      >
+                        {email}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {planName}
+                        </span>
+                        {!paid ? (
+                          <Link
+                            href={routes.billing()}
+                            className="text-[11px] font-medium text-[color:var(--arc-accent)] hover:underline"
+                          >
+                            Upgrade
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                    <ThemeToggle className="size-8 shrink-0 text-muted-foreground" />
+                    <form action="/api/auth/signout" method="POST">
+                      <button
+                        type="submit"
+                        title="Sign out"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <LogOut className="size-3.5" />
+                        <span className="sr-only">Sign out</span>
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </aside>
-
-        {/* Expand handle, always mounted so it can fade in as soon as the
-            column starts collapsing rather than popping in once width
-            animation finishes - inert (no hit target, no tab stop) while
-            the column is expanded instead of unmounted. */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title="Expand navigation"
-          aria-hidden={!collapsed}
-          tabIndex={collapsed ? 0 : -1}
-          className={cn(
-            "sticky top-0 hidden h-14 items-start self-start border-border px-2 pt-4 text-muted-foreground transition-[opacity,color] duration-200 ease-in-out hover:text-foreground lg:flex",
-            collapsed
-              ? "pointer-events-auto opacity-100 delay-150"
-              : "pointer-events-none w-0 px-0 opacity-0",
-          )}
-        >
-          <ChevronsRight className="size-3.5" />
-        </button>
+          </aside>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand navigation" : "Collapse navigation"}
+            className="absolute top-3.5 right-0 z-20 flex size-6 translate-x-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+          >
+            {collapsed ? (
+              <ChevronsRight className="size-3.5" />
+            ) : (
+              <ChevronsLeft className="size-3.5" />
+            )}
+          </button>
+        </div>
 
         {/* ── Content ────────────────────────────────────────────────── */}
         {/* Named so the View Transition (triggered by NavLink) only
