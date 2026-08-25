@@ -40,6 +40,7 @@ const requestSchema = z.object({
         "groq",
         "minimax",
         "sarvam",
+        "qwen",
       ]),
     )
     .min(1)

@@ -367,6 +367,7 @@ function toProviderId(value: unknown): ProviderId {
     "groq",
     "minimax",
     "sarvam",
+    "qwen",
   ];
   return known.includes(provider) ? provider : "openai";
 }

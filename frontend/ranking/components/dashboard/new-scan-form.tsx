@@ -11,6 +11,7 @@ import { AuditProgress } from "@/components/scan/audit-progress";
 import { useDetachedAudit } from "@/components/scan/use-detached-audit";
 import { routes } from "@/lib/routes";
 import {
+  ALL_PROVIDERS,
   DEFAULT_SCAN_PROVIDERS,
   FREE_AUDIT_PROVIDER,
   FREE_AUDIT_QUESTION_COUNT,
@@ -54,22 +55,7 @@ type PlanInfo = {
 
 /** Providers that at least one plan actually offers, in display order.
  * Every id here is wired into the audit engine - nothing aspirational. */
-const OFFERED_PROVIDERS: ProviderId[] = [
-  "openai_search",
-  "bedrock_claude",
-  "gemini",
-  "perplexity",
-  "grok",
-  "deepseek",
-  "bedrock_llama",
-  "bedrock_mistral",
-  "kimi",
-  "bedrock_nova",
-  "groq",
-  "minimax",
-  "sarvam",
-  "qwen",
-];
+const OFFERED_PROVIDERS: ProviderId[] = [...ALL_PROVIDERS];
 
 /** The cheapest plan whose provider list includes this provider. "growth" is
  * grandfathered and no longer sold, so it's deliberately not offered here. */

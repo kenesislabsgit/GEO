@@ -35,6 +35,7 @@ const providerSchema = z.enum([
   "groq",
   "minimax",
   "sarvam",
+  "qwen",
 ] as const satisfies readonly ProviderId[]);
 
 const patchSchema = z.object({

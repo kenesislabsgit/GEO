@@ -1,4 +1,8 @@
-import { DEFAULT_SCAN_PROVIDERS, FREE_AUDIT_PROVIDER } from "@/lib/constants";
+import {
+  ALL_PROVIDERS,
+  DEFAULT_SCAN_PROVIDERS,
+  FREE_AUDIT_PROVIDER,
+} from "@/lib/constants";
 import type { ProviderId } from "@/types/database";
 
 export type PlanId = "free" | "founder" | "growth" | "agency";
@@ -140,26 +144,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     features: {
       brands: 5,
       activePrompts: 100,
-      // Every provider here is genuinely wired into the audit engine - 
-      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the eight
-      // OpenAI-compatible ones. Providers without configured API keys show
-      // up as partial in scan results rather than silently vanishing.
-      providers: [
-        "openai_search",
-        "bedrock_claude",
-        "gemini",
-        "perplexity",
-        "grok",
-        "deepseek",
-        "bedrock_llama",
-        "bedrock_mistral",
-        "kimi",
-        "bedrock_nova",
-        "groq",
-        "minimax",
-        "sarvam",
-        "qwen",
-      ],
+      // Same catalog as ALL_PROVIDERS. A missing API key marks that
+      // provider partial rather than silently dropping it.
+      providers: [...ALL_PROVIDERS],
       providersPerScan: 10,
       competitorsPerBrand: 10,
       countries: 5,
@@ -193,26 +180,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     features: {
       brands: 20,
       activePrompts: 500,
-      // Every provider here is genuinely wired into the audit engine - 
-      // see OPENAI_COMPAT_PROVIDERS in GEO/geo_audit/llm.py for the eight
-      // OpenAI-compatible ones. Providers without configured API keys show
-      // up as partial in scan results rather than silently vanishing.
-      providers: [
-        "openai_search",
-        "bedrock_claude",
-        "gemini",
-        "perplexity",
-        "grok",
-        "deepseek",
-        "bedrock_llama",
-        "bedrock_mistral",
-        "kimi",
-        "bedrock_nova",
-        "groq",
-        "minimax",
-        "sarvam",
-        "qwen",
-      ],
+      // Same catalog as ALL_PROVIDERS. A missing API key marks that
+      // provider partial rather than silently dropping it.
+      providers: [...ALL_PROVIDERS],
       providersPerScan: 10,
       competitorsPerBrand: 20,
       countries: 20,
