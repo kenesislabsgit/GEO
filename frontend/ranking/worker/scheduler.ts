@@ -1,12 +1,6 @@
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
-import { PRO_AUDIT_QUESTION_COUNT } from "@/lib/constants";
 import { one, q } from "@/lib/db/pg";
-import {
-  getBrandById,
-  getLatestScanForBrand,
-  getPrompts,
-  getSubscription,
-} from "@/lib/db/repository";
+import { getBrandById, getSubscription } from "@/lib/db/repository";
 import { enqueueScan } from "@/lib/scans/queue";
 import { log } from "@/lib/log";
 import type { ProviderId, ScanInputSnapshot } from "@/types/database";
@@ -16,11 +10,9 @@ import type { ProviderId, ScanInputSnapshot } from "@/types/database";
  * enqueued through the same path a manual audit uses - same engine, same
  * methodology, same entitlement accounting.
  *
- * Question rotation: a plan can track more prompts than its monthly
- * provider-check allowance could ask on every run. Each scheduled scan asks
- * a deterministic slice of the active prompts, sized so a full month of
- * scheduled runs fits inside the allowance, and rotates the starting point
- * so every prompt is covered over successive runs.
+ * The database idempotency key makes this safe across many workers. Every
+ * monitoring period can create at most one audit, even when several workers
+ * notice it at the same time or restart after the scheduled hour.
  */
 
 type MonitoringRow = {
@@ -31,48 +23,53 @@ type MonitoringRow = {
   hour_local: number;
   timezone: string;
   providers: ProviderId[];
+  monitoring_questions: string[];
   country: string | null;
   language: string | null;
 };
 
-function localParts(timezone: string): { hour: number; day: number } {
+function localParts(
+  timezone: string,
+  now: Date,
+): { hour: number; day: number; date: string } {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       hour: "numeric",
-      hour12: false,
+      hourCycle: "h23",
       weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     });
-    const parts = formatter.formatToParts(new Date());
+    const parts = formatter.formatToParts(now);
     const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "9");
     const weekday = parts.find((p) => p.type === "weekday")?.value ?? "Mon";
     const day = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(
       weekday,
     );
-    return { hour, day: day < 0 ? 0 : day };
+    const year = parts.find((p) => p.type === "year")?.value ?? "1970";
+    const month = parts.find((p) => p.type === "month")?.value ?? "01";
+    const date = parts.find((p) => p.type === "day")?.value ?? "01";
+    return { hour, day: day < 0 ? 0 : day, date: `${year}-${month}-${date}` };
   } catch {
-    return { hour: new Date().getUTCHours(), day: (new Date().getUTCDay() + 6) % 7 };
+    return {
+      hour: now.getUTCHours(),
+      day: (now.getUTCDay() + 6) % 7,
+      date: now.toISOString().slice(0, 10),
+    };
   }
 }
 
-/** Deterministic rotation offset: changes once per scheduled run. */
-function rotationOffset(frequency: "daily" | "weekly"): number {
-  const days = Math.floor(Date.now() / 86_400_000);
-  return frequency === "daily" ? days : Math.floor(days / 7);
-}
-
-export function rotatingSlice<T>(
-  items: T[],
-  batchSize: number,
-  offsetIndex: number,
-): T[] {
-  if (items.length <= batchSize) return items;
-  const start = (offsetIndex * batchSize) % items.length;
-  const slice = items.slice(start, start + batchSize);
-  if (slice.length < batchSize) {
-    slice.push(...items.slice(0, batchSize - slice.length));
-  }
-  return slice;
+function periodKey(
+  frequency: "daily" | "weekly",
+  localDate: string,
+  localDay: number,
+): string {
+  if (frequency === "daily") return localDate;
+  const monday = new Date(`${localDate}T00:00:00.000Z`);
+  monday.setUTCDate(monday.getUTCDate() - localDay);
+  return monday.toISOString().slice(0, 10);
 }
 
 async function maintenanceModeOn(): Promise<boolean> {
@@ -89,10 +86,31 @@ async function disabledProviders(): Promise<Set<string>> {
   return new Set(Array.isArray(row?.value) ? (row.value as string[]) : []);
 }
 
-export async function runSchedulerTick(): Promise<void> {
+export type SchedulerTickStats = {
+  checked: number;
+  enqueued: number;
+  alreadyQueued: number;
+  skipped: number;
+  refused: number;
+  failed: number;
+};
+
+type ScheduleOutcome = Exclude<keyof SchedulerTickStats, "checked" | "failed">;
+
+export async function runSchedulerTick(
+  now = new Date(),
+): Promise<SchedulerTickStats> {
+  const stats: SchedulerTickStats = {
+    checked: 0,
+    enqueued: 0,
+    alreadyQueued: 0,
+    skipped: 0,
+    refused: 0,
+    failed: 0,
+  };
   if (await maintenanceModeOn()) {
     log.info("scheduler_skipped", { reason: "maintenance_mode" });
-    return;
+    return stats;
   }
   const disabled = await disabledProviders();
 
@@ -100,6 +118,7 @@ export async function runSchedulerTick(): Promise<void> {
   const rows = await q<MonitoringRow & { owner_id: string }>(
     `select bm.brand_id, bm.enabled, bm.frequency, bm.day_of_week,
             bm.hour_local, bm.timezone, bm.providers, bm.country, bm.language,
+            bm.monitoring_questions,
             b.owner_id
      from brand_monitoring bm
      join brands b on b.id = bm.brand_id
@@ -107,23 +126,29 @@ export async function runSchedulerTick(): Promise<void> {
   );
 
   for (const row of rows) {
+    stats.checked += 1;
     try {
-      await maybeScheduleBrand(row, disabled);
+      const outcome = await maybeScheduleBrand(row, disabled, now);
+      stats[outcome] += 1;
     } catch (error) {
+      stats.failed += 1;
       log.error("scheduler_brand_failed", {
         brandId: row.brand_id,
         error: error instanceof Error ? error.message : String(error),
       });
     }
   }
+  log.info("scheduler_tick_completed", stats);
+  return stats;
 }
 
 async function maybeScheduleBrand(
   row: MonitoringRow & { owner_id: string },
   disabled: Set<string>,
-): Promise<void> {
+  now: Date,
+): Promise<ScheduleOutcome> {
   const sub = await getSubscription(row.owner_id);
-  if (!sub) return; // Monitoring is a paid feature; lapsed plans pause it.
+  if (!sub) return "skipped"; // Monitoring is a paid feature; lapsed plans pause it.
   const plan: PlanId = sub.plan;
   const features = PLAN_CONFIG[plan].features;
 
@@ -131,37 +156,32 @@ async function maybeScheduleBrand(
   // (edited by hand, or after a downgrade) runs weekly.
   const frequency: "daily" | "weekly" =
     row.frequency === "daily" && features.dailyMonitoring ? "daily" : "weekly";
-  if (frequency === "weekly" && !features.weeklyMonitoring) return;
+  if (frequency === "weekly" && !features.weeklyMonitoring) return "skipped";
 
-  // Downgrades pause monitoring for brands beyond the new plan's limit - 
+  // Downgrades pause monitoring for brands beyond the new plan's limit -
   // the data stays, the spending stops. Oldest brands keep their slots.
   const rank = await one<{ position: number }>(
-    `select count(*)::int as position from brands
-     where owner_id = $1 and created_at <= (select created_at from brands where id = $2)`,
+    `select count(*)::int as position
+     from brands b
+     join brand_monitoring bm on bm.brand_id = b.id and bm.enabled = true
+     where b.owner_id = $1
+       and b.created_at <= (select created_at from brands where id = $2)`,
     [row.owner_id, row.brand_id],
   );
   if ((rank?.position ?? 1) > features.brands) {
-    return;
+    return "skipped";
   }
 
-  const { hour, day } = localParts(row.timezone || "UTC");
-  if (hour < row.hour_local) return;
-  if (frequency === "weekly" && day !== row.day_of_week) return;
-
-  // Due when no scan has run inside the current window. The 20h/6d guards
-  // absorb clock drift and reruns of the tick within the same day.
-  const latest = await getLatestScanForBrand(row.brand_id);
-  if (latest) {
-    const last = new Date(
-      latest.scan.completed_at ?? latest.scan.created_at,
-    ).getTime();
-    const elapsed = Date.now() - last;
-    if (frequency === "daily" && elapsed < 20 * 3_600_000) return;
-    if (frequency === "weekly" && elapsed < 6 * 86_400_000) return;
-  }
+  const local = localParts(row.timezone || "UTC", now);
+  const due =
+    frequency === "daily"
+      ? local.hour >= row.hour_local
+      : local.day > row.day_of_week ||
+        (local.day === row.day_of_week && local.hour >= row.hour_local);
+  if (!due) return "skipped";
 
   const brand = await getBrandById(row.brand_id);
-  if (!brand) return;
+  if (!brand) return "skipped";
 
   const planProviders = new Set<string>(features.providers);
   let providers = (row.providers ?? []).filter(
@@ -175,27 +195,25 @@ async function maybeScheduleBrand(
   providers = providers.slice(0, features.providersPerScan);
   if (providers.length === 0) {
     log.warn("scheduler_no_providers", { brandId: row.brand_id });
-    return;
+    return "skipped";
   }
 
-  const activePrompts = await getPrompts(row.brand_id);
-  if (activePrompts.length === 0) return;
-
-  // Size the batch so the month of scheduled runs fits the allowance,
-  // leaving half the allowance for manual audits.
-  const runsPerMonth = frequency === "daily" ? 31 : 5;
-  const budgetPerRun = Math.floor(
-    features.providerChecksPerMonth / 2 / (runsPerMonth * providers.length),
-  );
-  const batchSize = Math.max(
-    1,
-    Math.min(activePrompts.length, PRO_AUDIT_QUESTION_COUNT, budgetPerRun || 1),
-  );
-  const prompts = rotatingSlice(
-    [...activePrompts].sort((a, b) => a.id.localeCompare(b.id)),
-    batchSize,
-    rotationOffset(frequency),
-  ).map((p) => ({ id: p.id, prompt: p.prompt }));
+  // Repeat the same five questions. Rotating questions made week-to-week
+  // score changes look meaningful when the underlying sample had changed.
+  const monitoringQuestions = (row.monitoring_questions ?? [])
+    .map((question) => String(question).trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  if (monitoringQuestions.length !== 5) {
+    log.warn("scheduler_monitoring_questions_missing", {
+      brandId: row.brand_id,
+    });
+    return "skipped";
+  }
+  const prompts = monitoringQuestions.map((prompt, index) => ({
+    id: `monitoring-${index + 1}`,
+    prompt,
+  }));
 
   const snapshot: ScanInputSnapshot = {
     domain: brand.canonical_domain,
@@ -221,7 +239,11 @@ async function maybeScheduleBrand(
     initiatedBy: row.owner_id,
     scanType: "scheduled",
     snapshot,
-    idempotencyKey: `scheduled:${row.brand_id}:${rotationOffset(frequency)}`,
+    idempotencyKey: `scheduled:${row.brand_id}:${frequency}:${periodKey(
+      frequency,
+      local.date,
+      local.day,
+    )}`,
     checksLimit: features.providerChecksPerMonth,
   });
 
@@ -230,6 +252,7 @@ async function maybeScheduleBrand(
       brandId: row.brand_id,
       error: result.error,
     });
+    return "refused";
   } else if (!result.alreadyRunning) {
     log.info("scheduler_enqueued", {
       brandId: row.brand_id,
@@ -238,5 +261,7 @@ async function maybeScheduleBrand(
       providers: providers.length,
       frequency,
     });
+    return "enqueued";
   }
+  return "alreadyQueued";
 }

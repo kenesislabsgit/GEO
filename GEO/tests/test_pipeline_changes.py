@@ -82,6 +82,7 @@ from geo_audit.intents import (
     build_customer_intent_review_payload,
     build_customer_intent_payload,
     build_required_search_frame,
+    generate_customer_intents,
     generate_free_customer_intents,
     normalize_buyer_band,
     question_batches,
@@ -195,6 +196,24 @@ def ai_question_response(prompts: list[str]) -> str:
 
 
 class PipelineChangeTests(unittest.TestCase):
+    def test_question_writer_receives_existing_questions_when_filling_slots(self) -> None:
+        existing = ["Which safety tools work with existing factory cameras?"]
+        response = ai_question_response(
+            ["Which tools flag missing PPE during live factory shifts?"]
+        )
+        with patch("geo_audit.intents.call_chat_completion", return_value=response):
+            prompts, payload, error = generate_customer_intents(
+                PROFILE,
+                count=1,
+                existing_questions=existing,
+            )
+
+        self.assertIsNone(error)
+        self.assertEqual(len(prompts or []), 1)
+        sent = json.loads(payload["messages"][1]["content"])
+        self.assertEqual(sent["existing_buyer_questions"], existing)
+        self.assertEqual(sent["requested_question_count"], 1)
+
     def test_website_url_rejects_invalid_hostname(self) -> None:
         with self.assertRaisesRegex(ValueError, "valid public hostname"):
             ensure_url("bad domain.example")

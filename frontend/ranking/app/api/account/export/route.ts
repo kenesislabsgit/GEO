@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { q, one } from "@/lib/db/pg";
 import { limitAction } from "@/lib/rate-limit";
+import { getAccountEntitlements } from "@/lib/billing/account";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,8 @@ export async function GET() {
       { status: 429 },
     );
   }
+  const entitlements = await getAccountEntitlements(user.id);
+  const includePaidAuditDetails = entitlements.plan !== "free";
 
   const profile = await one(
     `select id, name, email, "emailVerified", "createdAt", "updatedAt"
@@ -47,21 +50,25 @@ export async function GET() {
      from brands where owner_id = $1`,
     [user.id],
   );
-  const monitoring = await q(
-    `select bm.* from brand_monitoring bm
-     join brands b on b.id = bm.brand_id where b.owner_id = $1`,
-    [user.id],
-  );
+  const monitoring = includePaidAuditDetails
+    ? await q(
+        `select bm.* from brand_monitoring bm
+         join brands b on b.id = bm.brand_id where b.owner_id = $1`,
+        [user.id],
+      )
+    : [];
   const prompts = await q(
     `select p.* from tracked_prompts p
      join brands b on b.id = p.brand_id where b.owner_id = $1 limit ${ROW_CAP}`,
     [user.id],
   );
-  const competitors = await q(
-    `select c.* from competitors c
-     join brands b on b.id = c.brand_id where b.owner_id = $1 limit ${ROW_CAP}`,
-    [user.id],
-  );
+  const competitors = includePaidAuditDetails
+    ? await q(
+        `select c.* from competitors c
+         join brands b on b.id = c.brand_id where b.owner_id = $1 limit ${ROW_CAP}`,
+        [user.id],
+      )
+    : [];
   const scans = await q(
     `select s.id, s.brand_id, s.scan_type, s.status, s.provider_ids,
             s.total_queries, s.completed_queries, s.started_at, s.completed_at,
@@ -73,8 +80,9 @@ export async function GET() {
      order by s.created_at limit ${ROW_CAP}`,
     [user.id],
   );
-  const answers = await q(
-    `select r.id, r.scan_run_id, r.tracked_prompt_id, r.provider, r.model,
+  const answers = includePaidAuditDetails
+    ? await q(
+        `select r.id, r.scan_run_id, r.tracked_prompt_id, r.provider, r.model,
             r.raw_answer, r.answer_summary, r.brand_mentioned, r.brand_position,
             r.confidence, r.recommended_brands, r.citations, r.sources,
             r.estimated_cost, r.error, r.created_at
@@ -82,26 +90,31 @@ export async function GET() {
      join scan_runs s on s.id = r.scan_run_id
      join brands b on b.id = s.brand_id where b.owner_id = $1
      order by r.created_at limit ${ROW_CAP}`,
-    [user.id],
-  );
+        [user.id],
+      )
+    : [];
   const scores = await q(
     `select sc.* from score_snapshots sc
      join brands b on b.id = sc.brand_id where b.owner_id = $1
      order by sc.created_at limit ${ROW_CAP}`,
     [user.id],
   );
-  const actions = await q(
-    `select r.* from recommendations r
+  const actions = includePaidAuditDetails
+    ? await q(
+        `select r.* from recommendations r
      join brands b on b.id = r.brand_id where b.owner_id = $1
      order by r.created_at limit ${ROW_CAP}`,
-    [user.id],
-  );
-  const alerts = await q(
-    `select id, brand_id, scan_run_id, type, title, body, metadata,
+        [user.id],
+      )
+    : [];
+  const alerts = includePaidAuditDetails
+    ? await q(
+        `select id, brand_id, scan_run_id, type, title, body, metadata,
             read_at, emailed_at, created_at
      from alerts where user_id = $1 order by created_at limit ${ROW_CAP}`,
-    [user.id],
-  );
+        [user.id],
+      )
+    : [];
   const subscriptions = await q(
     `select plan, status, current_period_start, current_period_end,
             cancel_at_period_end, created_at, updated_at
@@ -119,27 +132,55 @@ export async function GET() {
      from domain_verifications where user_id = $1`,
     [user.id],
   );
-  const onboarding = await one(
-    `select value from app_settings where key = $1`,
-    [`user_onboarding:${user.id}`],
-  );
+  const onboarding = includePaidAuditDetails
+    ? await one(`select value from app_settings where key = $1`, [
+        `user_onboarding:${user.id}`,
+      ])
+    : null;
+
+  const freeScores = scores.map((row) => {
+    const value = row as Record<string, unknown>;
+    return {
+      id: value.id,
+      brand_id: value.brand_id,
+      scan_run_id: value.scan_run_id,
+      overall_score: value.overall_score,
+      mention_rate: value.mention_rate,
+      average_position: value.average_position,
+      created_at: value.created_at,
+    };
+  });
+  const freeScans = scans.map((row) => {
+    const value = row as Record<string, unknown>;
+    return {
+      id: value.id,
+      brand_id: value.brand_id,
+      scan_type: value.scan_type,
+      status: value.status,
+      total_queries: value.total_queries,
+      completed_queries: value.completed_queries,
+      started_at: value.started_at,
+      completed_at: value.completed_at,
+      created_at: value.created_at,
+    };
+  });
 
   const payload = {
-    schema: "arcanoris.account_export.v2",
+    schema: "arcanoris.account_export.v3",
     exportedAt: new Date().toISOString(),
     rowCapPerSection: ROW_CAP,
     user: profile,
     authProviders: authAccounts,
-    onboarding: onboarding?.value ?? null,
+    onboarding: includePaidAuditDetails ? (onboarding?.value ?? null) : null,
     brands,
-    brandMonitoring: monitoring,
+    brandMonitoring: includePaidAuditDetails ? monitoring : [],
     trackedPrompts: prompts,
-    competitors,
-    scans,
-    providerAnswers: answers,
-    scoreSnapshots: scores,
-    actions,
-    alerts,
+    competitors: includePaidAuditDetails ? competitors : [],
+    scans: includePaidAuditDetails ? scans : freeScans,
+    providerAnswers: includePaidAuditDetails ? answers : [],
+    scoreSnapshots: includePaidAuditDetails ? scores : freeScores,
+    actions: includePaidAuditDetails ? actions : [],
+    alerts: includePaidAuditDetails ? alerts : [],
     subscriptions,
     usageLedger: usage,
     domainVerifications: verifications,

@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import {
+  PLAN_CONFIG,
+  PLUS_CHECKS_INCLUDED,
+  PLUS_EARLY_BIRD_BONUS_CHECKS,
+  type PlanId,
+} from "@/lib/billing/entitlements";
 import {
   GROWTH_WAITLIST_HREF,
   PRO_CONTACT_HREF,
@@ -15,6 +20,16 @@ import {
   yearlySavingsUsd,
   type BillingInterval,
 } from "@/lib/billing/pricing";
+
+const PLUS_HIGHLIGHTS = [
+  `Track your website with ${PLUS_CHECKS_INCLUDED} monthly checks plus ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird bonus checks`,
+  "Run full audits with 20 real buyer questions",
+  "Compare leading AI assistants side by side",
+  "See complete answers, citations, mentions, and competitor evidence",
+  "Get a prioritized website improvement plan backed by sources",
+  "Monitor visibility weekly and receive change alerts",
+  "Keep your audit history and share private or public reports",
+] as const;
 
 export function BillingActions({
   highlightedPlan,
@@ -131,6 +146,25 @@ export function BillingActions({
                   {plan.description}
                   {locked ? " Set up with our team." : ""}
                 </p>
+                {planId === "founder" ? (
+                  <div className="mt-4 rounded-lg border border-[color:var(--arc-green)]/25 bg-[color:var(--arc-green)]/5 p-4">
+                    <p className="text-sm font-semibold">
+                      Everything you need to understand and improve your AI
+                      visibility
+                    </p>
+                    <ul className="mt-3 space-y-2.5">
+                      {PLUS_HIGHLIGHTS.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-start gap-2 text-sm text-foreground/80"
+                        >
+                          <Check className="mt-0.5 size-3.5 shrink-0 text-[color:var(--arc-green)]" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="mt-4 flex flex-col gap-2">
                   {locked ? (
                     <Button asChild size="sm" variant="outline">

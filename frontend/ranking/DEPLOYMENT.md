@@ -75,6 +75,11 @@ GEO_AUDIT_ROOT=/srv/GEO npm run worker
 - Scale by running more worker processes; the queue is claim-safe. Restrict
   the worker's egress from internal ranges (metadata service included) as
   the second SSRF layer.
+- Keep at least one worker running at all times. It checks monitoring schedules
+  every five minutes. A weekly run always uses the five saved questions. If a
+  worker restarts after the selected hour, it catches up during that week.
+  Database idempotency prevents duplicate runs and duplicate check charges
+  when several workers observe the same schedule.
 - For ECS, deploy the worker as its own service with a dedicated CloudWatch
   log group. `infra/ecs-audit-worker-autoscaling.yml` keeps two workers warm,
   adds workers when scans wait, and removes them only after the whole queue is

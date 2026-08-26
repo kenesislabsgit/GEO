@@ -297,6 +297,22 @@ export function canRunProviderCheck(ctx: EntitlementContext): boolean {
   return ctx.providerChecksUsed < limit;
 }
 
+export function assertCanEditAuditSetup(ctx: EntitlementContext): void {
+  if (
+    ctx.plan !== "free" &&
+    ctx.status !== "active" &&
+    ctx.status !== "trialing"
+  ) {
+    throw new EntitlementError("Your subscription is not active.");
+  }
+  const limit = PLAN_CONFIG[ctx.plan].features.providerChecksPerMonth;
+  if (ctx.providerChecksUsed >= limit) {
+    throw new EntitlementError(
+      "Your monthly checks are used up. You can still view and download existing results.",
+    );
+  }
+}
+
 export function assertCanCreateBrand(ctx: EntitlementContext): void {
   // Free accounts may own one public brand (claim or dashboard free scan).
   // Paid plans require an active or trialing subscription.

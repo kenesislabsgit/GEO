@@ -13,7 +13,10 @@ import {
 } from "@/lib/db/repository";
 import { providerDisplayName } from "@/lib/constants";
 import { canonicalCompanyKey } from "@/lib/utils/company-name";
-import { ProviderBadge, ProviderLogo } from "@/components/providers/provider-logo";
+import {
+  ProviderBadge,
+  ProviderLogo,
+} from "@/components/providers/provider-logo";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { CompetitorsManager } from "@/components/dashboard/competitors-manager";
 import { ProReportLock } from "@/components/dashboard/pro-report-lock";
@@ -83,6 +86,8 @@ export default async function CompetitorsPage({
   const latestResults = latestScan ? await getQueryResults(latestScan.id) : [];
   const isPaid = isPaidSubscription(entitlements);
   const plan = PLAN_CONFIG[entitlements.plan];
+  const canEditAuditSetup =
+    entitlements.providerChecksUsed < plan.features.providerChecksPerMonth;
   const rawSignals = Array.isArray(scores[0]?.competitor_scores)
     ? (scores[0].competitor_scores as CompetitorSignal[])
     : [];
@@ -96,7 +101,9 @@ export default async function CompetitorsPage({
 
   // Where the audited company itself sits in the same ranking. Without this the
   // page lists rivals but never answers "so where am I?".
-  const brandMentions = latestResults.filter((row) => row.brand_mentioned).length;
+  const brandMentions = latestResults.filter(
+    (row) => row.brand_mentioned,
+  ).length;
   const brandAverageRank = scores[0]?.average_position ?? null;
   const brandShareOfVoice = scores[0]?.share_of_voice ?? 0;
   const aheadOfBrand = signals.filter(
@@ -148,7 +155,9 @@ export default async function CompetitorsPage({
                     of {latestResults.length}
                   </span>
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">AI answers</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  AI answers
+                </p>
               </div>
               <div className="lg:px-5">
                 <p className="arc-eyebrow">Avg position</p>
@@ -204,11 +213,16 @@ export default async function CompetitorsPage({
             <section>
               <h2 className="text-base font-semibold">Other AI mentions</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                These companies appeared in answers, but did not have enough verified evidence for a full comparison.
+                These companies appeared in answers, but did not have enough
+                verified evidence for a full comparison.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {otherMentions.slice(0, 12).map((item) => (
-                  <Badge key={item.name} variant="outline" className="rounded-full px-3 py-1 text-xs">
+                  <Badge
+                    key={item.name}
+                    variant="outline"
+                    className="rounded-full px-3 py-1 text-xs"
+                  >
                     {item.name} · {item.count}
                   </Badge>
                 ))}
@@ -221,6 +235,7 @@ export default async function CompetitorsPage({
             initialCompetitors={competitors}
             competitorLimit={plan.features.competitorsPerBrand}
             isPaid={isPaid}
+            canEdit={canEditAuditSetup}
           />
         </>
       )}
@@ -283,7 +298,8 @@ function CompetitorEvidencePanel({
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="arc-tabular font-mono text-xs text-muted-foreground">
-              {signal.mentions ?? 0} mention{(signal.mentions ?? 0) !== 1 ? "s" : ""}
+              {signal.mentions ?? 0} mention
+              {(signal.mentions ?? 0) !== 1 ? "s" : ""}
               {signal.average_rank ? ` · avg #${signal.average_rank}` : ""}
               {` · ${evidenceCount} evidence`}
             </span>
@@ -311,7 +327,10 @@ function CompetitorEvidencePanel({
             ),
           )}
           {signal.official_website ? (
-            <EvidenceLink url={signal.official_website} label="Official website" />
+            <EvidenceLink
+              url={signal.official_website}
+              label="Official website"
+            />
           ) : null}
         </div>
 
@@ -362,7 +381,9 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
               <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
                 Buyer question
               </p>
-              <p className="mt-1 text-sm font-medium leading-relaxed">{evidence.question}</p>
+              <p className="mt-1 text-sm font-medium leading-relaxed">
+                {evidence.question}
+              </p>
               {evidence.answer_excerpt ? (
                 <>
                   <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
@@ -386,7 +407,11 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
               {evidence.source_urls?.length ? (
                 <div className="mt-2 flex flex-wrap gap-3">
                   {evidence.source_urls.map((url) => (
-                    <EvidenceLink key={url} url={url} label={sourceLabel(url)} />
+                    <EvidenceLink
+                      key={url}
+                      url={url}
+                      label={sourceLabel(url)}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -413,7 +438,9 @@ function WebsiteEvidenceList({ rows }: { rows: WebsiteEvidence[] }) {
           <div key={`${evidence.url}-${index}`} className="py-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium">
-                {evidence.page_title || readablePageName(evidence.url) || evidence.label}
+                {evidence.page_title ||
+                  readablePageName(evidence.url) ||
+                  evidence.label}
               </p>
               <Badge variant="outline" className="rounded-full text-[10px]">
                 {evidence.label}
@@ -443,7 +470,8 @@ function VerifiedMentionsList({ rows }: { rows: VerifiedMention[] }) {
         Independent web verification
       </h3>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        Pages found separately after the AI answers. These are not claims made by the AI provider.
+        Pages found separately after the AI answers. These are not claims made
+        by the AI provider.
       </p>
       <div className="mt-3 space-y-3">
         {rows.slice(0, 4).map((mention, index) => (
@@ -480,8 +508,8 @@ function VerifiedMentionsList({ rows }: { rows: VerifiedMention[] }) {
 
 function hasUsableCompetitorEvidence(signal: CompetitorSignal): boolean {
   const answerEvidence = signal.answer_evidence ?? [];
-  const hasAnswerProof = answerEvidence.some(
-    (item) => Boolean(item.answer_excerpt?.trim()),
+  const hasAnswerProof = answerEvidence.some((item) =>
+    Boolean(item.answer_excerpt?.trim()),
   );
   const hasVerifiedSupport =
     (signal.website_evidence?.length ?? 0) > 0 ||
@@ -538,7 +566,8 @@ function aggregateOtherMentions(
     }
   }
   return Array.from(counts.values()).sort(
-    (left, right) => right.count - left.count || left.name.localeCompare(right.name),
+    (left, right) =>
+      right.count - left.count || left.name.localeCompare(right.name),
   );
 }
 

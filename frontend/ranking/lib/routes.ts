@@ -58,12 +58,14 @@ export const routes = {
     returnTo?: string;
     status?: "cancelled";
     interval?: "monthly" | "yearly";
+    checkout?: boolean;
   }) => {
     const params = new URLSearchParams();
     if (opts?.plan) params.set("plan", opts.plan);
     if (opts?.returnTo) params.set("returnTo", opts.returnTo);
     if (opts?.status) params.set("status", opts.status);
     if (opts?.interval) params.set("interval", opts.interval);
+    if (opts?.checkout) params.set("checkout", "1");
     const qs = params.toString();
     return qs ? `/dashboard/billing?${qs}` : "/dashboard/billing";
   },

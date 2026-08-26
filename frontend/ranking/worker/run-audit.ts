@@ -1,5 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { importAuditExport, type AuditExport } from "@/lib/audit/import-export";
@@ -13,10 +20,15 @@ import {
   FREE_AUDIT_SEARCH_CONTEXT,
   PRO_AUDIT_SEARCH_CONTEXT,
 } from "@/lib/constants";
-import { getBrandById, updateScanRun } from "@/lib/db/repository";
+import {
+  getBrandById,
+  getBrandProfileCache,
+  updateScanRun,
+  upsertBrandProfileCache,
+} from "@/lib/db/repository";
 import { recordScanEvent, settleReservation } from "@/lib/scans/queue";
 import { log } from "@/lib/log";
-import type { ScanInputSnapshot, ScanRun } from "@/types/database";
+import type { Json, ScanInputSnapshot, ScanRun } from "@/types/database";
 
 /**
  * Runs one claimed audit: spawn the Python engine, stream its progress into
@@ -127,7 +139,11 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
     }
     const brand = await getBrandById(scan.brand_id);
     if (!brand) {
-      return { ok: false, message: "Brand no longer exists.", reason: "missing_brand" };
+      return {
+        ok: false,
+        message: "Brand no longer exists.",
+        reason: "missing_brand",
+      };
     }
 
     const geoRoot =
@@ -195,6 +211,7 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
     // The user's saved questions, asked verbatim. Without this file the
     // engine generates its own from the website.
     let questionsDir: string | null = null;
+    let profileCacheDir: string | null = null;
     if (snapshot.prompts.length > 0) {
       questionsDir = await mkdtemp(path.join(os.tmpdir(), "rbai-questions-"));
       const questionsPath = path.join(questionsDir, "questions.json");
@@ -204,6 +221,40 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
         "utf8",
       );
       args.push("--questions-file", questionsPath);
+      if (snapshot.generate_remaining_questions) {
+        args.push("--generate-missing-questions");
+      }
+    }
+
+    // Monitoring reads the live site again, but it can reuse the last trusted
+    // AI-written profile when the fresh content comparison says it is safe.
+    if (scan.scan_type === "scheduled") {
+      try {
+        const cached = await getBrandProfileCache(scan.brand_id);
+        if (cached) {
+          profileCacheDir = await mkdtemp(
+            path.join(os.tmpdir(), "rbai-profile-cache-"),
+          );
+          await Promise.all([
+            writeFile(
+              path.join(profileCacheDir, "website_snapshot.json"),
+              JSON.stringify(cached.website_snapshot),
+              "utf8",
+            ),
+            writeFile(
+              path.join(profileCacheDir, "company_profile.json"),
+              JSON.stringify(cached.company_profile),
+              "utf8",
+            ),
+          ]);
+          args.push("--profile-cache-dir", profileCacheDir);
+        }
+      } catch (error) {
+        log.warn("profile_cache_read_failed", {
+          scanId: scan.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     let releaseSiteRead: () => Promise<void> = async () => {};
@@ -217,6 +268,10 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
       if (resumeFrom) {
         args.push("--resume-from", resumeFrom);
         note("resume_free_audit", 30);
+      } else if (scan.scan_type === "scheduled") {
+        // Never use the time-based website-read cache here. Monitoring must
+        // fetch current pages before deciding whether the profile is reusable.
+        note("crawl_user_site", 4);
       } else {
         const siteRead = await acquireSiteRead(geoRoot, domain, {
           onWait: () => note("crawl_user_site", 3),
@@ -260,7 +315,9 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
               runSummary = {
                 audit_export_path: parsed.audit_export_path,
                 run_dir:
-                  typeof parsed.run_dir === "string" ? parsed.run_dir : undefined,
+                  typeof parsed.run_dir === "string"
+                    ? parsed.run_dir
+                    : undefined,
                 estimated_cost_usd:
                   typeof parsed.estimated_cost_usd === "number"
                     ? parsed.estimated_cost_usd
@@ -277,7 +334,9 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
                 message:
                   typeof parsed.message === "string" ? parsed.message : null,
                 assistant:
-                  typeof parsed.assistant === "string" ? parsed.assistant : null,
+                  typeof parsed.assistant === "string"
+                    ? parsed.assistant
+                    : null,
                 questions: Array.isArray(parsed.questions)
                   ? parsed.questions.filter(
                       (item): item is string => typeof item === "string",
@@ -325,7 +384,20 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
       }
 
       if (runSummary?.run_dir) {
-        await publishSiteRead(path.resolve(geoRoot, runSummary.run_dir));
+        const resolvedRunDir = path.resolve(geoRoot, runSummary.run_dir);
+        await publishSiteRead(resolvedRunDir);
+        if (mode === "pro") {
+          await saveBrandProfileCache(
+            scan.brand_id,
+            scan.id,
+            resolvedRunDir,
+          ).catch((error) =>
+            log.warn("profile_cache_write_failed", {
+              scanId: scan.id,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+        }
       }
       await releaseSiteRead();
 
@@ -339,7 +411,9 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
 
       note("frontend_import", 99);
       const exportPath = path.resolve(geoRoot, runSummary.audit_export_path);
-      const audit = JSON.parse(await readFile(exportPath, "utf8")) as AuditExport;
+      const audit = JSON.parse(
+        await readFile(exportPath, "utf8"),
+      ) as AuditExport;
       if (!audit.brand?.domain) {
         audit.brand = { ...audit.brand, domain };
       }
@@ -354,7 +428,20 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
         ipHash: snapshot.ip_hash,
         country: snapshot.country,
         language: snapshot.language,
-        curatedPrompts: snapshot.prompts.length > 0 ? snapshot.prompts : undefined,
+        // New question choices may be edited or completed by AI, so the final
+        // generated list becomes the current list. Old queued runs keep their
+        // previous exact-link behaviour.
+        curatedPrompts:
+          snapshot.prompts.length > 0 && !snapshot.question_mode
+            ? snapshot.prompts
+            : undefined,
+        questionSelection: snapshot.question_mode
+          ? {
+              mode: snapshot.question_mode,
+              suppliedCount: snapshot.prompts.length,
+              sourceScanRunId: snapshot.source_scan_run_id ?? null,
+            }
+          : undefined,
       });
 
       const costUsd =
@@ -382,12 +469,43 @@ export function startAuditRun(scan: ScanRun): RunningAudit {
       };
     } finally {
       if (questionsDir) {
-        await rm(questionsDir, { recursive: true, force: true }).catch(() => {});
+        await rm(questionsDir, { recursive: true, force: true }).catch(
+          () => {},
+        );
+      }
+      if (profileCacheDir) {
+        await rm(profileCacheDir, { recursive: true, force: true }).catch(
+          () => {},
+        );
       }
     }
   })();
 
   return { done, kill };
+}
+
+async function saveBrandProfileCache(
+  brandId: string,
+  scanId: string,
+  runDir: string,
+): Promise<void> {
+  const readJson = async (name: string) =>
+    JSON.parse(await readFile(path.join(runDir, name), "utf8")) as Json;
+  const [websiteSnapshot, websiteEvidence, companyProfile] = await Promise.all([
+    readJson("website_snapshot.json"),
+    readJson("website_evidence.json"),
+    readJson("company_profile.json"),
+  ]);
+  const changeAnalysis = await readJson("site_change_analysis.json").catch(
+    () => null,
+  );
+  await upsertBrandProfileCache(brandId, {
+    website_snapshot: websiteSnapshot,
+    website_evidence: websiteEvidence,
+    company_profile: companyProfile,
+    change_analysis: changeAnalysis,
+    source_scan_run_id: scanId,
+  });
 }
 
 /** Error messages that are safe to show users (no paths, no internals). */
@@ -406,7 +524,8 @@ async function findLatestReusableRun(
   );
   const candidates = entries
     .filter(
-      (entry) => entry.isDirectory() && entry.name.toLowerCase().endsWith(suffix),
+      (entry) =>
+        entry.isDirectory() && entry.name.toLowerCase().endsWith(suffix),
     )
     .map((entry) => path.join(outputRoot, entry.name))
     .sort()

@@ -20,10 +20,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import {
-  SUPPORTED_COUNTRIES,
-  SUPPORTED_LANGUAGES,
-} from "@/lib/constants";
+import { SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import type { TrackedPrompt } from "@/types/database";
 
@@ -32,6 +29,7 @@ export function PromptsManager({
   initialPrompts,
   activePromptLimit,
   isPaid,
+  canEdit,
   defaultCountry,
   defaultLanguage,
 }: {
@@ -39,6 +37,7 @@ export function PromptsManager({
   initialPrompts: TrackedPrompt[];
   activePromptLimit: number;
   isPaid: boolean;
+  canEdit: boolean;
   defaultCountry: string;
   defaultLanguage: string;
 }) {
@@ -70,7 +69,9 @@ export function PromptsManager({
       setPrompts((prev) =>
         prev.map((p) => (p.id === id ? (data.prompt as TrackedPrompt) : p)),
       );
-      toast.success(patch.active === false ? "Prompt paused" : "Prompt updated");
+      toast.success(
+        patch.active === false ? "Prompt paused" : "Prompt updated",
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Update failed");
     } finally {
@@ -148,11 +149,22 @@ export function PromptsManager({
 
   return (
     <div className="space-y-4">
+      {!canEdit ? (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Monthly checks are used up. Existing questions remain available, but
+          changes resume next billing period.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <FieldDescription>
-          {activeCount} of {activePromptLimit} active prompts across your account.
+          {activeCount} of {activePromptLimit} active prompts across your
+          account.
         </FieldDescription>
-        <Button size="sm" onClick={() => setShowAdd(true)} disabled={busy !== null}>
+        <Button
+          size="sm"
+          onClick={() => setShowAdd(true)}
+          disabled={busy !== null || !canEdit}
+        >
           <Plus data-icon="inline-start" />
           Add prompt
         </Button>
@@ -232,7 +244,8 @@ export function PromptsManager({
       {prompts.length === 0 ? (
         <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No prompts yet. Run a scan to generate them or add a custom question.
+            No prompts yet. Run a scan to generate them or add a custom
+            question.
           </p>
         </div>
       ) : (
@@ -272,7 +285,8 @@ export function PromptsManager({
                     <>
                       <p className="text-sm font-medium">{prompt.prompt}</p>
                       <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                        {prompt.buyer_stage} · {prompt.country}/{prompt.language}
+                        {prompt.buyer_stage} · {prompt.country}/
+                        {prompt.language}
                       </p>
                     </>
                   )}
@@ -295,7 +309,7 @@ export function PromptsManager({
                       size="sm"
                       variant="outline"
                       onClick={() => startEdit(prompt)}
-                      disabled={busy === prompt.id}
+                      disabled={busy === prompt.id || !canEdit}
                     >
                       <Pencil data-icon="inline-start" />
                       Edit
@@ -306,7 +320,7 @@ export function PromptsManager({
                       onClick={() =>
                         patchPrompt(prompt.id, { active: !prompt.active })
                       }
-                      disabled={busy === prompt.id}
+                      disabled={busy === prompt.id || !canEdit}
                     >
                       {prompt.active ? (
                         <>
@@ -342,8 +356,8 @@ export function PromptsManager({
           <DialogHeader>
             <DialogTitle>Delete prompt?</DialogTitle>
             <DialogDescription>
-              This buyer question will be removed from future scans. Existing scan
-              results are kept.
+              This buyer question will be removed from future scans. Existing
+              scan results are kept.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

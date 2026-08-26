@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
-import { EntitlementError } from "@/lib/billing/entitlements";
+import {
+  assertCanEditAuditSetup,
+  EntitlementError,
+} from "@/lib/billing/entitlements";
+import { getAccountEntitlements } from "@/lib/billing/account";
 import {
   assertBrandOwnership,
   assertCanActivateAnotherPrompt,
@@ -40,6 +44,7 @@ export async function PATCH(
     }
 
     await assertBrandOwnership(existing.brand_id, user.id);
+    assertCanEditAuditSetup(await getAccountEntitlements(user.id));
 
     if (body.prompt !== undefined) {
       const siblings = await listAllPrompts(existing.brand_id);
@@ -73,7 +78,10 @@ export async function PATCH(
     return NextResponse.json({ prompt: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid prompt update." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid prompt update." },
+        { status: 400 },
+      );
     }
     if (error instanceof BrandAccessError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
@@ -81,7 +89,8 @@ export async function PATCH(
     if (error instanceof EntitlementError) {
       return NextResponse.json({ error: error.message }, { status: 402 });
     }
-    const message = error instanceof Error ? error.message : "Failed to update prompt";
+    const message =
+      error instanceof Error ? error.message : "Failed to update prompt";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -109,7 +118,8 @@ export async function DELETE(
     if (error instanceof BrandAccessError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    const message = error instanceof Error ? error.message : "Failed to delete prompt";
+    const message =
+      error instanceof Error ? error.message : "Failed to delete prompt";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

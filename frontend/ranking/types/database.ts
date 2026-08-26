@@ -152,6 +152,11 @@ export type ScanInputSnapshot = {
   assistants: ProviderId[];
   limit_per_assistant: number;
   prompts: Array<{ id: string; prompt: string }>;
+  /** How this run's supplied questions were chosen. Older queued rows omit it. */
+  question_mode?: "new" | "previous";
+  source_scan_run_id?: string | null;
+  /** Fill the unused slots with new AI-written questions, up to question_count. */
+  generate_remaining_questions?: boolean;
   country: string | null;
   language: string | null;
   geo_market: boolean;
@@ -164,6 +169,16 @@ export type ScanInputSnapshot = {
   trigger_source: string;
   cost_ceiling_usd: number | null;
   resume: boolean;
+};
+
+export type ScanQuestion = {
+  id: string;
+  scan_run_id: string;
+  position: number;
+  prompt: string;
+  source: "generated" | "user" | "reused" | "recovered";
+  source_scan_run_id: string | null;
+  created_at: string;
 };
 
 export type QueryResult = {

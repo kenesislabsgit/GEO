@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Clock, Loader2, Lock, Play } from "lucide-react";
+import { Check, Clock, Loader2, Lock, Play, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
 import { useDetachedAudit } from "@/components/scan/use-detached-audit";
@@ -35,6 +36,11 @@ export type ScanBrandOption = {
     type: string;
     country: string;
     language: string;
+  }>;
+  questionSets: Array<{
+    scanId: string;
+    createdAt: string;
+    questions: string[];
   }>;
   lastScanAt: string | null;
   recentlyScanned: boolean;
@@ -98,6 +104,16 @@ export function NewScanForm({
   const initialBrand =
     brands.find((b) => b.id === preselectedBrandId) ?? brands[0]!;
   const [brandId, setBrandId] = useState(initialBrand.id);
+  const initialQuestionSet = initialBrand.questionSets[0] ?? null;
+  const [questionMode, setQuestionMode] = useState<"previous" | "new">(
+    initialQuestionSet ? "previous" : "new",
+  );
+  const [sourceScanRunId, setSourceScanRunId] = useState<string | null>(
+    initialQuestionSet?.scanId ?? null,
+  );
+  const [draftQuestions, setDraftQuestions] = useState<string[]>(
+    initialQuestionSet?.questions ?? [],
+  );
   // Pre-select the default slice, not the whole catalog - plans can offer
   // more providers than one audit may run.
   const [providers, setProviders] = useState<string[]>(
@@ -142,7 +158,9 @@ export function NewScanForm({
   // question count. It used to cap at five - the old Pro size - which made a
   // twenty-question run look like a five-question one and under-counted the
   // monthly allowance by four times.
-  const questionsPerProvider = PRO_AUDIT_QUESTION_COUNT;
+  const questionsPerProvider = plan.isPaid
+    ? PRO_AUDIT_QUESTION_COUNT
+    : FREE_AUDIT_QUESTION_COUNT;
   const estimatedChecks = questionsPerProvider * providers.length;
   const remaining = Math.max(plan.checksLimit - plan.checksUsed, 0);
   const overAllowance = estimatedChecks > remaining;
@@ -159,8 +177,45 @@ export function NewScanForm({
     });
   }
 
+  function selectBrand(nextBrandId: string) {
+    const nextBrand = brands.find((item) => item.id === nextBrandId);
+    if (!nextBrand) return;
+    const latest = nextBrand.questionSets[0] ?? null;
+    setBrandId(nextBrandId);
+    setQuestionMode(latest ? "previous" : "new");
+    setSourceScanRunId(latest?.scanId ?? null);
+    setDraftQuestions(latest?.questions ?? []);
+  }
+
+  function choosePreviousQuestions(scanId: string) {
+    const set = brand.questionSets.find((item) => item.scanId === scanId);
+    if (!set) return;
+    setQuestionMode("previous");
+    setSourceScanRunId(set.scanId);
+    setDraftQuestions([...set.questions]);
+  }
+
+  function chooseNewQuestions() {
+    setQuestionMode("new");
+    setSourceScanRunId(null);
+    setDraftQuestions([]);
+  }
+
+  function updateQuestion(index: number, prompt: string) {
+    setDraftQuestions((current) =>
+      current.map((item, position) => (position === index ? prompt : item)),
+    );
+  }
+
+  function removeQuestion(index: number) {
+    setDraftQuestions((current) =>
+      current.filter((_, position) => position !== index),
+    );
+  }
+
   function startScan() {
     setRecentBlock(null);
+    const questions = draftQuestions.map((item) => item.trim()).filter(Boolean);
     // A free account gets the free audit it is entitled to - requesting Pro
     // here used to hand free users a payment error instead of their audit.
     void start({
@@ -171,6 +226,15 @@ export function NewScanForm({
         ? PRO_AUDIT_QUESTION_COUNT
         : FREE_AUDIT_QUESTION_COUNT,
       mode: plan.isPaid ? "pro" : "free",
+      ...(plan.isPaid
+        ? {
+            questionMode,
+            questions,
+            ...(questionMode === "previous" && sourceScanRunId
+              ? { sourceScanRunId }
+              : {}),
+          }
+        : {}),
       ...(plan.isPaid && geoEnabled && market !== "auto" ? { market } : {}),
     });
   }
@@ -222,7 +286,7 @@ export function NewScanForm({
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => setBrandId(option.id)}
+                  onClick={() => selectBrand(option.id)}
                   className={cn(
                     "flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors",
                     selected ? "bg-muted/60" : "hover:bg-muted/40",
@@ -263,40 +327,132 @@ export function NewScanForm({
         {/* Questions */}
         <section className="arc-panel">
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <h2 className="text-sm font-semibold">
-              2. Questions from your last audit
-            </h2>
+            <h2 className="text-sm font-semibold">2. Choose questions</h2>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {brand.prompts.length} questions
+              {draftQuestions.filter((item) => item.trim()).length} provided
             </Badge>
           </div>
-          {/* These are history, not a selection. Every run reads the website
-              again and writes fresh questions from what it finds, then
-              replaces the list below. Labelling this a "library" made it look
-              like the questions you see are the ones about to be asked. */}
-          <p className="px-5 pt-4 text-xs leading-relaxed text-muted-foreground">
-            This audit will write {questionsPerProvider} new buyer questions from a
-            fresh read of the website. The questions below are what the last audit
-            asked, and they will be replaced.
-          </p>
-          {brand.prompts.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
-              No questions yet - this is the first audit for this website.
-            </p>
-          ) : (
-            <div className="max-h-72 divide-y divide-border overflow-y-auto">
-              {brand.prompts.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-4 px-5 py-2.5"
-                >
-                  <p className="min-w-0 truncate text-sm">{p.prompt}</p>
-                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground capitalize">
-                    {p.type.replaceAll("_", " ")}
-                  </span>
+          {plan.isPaid ? (
+            <div className="space-y-4 px-5 py-4">
+              {brand.questionSets.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      choosePreviousQuestions(
+                        sourceScanRunId ?? brand.questionSets[0]!.scanId,
+                      )
+                    }
+                    className={cn(
+                      "rounded-lg border px-3.5 py-3 text-left text-sm",
+                      questionMode === "previous"
+                        ? "border-foreground/40 bg-muted/60"
+                        : "border-border",
+                    )}
+                  >
+                    <span className="font-medium">Use an earlier audit</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Copy its questions and edit them for this run.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={chooseNewQuestions}
+                    className={cn(
+                      "rounded-lg border px-3.5 py-3 text-left text-sm",
+                      questionMode === "new"
+                        ? "border-foreground/40 bg-muted/60"
+                        : "border-border",
+                    )}
+                  >
+                    <span className="font-medium">Create a new set</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Add your own. AI writes the remaining questions.
+                    </span>
+                  </button>
                 </div>
-              ))}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This website has no earlier question set. Add any questions
+                  you want. AI will write the rest.
+                </p>
+              )}
+
+              {questionMode === "previous" && brand.questionSets.length > 0 ? (
+                <label className="block text-sm font-medium">
+                  Earlier audit
+                  <select
+                    value={sourceScanRunId ?? brand.questionSets[0]!.scanId}
+                    onChange={(event) =>
+                      choosePreviousQuestions(event.target.value)
+                    }
+                    className="mt-2 h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none"
+                  >
+                    {brand.questionSets.map((set, index) => (
+                      <option key={set.scanId} value={set.scanId}>
+                        {formatDate(set.createdAt)} — {set.questions.length} questions
+                        {index === 0 ? " (latest)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              {draftQuestions.length > 0 ? (
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {draftQuestions.map((prompt, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <span className="w-6 shrink-0 pt-3 text-right text-xs text-muted-foreground">
+                        {index + 1}.
+                      </span>
+                      <Textarea
+                        value={prompt}
+                        maxLength={300}
+                        rows={2}
+                        className="min-h-14 resize-y leading-relaxed"
+                        aria-label={`Question ${index + 1}`}
+                        onChange={(event) => updateQuestion(index, event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        className="mt-1"
+                        aria-label={`Remove question ${index + 1}`}
+                        onClick={() => removeQuestion(index)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {draftQuestions.length < questionsPerProvider ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDraftQuestions((current) => [...current, ""])}
+                >
+                  <Plus data-icon="inline-start" />
+                  Add your question
+                </Button>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                {draftQuestions.filter((item) => item.trim()).length} supplied. AI
+                will write {Math.max(
+                  questionsPerProvider -
+                    draftQuestions.filter((item) => item.trim()).length,
+                  0,
+                )} more, for {questionsPerProvider} total.
+              </p>
             </div>
+          ) : (
+            <p className="px-5 py-4 text-sm text-muted-foreground">
+              The free audit creates {questionsPerProvider} buyer questions for
+              this run.
+            </p>
           )}
         </section>
 

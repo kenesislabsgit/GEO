@@ -124,10 +124,71 @@ MISTRAL_BATCH_BUYER_ANSWER_SYSTEM_PROMPT = (
 
 Produce a compact buyer-facing result.
 Keep answer_text to one short paragraph without introductions, implementation instructions, or repeated feature descriptions.
+Every company in recommended_companies MUST also be explicitly named and recommended in answer_text. The structured list does not replace the visible answer.
+Required repetition of company names and supporting wording between answer_text and the structured fields is intentional.
 Keep each recommendation's reasoning to one short sentence and overall_reasoning to one sentence.
 Include only material unknowns. Do not repeat the same explanation across fields.
 """
 )
+
+BEDROCK_BATCH_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "answers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "prompt_index": {"type": "integer"},
+                    "answer_text": {
+                        "type": "string",
+                        "description": "Standalone visible answer that explicitly names every recommended company.",
+                    },
+                    "recommended_companies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "company_name": {"type": "string"},
+                                "rank": {"type": "integer"},
+                                "reasoning": {"type": "string"},
+                                "evidence_quote": {
+                                    "type": "string",
+                                    "description": "Exact text copied from answer_text that supports this company.",
+                                },
+                                "explicitly_recommended": {"type": "boolean"},
+                            },
+                            "required": [
+                                "company_name",
+                                "rank",
+                                "reasoning",
+                                "evidence_quote",
+                                "explicitly_recommended",
+                            ],
+                        },
+                    },
+                    "overall_reasoning": {"type": "string"},
+                    "unknowns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "prompt_index",
+                    "answer_text",
+                    "recommended_companies",
+                    "overall_reasoning",
+                    "unknowns",
+                ],
+            },
+        }
+    },
+    "required": ["answers"],
+}
 
 OPENAI_SEARCH_BATCH_SYSTEM_PROMPT = f"""{BATCH_BUYER_ANSWER_SYSTEM_PROMPT}
 
@@ -664,6 +725,8 @@ def collect_recommendation_group(
             temperature=0.2,
             # The limit is completion headroom, not a requested response length.
             max_tokens=max_tokens,
+            json_schema=BEDROCK_BATCH_SCHEMA if assistant == "bedrock_mistral" else None,
+            schema_name="buyer_recommendation_batch",
         )
         parsed = extract_json_object(raw_response)
         answers = parsed.get("answers", [])
@@ -677,6 +740,72 @@ def collect_recommendation_group(
             for _, index, _ in group
         ):
             raise ValueError("Batched provider response omitted one or more questions.")
+
+        def format_errors() -> list[dict[str, Any]]:
+            errors: list[dict[str, Any]] = []
+            for _, index, _ in group:
+                answer_item = answers_by_index[index]
+                rejected: list[dict[str, Any]] = []
+                normalize_recommendations(
+                    answer_item.get("recommended_companies", []),
+                    answer_text=str(answer_item.get("answer_text", "")),
+                    require_evidence=True,
+                    rejection_log=rejected,
+                )
+                if rejected:
+                    errors.append({"prompt_index": index, "rejections": rejected})
+            return errors
+
+        validation_errors = format_errors()
+        if validation_errors:
+            # Native JSON schemas guarantee the shape, but cannot express the
+            # cross-field rule that names and quotes must also occur in the
+            # visible answer. Give the model one focused repair attempt. If it
+            # still fails, the existing individual-answer fallback takes over.
+            cost_tracker.add_calls(assistant, len(group))
+            correction_prompt = json.dumps(
+                {
+                    "task": "Correct the response so every structured recommendation is explicitly present in its answer_text.",
+                    "requirements": [
+                        "Name and recommend every recommended company in answer_text.",
+                        "Copy each evidence_quote exactly from answer_text.",
+                        "Keep each question independent and preserve its prompt_index.",
+                    ],
+                    "questions": items,
+                    "previous_response": parsed,
+                    "validation_errors": validation_errors,
+                },
+                ensure_ascii=False,
+            )
+            raw_response, metadata = call_bedrock_converse(
+                system_prompt,
+                correction_prompt,
+                provider=assistant,
+                model=model,
+                temperature=0.0,
+                max_tokens=max_tokens,
+                json_schema=BEDROCK_BATCH_SCHEMA,
+                schema_name="buyer_recommendation_batch",
+            )
+            parsed = extract_json_object(raw_response)
+            answers = parsed.get("answers", [])
+            answers_by_index = {
+                int(item.get("prompt_index")): item
+                for item in answers
+                if isinstance(item, dict)
+                and str(item.get("prompt_index", "")).isdigit()
+            }
+            if any(
+                not str(answers_by_index.get(index, {}).get("answer_text", "")).strip()
+                for _, index, _ in group
+            ):
+                raise ValueError("Corrected provider response omitted one or more questions.")
+            validation_errors = format_errors()
+            if validation_errors:
+                raise ValueError(
+                    "Corrected provider response still contained hidden recommendations."
+                )
+            metadata["format_correction_used"] = True
 
         resolved_model = metadata.get("model", model or assistant)
         results = []
@@ -728,6 +857,10 @@ def collect_recommendation_group(
                     "question_count": len(group),
                     "usage": metadata.get("usage", {}),
                     "metrics": metadata.get("metrics", {}),
+                    "structured_output": bool(metadata.get("structured_output")),
+                    "format_correction_used": bool(
+                        metadata.get("format_correction_used")
+                    ),
                 },
                 "provider_structured_answer": structured_answer,
                 "recommendation_rejections": recommendation_rejections,

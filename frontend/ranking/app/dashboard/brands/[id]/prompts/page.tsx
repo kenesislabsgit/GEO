@@ -50,6 +50,8 @@ export default async function AIAnswersPage({
   const results = latestScan ? await getQueryResults(latestScan.id) : [];
   const isPaid = isPaidSubscription(entitlements);
   const plan = PLAN_CONFIG[entitlements.plan];
+  const canEditAuditSetup =
+    entitlements.providerChecksUsed < plan.features.providerChecksPerMonth;
   const promptMap = new Map(prompts.map((prompt) => [prompt.id, prompt]));
 
   // Group the flat provider results into one entry per buyer question,
@@ -79,7 +81,11 @@ export default async function AIAnswersPage({
     const citations = Array.isArray(result.citations)
       ? (result.citations as Citation[])
       : [];
-    const answer = (result.raw_answer || result.answer_summary || "No answer saved")
+    const answer = (
+      result.raw_answer ||
+      result.answer_summary ||
+      "No answer saved"
+    )
       .replaceAll("**", "")
       .replace(/^#+\s*/gm, "");
 
@@ -87,7 +93,8 @@ export default async function AIAnswersPage({
       id: result.id,
       provider: result.provider,
       assistantName:
-        assistantNames([result.provider])[0] ?? providerDisplayName(result.provider),
+        assistantNames([result.provider])[0] ??
+        providerDisplayName(result.provider),
       mentioned: result.brand_mentioned,
       position: result.brand_position,
       answer,
@@ -116,7 +123,8 @@ export default async function AIAnswersPage({
   const assistantCount = new Set(
     results.map(
       (result) =>
-        assistantNames([result.provider])[0] ?? providerDisplayName(result.provider),
+        assistantNames([result.provider])[0] ??
+        providerDisplayName(result.provider),
     ),
   ).size;
 
@@ -177,6 +185,7 @@ export default async function AIAnswersPage({
               initialPrompts={prompts}
               activePromptLimit={plan.features.activePrompts}
               isPaid={isPaid}
+              canEdit={canEditAuditSetup}
               defaultCountry={brand.default_country}
               defaultLanguage={brand.default_language}
             />

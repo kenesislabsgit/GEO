@@ -62,7 +62,7 @@ export function ExportDeleteForms() {
         <div>
           <p className="text-sm font-medium">Export your data</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Download all brands, scans, and scores as JSON.
+            Download your account and the audit data included in your plan.
           </p>
         </div>
         <Button

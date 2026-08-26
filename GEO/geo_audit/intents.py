@@ -104,6 +104,9 @@ Return only valid JSON:
 
 INTENT_SYSTEM_PROMPT = """You write the questions real buyers type into an AI assistant when they are looking for a provider.
 
+If existing_buyer_questions is supplied, write only new questions that cover
+needs missing from that list. Never repeat or rephrase an existing question.
+
 What these questions are for, because it decides everything else you do here.
 This company is being audited on whether AI assistants recommend it. Every
 question you write is put to ChatGPT, Claude, Gemini and others word for word,
@@ -219,6 +222,9 @@ Return only a valid JSON array with exactly requested_question_count objects:
 """
 
 INTENT_REVIEW_SYSTEM_PROMPT = """You are the final quality reviewer for buyer questions used in an AI visibility audit.
+
+Reject or rewrite any candidate that repeats or rephrases a need already in
+existing_buyer_questions.
 
 These questions go to ChatGPT, Claude, Gemini and others word for word, and the
 audit reads back which companies each one names. The assistants are never told
@@ -428,12 +434,14 @@ def build_customer_intent_payload(
     *,
     count: int = 30,
     buyer_band: dict[str, Any] | None = None,
+    existing_questions: list[str] | None = None,
 ) -> dict[str, Any]:
     user_prompt = json.dumps(
         {
             "requested_question_count": count,
             "buyer_profile": build_question_profile_context(company_profile),
             "buyer_band": buyer_band or {},
+            "existing_buyer_questions": existing_questions or [],
         },
         indent=2,
         ensure_ascii=False,
@@ -447,6 +455,7 @@ def build_customer_intent_review_payload(
     *,
     count: int,
     buyer_band: dict[str, Any] | None = None,
+    existing_questions: list[str] | None = None,
 ) -> dict[str, Any]:
     return build_chat_payload(
         INTENT_REVIEW_SYSTEM_PROMPT,
@@ -458,6 +467,7 @@ def build_customer_intent_review_payload(
                     company_profile
                 ),
                 "candidate_questions": candidates,
+                "existing_buyer_questions": existing_questions or [],
             },
             indent=2,
             ensure_ascii=False,
@@ -507,11 +517,15 @@ def write_one_batch(
     company_profile: dict[str, Any],
     count: int,
     buyer_band: dict[str, Any],
+    existing_questions: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
     """One batch: draft, then the critic on that batch's own drafts."""
     payloads: list[dict[str, Any]] = []
     draft_payload = build_customer_intent_payload(
-        company_profile, count=count, buyer_band=buyer_band
+        company_profile,
+        count=count,
+        buyer_band=buyer_band,
+        existing_questions=existing_questions,
     )
     payloads.append(draft_payload)
     try:
@@ -523,7 +537,11 @@ def write_one_batch(
         extract_json_array(drafted), company_profile
     )
     review_payload = build_customer_intent_review_payload(
-        company_profile, candidates, count=count, buyer_band=buyer_band
+        company_profile,
+        candidates,
+        count=count,
+        buyer_band=buyer_band,
+        existing_questions=existing_questions,
     )
     payloads.append(review_payload)
     try:
@@ -541,6 +559,7 @@ def generate_customer_intents_multi_call(
     company_profile: dict[str, Any],
     *,
     count: int = 30,
+    existing_questions: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
     profile_issue = question_profile_issue(company_profile)
     if profile_issue:
@@ -554,7 +573,10 @@ def generate_customer_intents_multi_call(
 
     shares = question_batches(count, buyer_band)
     payload = build_customer_intent_payload(
-        company_profile, count=count, buyer_band=buyer_band
+        company_profile,
+        count=count,
+        buyer_band=buyer_band,
+        existing_questions=existing_questions,
     )
     payload["band_payload"] = band_payload
     payload["buyer_band"] = buyer_band
@@ -563,7 +585,9 @@ def generate_customer_intents_multi_call(
     with ThreadPoolExecutor(max_workers=len(shares)) as executor:
         results = list(
             executor.map(
-                lambda share: write_one_batch(company_profile, *share),
+                lambda share: write_one_batch(
+                    company_profile, share[0], share[1], existing_questions
+                ),
                 shares,
             )
         )
@@ -584,6 +608,7 @@ def generate_customer_intents_multi_call(
             prompts,
             count=count,
             buyer_band=buyer_band,
+            existing_questions=existing_questions,
         )
         payload["repair_payload"] = repair_payload
         if repair_error:
@@ -595,6 +620,7 @@ def generate_customer_intents(
     company_profile: dict[str, Any],
     *,
     count: int = 30,
+    existing_questions: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any], str | None]:
     """Use the tested single call, with the previous flow as a safe fallback."""
     profile_issue = question_profile_issue(company_profile)
@@ -609,6 +635,7 @@ def generate_customer_intents(
             {
                 "requested_question_count": count,
                 "company_facts": build_question_profile_context(company_profile),
+                "existing_buyer_questions": existing_questions or [],
             },
             indent=2,
             ensure_ascii=False,
@@ -648,6 +675,7 @@ def generate_customer_intents(
     prompts, fallback_payload, fallback_error = generate_customer_intents_multi_call(
         company_profile,
         count=count,
+        existing_questions=existing_questions,
     )
     fallback_payload["mode"] = "multi_call_fallback"
     fallback_payload["unified_attempt"] = unified_payload
@@ -661,6 +689,7 @@ def repair_short_question_set(
     *,
     count: int,
     buyer_band: dict[str, Any],
+    existing_questions: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], str | None]:
     """Ask once more for the questions the checks threw away.
 
@@ -680,6 +709,7 @@ def repair_short_question_set(
                     company_profile
                 ),
                 "candidate_questions": kept,
+                "existing_buyer_questions": existing_questions or [],
                 "repair_instruction": (
                     f"{missing} questions were discarded for being too long, "
                     "repeating another, or naming the company or a customer. "
@@ -1153,7 +1183,31 @@ naturally ask it, so the answers name providers relevant there.
 
 UNIFIED_QUESTION_SYSTEM_PROMPT = """Create natural, unbranded buyer questions
 for an AI visibility audit. Infer who buys this kind of offering from the
-supplied company facts, then write the complete question set.
+supplied company facts, then write only the requested new questions. When
+existing_buyer_questions is present, those questions are already part of the
+audit and must not appear or be represented again in the returned questions.
+
+UNIQUENESS RULE - HIGHEST PRIORITY
+
+A buyer need is defined by four dimensions:
+1. buyer and situation
+2. problem or task
+3. desired outcome
+4. decision context
+
+When existing_buyer_questions is present:
+1. Extract the underlying buyer need from every existing question.
+2. Treat those needs as COVERED and unavailable.
+3. Identify exactly requested_question_count distinct UNCOVERED buyer needs.
+4. Only then write exactly one question for each uncovered need.
+5. Do not create a new question merely by changing wording, persona, industry,
+   organization size, feature, or buying stage while keeping the underlying
+   need the same.
+6. If two questions could reasonably return the same shortlist of providers,
+   they are duplicates. Keep only one and replace the other need before writing.
+7. Compare every candidate with all existing questions and all other candidates.
+8. The final questions must represent different underlying buyer needs, not
+   different versions of the same need.
 
 Each question must ask an AI assistant to recommend suitable products or
 providers. Never name the audited company, its website, or its customers. Use
@@ -1200,6 +1254,10 @@ Return only JSON:
     }
   ]
 }
+Before returning, repeat the four-dimension comparison across the existing
+questions and the complete new set. Replace every overlap before output. Never
+use persona, industry, size, feature, wording, or buying-stage changes to hide
+the same underlying need inside another question.
 The questions array must contain exactly requested_question_count items."""
 
 # One market per continent-ish spread. A Pro+ audit asks a slice of its
@@ -1225,7 +1283,11 @@ def localize_questions(
     `markets` so each question belongs to one market. Records already carrying
     a market tag (a resumed run) are left alone. If the rewrite call fails, a
     plain "in {market}" suffix keeps the run moving."""
-    untagged = [record for record in prompt_records if not record.get("market")]
+    untagged = [
+        record
+        for record in prompt_records
+        if not record.get("market") and record.get("question_source") != "provided"
+    ]
     chosen = untagged[-count:] if count < len(untagged) else untagged
     if not chosen or not markets:
         return prompt_records

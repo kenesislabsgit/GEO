@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { authorizeAudit } from "@/lib/billing/enforce";
@@ -7,6 +8,7 @@ import {
   getBrandByDomainForOwner,
   getBrandById,
   getPrompts,
+  getScanRun,
   upsertBrand,
 } from "@/lib/db/repository";
 import { one } from "@/lib/db/pg";
@@ -46,6 +48,9 @@ const requestSchema = z.object({
     .min(1)
     .optional(),
   limitPerAssistant: z.number().int().min(1).max(20).optional(),
+  questionMode: z.enum(["new", "previous"]).optional(),
+  questions: z.array(z.string().trim().min(1).max(300)).max(20).optional(),
+  sourceScanRunId: z.string().uuid().optional(),
   resume: z.boolean().optional(),
   /** Pro+ geo search: a market name, or omitted for auto-detect. */
   market: z.string().trim().max(40).optional(),
@@ -151,10 +156,46 @@ export async function POST(request: NextRequest) {
       metadata_confidence: null,
     }));
 
-  // Pro audits of a brand with saved questions ask exactly those questions.
-  // First audits have none yet, so the engine generates them.
+  if (body.questionMode && authorized.mode !== "pro") {
+    return NextResponse.json(
+      { error: "Custom question choices are available with a paid audit." },
+      { status: 400 },
+    );
+  }
+  if (body.questionMode === "previous") {
+    if (!body.sourceScanRunId) {
+      return NextResponse.json(
+        { error: "Choose the earlier audit whose questions you want." },
+        { status: 400 },
+      );
+    }
+    const sourceScan = await getScanRun(body.sourceScanRunId);
+    if (
+      !sourceScan ||
+      sourceScan.brand_id !== brand.id ||
+      !["completed", "partial"].includes(sourceScan.status)
+    ) {
+      return NextResponse.json(
+        { error: "That earlier audit is not available for this website." },
+        { status: 400 },
+      );
+    }
+  }
+
+  // New page requests carry exactly what the person chose. Older callers keep
+  // the previous saved-question behaviour.
   let prompts: Array<{ id: string; prompt: string }> = [];
-  if (authorized.mode === "pro") {
+  if (authorized.mode === "pro" && body.questionMode) {
+    const supplied = (body.questions ?? []).map((prompt) => prompt.trim());
+    const normalized = supplied.map((prompt) => prompt.toLowerCase());
+    if (new Set(normalized).size !== normalized.length) {
+      return NextResponse.json(
+        { error: "Remove duplicate questions before starting the audit." },
+        { status: 400 },
+      );
+    }
+    prompts = supplied.map((prompt) => ({ id: randomUUID(), prompt }));
+  } else if (authorized.mode === "pro") {
     const active = await getPrompts(brand.id);
     prompts = active
       .slice(0, authorized.limitPerAssistant)
@@ -165,15 +206,28 @@ export async function POST(request: NextRequest) {
     domain: requestedDomain,
     mode: authorized.mode,
     assistants: authorized.assistants,
-    limit_per_assistant: prompts.length > 0 ? prompts.length : authorized.limitPerAssistant,
+    limit_per_assistant: body.questionMode
+      ? authorized.limitPerAssistant
+      : prompts.length > 0
+        ? prompts.length
+        : authorized.limitPerAssistant,
     prompts,
+    question_mode: body.questionMode,
+    source_scan_run_id: body.sourceScanRunId ?? null,
+    generate_remaining_questions: Boolean(
+      body.questionMode && prompts.length < authorized.limitPerAssistant,
+    ),
     country: brand.default_country?.toLowerCase() ?? null,
     language: brand.default_language?.toLowerCase() ?? null,
     geo_market: authorized.geoMarket,
     geo_market_name: body.market ?? null,
     ip_hash: hashIp(ip),
     plan: authorized.plan,
-    question_count: prompts.length > 0 ? prompts.length : authorized.limitPerAssistant,
+    question_count: body.questionMode
+      ? authorized.limitPerAssistant
+      : prompts.length > 0
+        ? prompts.length
+        : authorized.limitPerAssistant,
     methodology_version_requested: null,
     trigger_source: authorized.mode === "free" ? "free" : "manual",
     cost_ceiling_usd: Number(process.env.SCAN_COST_CEILING_USD ?? "2.50"),

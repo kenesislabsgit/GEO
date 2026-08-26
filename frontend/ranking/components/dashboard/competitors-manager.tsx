@@ -13,11 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import type { Competitor } from "@/types/database";
 
 export function CompetitorsManager({
@@ -25,11 +21,13 @@ export function CompetitorsManager({
   initialCompetitors,
   competitorLimit,
   isPaid,
+  canEdit,
 }: {
   brandId: string;
   initialCompetitors: Competitor[];
   competitorLimit: number;
   isPaid: boolean;
+  canEdit: boolean;
 }) {
   const [competitors, setCompetitors] = useState(initialCompetitors);
   const [showAdd, setShowAdd] = useState(false);
@@ -62,7 +60,9 @@ export function CompetitorsManager({
       setShowAdd(false);
       toast.success("Competitor added");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add competitor");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add competitor",
+      );
     } finally {
       setBusy(false);
     }
@@ -82,7 +82,9 @@ export function CompetitorsManager({
       setDeleteId(null);
       toast.success("Competitor removed");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to remove competitor");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove competitor",
+      );
     } finally {
       setBusy(false);
     }
@@ -100,6 +102,12 @@ export function CompetitorsManager({
 
   return (
     <div className="space-y-4">
+      {!canEdit ? (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Monthly checks are used up. Existing competitors remain available, but
+          additions resume next billing period.
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {competitors.length} of {competitorLimit} competitors tracked
@@ -107,7 +115,7 @@ export function CompetitorsManager({
         <Button
           size="sm"
           variant="outline"
-          disabled={competitors.length >= competitorLimit || busy}
+          disabled={competitors.length >= competitorLimit || busy || !canEdit}
           onClick={() => setShowAdd(true)}
         >
           <Plus data-icon="inline-start" />

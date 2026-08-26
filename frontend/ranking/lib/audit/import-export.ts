@@ -7,6 +7,7 @@ import {
   replaceCompetitors,
   replacePrompts,
   replaceRecommendations,
+  replaceScanQuestions,
   updateScanRun,
   upsertBrand,
   upsertScore,
@@ -80,6 +81,12 @@ export async function importAuditExport(
      * replacing the brand's prompts with regenerated ones.
      */
     curatedPrompts?: Array<{ id: string; prompt: string }>;
+    /** Selection made on the new-audit page. Used only to label the immutable copy. */
+    questionSelection?: {
+      mode: "new" | "previous";
+      suppliedCount: number;
+      sourceScanRunId: string | null;
+    };
     // A run row created before the audit started. The import fills it in
     // instead of creating a second one, so the page that has been polling
     // this id sees the same run turn into the finished report.
@@ -112,12 +119,17 @@ async function importInTransaction(
     description: asNullableString(audit.brand?.description),
     category: asNullableString(audit.brand?.category),
     target_audience: asNullableString(audit.brand?.target_audience),
-    aliases: audit.brand?.aliases?.filter(Boolean) ?? [asString(audit.brand?.name, domain)],
+    aliases: audit.brand?.aliases?.filter(Boolean) ?? [
+      asString(audit.brand?.name, domain),
+    ],
     default_country: options.country ?? "us",
     default_language: options.language ?? "en",
     visibility: options.visibility ?? "public",
     claimed_at: null,
-    metadata_confidence: ({ source: "geo_audit_import", quality: audit.quality ?? null } as Json),
+    metadata_confidence: {
+      source: "geo_audit_import",
+      quality: audit.quality ?? null,
+    } as Json,
   });
 
   const testedPromptIndexes = new Set(
@@ -125,11 +137,13 @@ async function importInTransaction(
       .map((row) => Number(row.prompt_index))
       .filter((index) => Number.isInteger(index) && index > 0),
   );
-  const promptRows = (audit.prompt_matrix ?? [])
-    .map((row, index) => ({ row, promptIndex: index + 1 }))
-    .filter(({ promptIndex }) =>
-      testedPromptIndexes.size ? testedPromptIndexes.has(promptIndex) : true,
-    );
+  const allPromptRows = (audit.prompt_matrix ?? []).map((row, index) => ({
+    row,
+    promptIndex: index + 1,
+  }));
+  const promptRows = allPromptRows.filter(({ promptIndex }) =>
+    testedPromptIndexes.size ? testedPromptIndexes.has(promptIndex) : true,
+  );
 
   const promptIdByIndex = new Map<number, string>();
   let prompts: Array<{ id: string; prompt: string }>;
@@ -137,9 +151,18 @@ async function importInTransaction(
     // The audit asked exactly the user's saved questions, in order. Nothing
     // is regenerated and nothing the user curated is touched.
     prompts = options.curatedPrompts;
-    options.curatedPrompts.forEach((prompt, index) =>
-      promptIdByIndex.set(index + 1, prompt.id),
-    );
+    options.curatedPrompts.forEach((prompt, index) => {
+      // Monitoring owns an immutable copy of its question text rather than a
+      // mutable brand-prompt row. Those local ids must not be written into the
+      // UUID foreign-key column; scan_questions keeps the exact text instead.
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          prompt.id,
+        )
+      ) {
+        promptIdByIndex.set(index + 1, prompt.id);
+      }
+    });
   } else {
     const stored = await replacePrompts(
       brand.id,
@@ -152,7 +175,8 @@ async function importInTransaction(
           // other question is "global". The market's display name rides in
           // rationale - the one spare per-prompt column - so the report can
           // say "India", not "in".
-          country: asString(row.market_country, "global").toLowerCase() || "global",
+          country:
+            asString(row.market_country, "global").toLowerCase() || "global",
           language: "en",
           active: true,
           is_custom: false,
@@ -162,7 +186,10 @@ async function importInTransaction(
     );
     prompts = stored;
     stored.forEach((prompt, index) =>
-      promptIdByIndex.set(promptRows[index]?.promptIndex ?? index + 1, prompt.id),
+      promptIdByIndex.set(
+        promptRows[index]?.promptIndex ?? index + 1,
+        prompt.id,
+      ),
     );
   }
 
@@ -170,8 +197,10 @@ async function importInTransaction(
     new Set(
       (audit.scan?.provider_ids?.length
         ? audit.scan.provider_ids
-        : (audit.query_results ?? []).map((row) => asString(row.provider, "openai")))
-        .map(toProviderId),
+        : (audit.query_results ?? []).map((row) =>
+            asString(row.provider, "openai"),
+          )
+      ).map(toProviderId),
     ),
   );
 
@@ -189,22 +218,28 @@ async function importInTransaction(
   // leave a scan already labelled "completed" holding answers but no score,
   // competitors or actions, and the dashboard showed that as a finished audit
   // with empty panels rather than as the failure it was.
-  const finalStatus = audit.scan?.status === "partial" ? "partial" : "completed";
+  const finalStatus =
+    audit.scan?.status === "partial" ? "partial" : "completed";
   const scanFields = {
     brand_id: brand.id,
     initiated_by: options.initiatedBy ?? null,
     scan_type: options.scanType ?? "free",
     status: "running" as const,
     provider_ids: providerIds,
-    total_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
-    completed_queries: audit.query_results?.length ?? audit.scan?.response_count ?? 0,
+    total_queries:
+      audit.query_results?.length ?? audit.scan?.response_count ?? 0,
+    completed_queries:
+      audit.query_results?.length ?? audit.scan?.response_count ?? 0,
     started_at: audit.generated_at ?? now,
     completed_at: now,
     error_summary: audit.scan?.partial_providers?.length
       ? `No usable company recommendations were retained from: ${audit.scan.partial_providers.join(", ")}.`
       : null,
     summary: asNullableString(audit.summary),
-    methodology_version: asString(audit.scan?.methodology_version, METHODOLOGY_VERSION),
+    methodology_version: asString(
+      audit.scan?.methodology_version,
+      METHODOLOGY_VERSION,
+    ),
     demo_mode: false,
     cancelled_at: null,
     country: options.country ?? "us",
@@ -214,8 +249,34 @@ async function importInTransaction(
     ? await updateScanRun(options.scanRunId, scanFields)
     : await createScanRun(scanFields);
   if (!scan) {
-    throw new Error(`Scan run ${options.scanRunId} to import into was not found.`);
+    throw new Error(
+      `Scan run ${options.scanRunId} to import into was not found.`,
+    );
   }
+
+  await replaceScanQuestions(
+    scan.id,
+    allPromptRows
+      .map(({ row, promptIndex }) => {
+        const prompt = asString(row.prompt, "").trim();
+        const supplied =
+          promptIndex <= (options.questionSelection?.suppliedCount ?? 0);
+        return {
+          position: promptIndex,
+          prompt,
+          source: supplied
+            ? options.questionSelection?.mode === "previous"
+              ? ("reused" as const)
+              : ("user" as const)
+            : ("generated" as const),
+          source_scan_run_id:
+            supplied && options.questionSelection?.mode === "previous"
+              ? options.questionSelection.sourceScanRunId
+              : null,
+        };
+      })
+      .filter((row) => row.prompt),
+  );
 
   // A retried import starts clean instead of stacking a second set of
   // answers onto the same scan.
@@ -291,7 +352,9 @@ async function importInTransaction(
           )
         : [];
       const affectedIds = affected
-        .map((item) => promptIdByText.get(normalizePromptKey(asString(item.prompt, ""))))
+        .map((item) =>
+          promptIdByText.get(normalizePromptKey(asString(item.prompt, ""))),
+        )
         .filter((value): value is string => Boolean(value));
       const evidence = {
         ...((row.evidence ?? {}) as Record<string, unknown>),

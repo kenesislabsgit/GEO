@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertCanEditAuditSetup,
   assertCanCreateBrand,
   canRunProviderCheck,
   defaultScanProviders,
@@ -34,7 +35,8 @@ describe("entitlements", () => {
     const ok = canRunProviderCheck({
       plan: "founder",
       status: "trialing",
-      providerChecksUsed: PLAN_CONFIG.founder.features.providerChecksPerMonth - 1,
+      providerChecksUsed:
+        PLAN_CONFIG.founder.features.providerChecksPerMonth - 1,
       brandCount: 1,
       activePromptCount: 10,
     });
@@ -47,6 +49,41 @@ describe("entitlements", () => {
     });
     expect(ok).toBe(true);
     expect(blocked).toBe(false);
+  });
+
+  it("allows Plus one website and 700 monthly checks", () => {
+    expect(PLAN_CONFIG.founder.features.brands).toBe(1);
+    expect(PLAN_CONFIG.founder.features.providerChecksPerMonth).toBe(700);
+    expect(() =>
+      assertCanCreateBrand({
+        plan: "founder",
+        status: "active",
+        providerChecksUsed: 0,
+        brandCount: 0,
+        activePromptCount: 20,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertCanCreateBrand({
+        plan: "founder",
+        status: "active",
+        providerChecksUsed: 0,
+        brandCount: 1,
+        activePromptCount: 20,
+      }),
+    ).toThrow(EntitlementError);
+  });
+
+  it("blocks audit-setting edits after monthly checks are used", () => {
+    expect(() =>
+      assertCanEditAuditSetup({
+        plan: "founder",
+        status: "active",
+        providerChecksUsed: PLAN_CONFIG.founder.features.providerChecksPerMonth,
+        brandCount: 1,
+        activePromptCount: 5,
+      }),
+    ).toThrow(EntitlementError);
   });
 
   it("includes Perplexity in every Plus audit", () => {

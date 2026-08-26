@@ -56,6 +56,7 @@ from .recommendations import (
     verify_provider_citations,
 )
 from .report import generate_final_report
+from .site_change import compare_website_snapshots
 from .utils import make_run_dir
 from .web_presence import build_search_client, collect_web_presence
 from .web_mention_agent import (
@@ -930,6 +931,14 @@ def main() -> None:
         ),
     )
     run_parser.add_argument(
+        "--profile-cache-dir",
+        help=(
+            "Directory containing a saved website_snapshot.json and "
+            "company_profile.json. The website is fetched again, meaningful "
+            "changes are measured, and the profile is reused only when safe."
+        ),
+    )
+    run_parser.add_argument(
         "--skip-audit-recommendations",
         action="store_true",
         help="Skip the final recommendation-writing LLM call for faster preview scans.",
@@ -951,6 +960,14 @@ def main() -> None:
             "of generating questions from the website. Each entry is a string "
             "or an object with a 'prompt' key. This is how a user's saved "
             "tracked questions are actually executed."
+        ),
+    )
+    run_parser.add_argument(
+        "--generate-missing-questions",
+        action="store_true",
+        help=(
+            "Keep questions from --questions-file verbatim and generate only "
+            "the remaining slots up to --limit-per-assistant."
         ),
     )
     run_parser.add_argument(
@@ -1407,6 +1424,9 @@ def main() -> None:
         cost_tracker.reset(args.max_cost_usd)
         firecrawl_client = FirecrawlClient.from_environment()
         resume_dir = Path(args.resume_from).resolve() if args.resume_from else None
+        profile_cache_dir = (
+            Path(args.profile_cache_dir).resolve() if args.profile_cache_dir else None
+        )
         existing_results: list[dict[str, object]] = []
         assistant_prompt_indexes = None
         collect_assistants = list(args.assistants)
@@ -1453,7 +1473,7 @@ def main() -> None:
             crawl_started = time.perf_counter()
             reused_snapshot = None
             reuse_rejected = None
-            if args.reuse_snapshot:
+            if args.reuse_snapshot and profile_cache_dir is None:
                 reused_snapshot, reuse_rejected = load_reusable_snapshot(
                     args.reuse_snapshot,
                     args.url,
@@ -1538,12 +1558,60 @@ def main() -> None:
             )
             record_stage("website_evidence", evidence_started)
             profile_started = time.perf_counter()
-            profile, profile_payload, profile_error = generate_company_profile(
-                snapshot,
-                user_evidence,
-                lean=args.free_preview,
-            )
-            emit_run_progress("company_profile", 25, "Generating company profile")
+            cached_profile = None
+            profile_change_analysis = None
+            if profile_cache_dir is not None:
+                try:
+                    cached_snapshot = json.loads(
+                        (profile_cache_dir / "website_snapshot.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    cached_profile = json.loads(
+                        (profile_cache_dir / "company_profile.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    if not isinstance(cached_profile, dict):
+                        cached_profile = None
+                    profile_change_analysis = compare_website_snapshots(
+                        cached_snapshot,
+                        snapshot,
+                    )
+                except (OSError, json.JSONDecodeError, TypeError) as exc:
+                    profile_change_analysis = {
+                        "decision": "rebuild",
+                        "confidence": "low",
+                        "reason": f"Saved profile could not be checked safely: {exc}",
+                    }
+                (run_dir / "site_change_analysis.json").write_text(
+                    json.dumps(profile_change_analysis, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+
+            if (
+                cached_profile is not None
+                and profile_change_analysis
+                and profile_change_analysis.get("decision") == "reuse"
+            ):
+                profile = cached_profile
+                profile_payload = {
+                    "reused_saved_profile": True,
+                    "site_change_analysis": profile_change_analysis,
+                }
+                profile_error = None
+                emit_run_progress(
+                    "company_profile",
+                    25,
+                    "Website is unchanged; reusing the saved company profile",
+                )
+            else:
+                profile, profile_payload, profile_error = generate_company_profile(
+                    snapshot,
+                    user_evidence,
+                    lean=args.free_preview,
+                )
+                emit_run_progress("company_profile", 25, "Generating company profile")
             (run_dir / "company_profile_prompt.json").write_text(
                 json.dumps(profile_payload, indent=2, ensure_ascii=False),
                 encoding="utf-8",
@@ -1583,14 +1651,42 @@ def main() -> None:
                     Path(args.questions_file).read_text(encoding="utf-8")
                 )
                 prompts = [
-                    {"prompt": item} if isinstance(item, str) else dict(item)
+                    ({"prompt": item} if isinstance(item, str) else dict(item))
+                    | {"question_source": "provided"}
                     for item in loaded
                     if (item if isinstance(item, str) else item.get("prompt"))
                 ][: args.limit_per_assistant]
                 if not prompts:
                     raise SystemExit("--questions-file contained no questions.")
-                prompts_payload = {"source": "questions_file", "count": len(prompts)}
-                prompts_error = None
+                supplied_prompts = prompts
+                missing = args.limit_per_assistant - len(supplied_prompts)
+                if args.generate_missing_questions and missing > 0:
+                    generated, generated_payload, prompts_error = (
+                        generate_customer_intents(
+                            profile,
+                            count=missing,
+                            existing_questions=[
+                                str(item["prompt"]) for item in supplied_prompts
+                            ],
+                        )
+                    )
+                    prompts = (
+                        supplied_prompts + generated
+                        if generated is not None
+                        else None
+                    )
+                    prompts_payload = {
+                        "source": "questions_file_plus_generated",
+                        "supplied_count": len(supplied_prompts),
+                        "generated_count": len(generated or []),
+                        "generation": generated_payload,
+                    }
+                else:
+                    prompts_payload = {
+                        "source": "questions_file",
+                        "count": len(prompts),
+                    }
+                    prompts_error = None
             elif args.free_preview:
                 prompts, prompts_payload, prompts_error = (
                     generate_free_customer_intents(profile)

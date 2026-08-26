@@ -8,7 +8,7 @@ import {
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { sendAlertEmail } from "@/lib/email/resend";
 import { log } from "@/lib/log";
-import type { Json, ScanRun } from "@/types/database";
+import type { Json, ScanInputSnapshot, ScanRun } from "@/types/database";
 
 /**
  * Alert detection, run by the worker after every finished scan. Each alert
@@ -27,7 +27,27 @@ type SnapshotRow = {
   average_position: number | null;
   competitor_scores: Json;
   created_at: string;
+  input_snapshot: Json;
 };
+
+/** Only compare runs that asked the same questions to the same providers. */
+function comparisonKey(value: Json): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const snapshot = value as unknown as Partial<ScanInputSnapshot>;
+  const providers = Array.isArray(snapshot.assistants)
+    ? [...snapshot.assistants].map(String).sort()
+    : [];
+  const questions = Array.isArray(snapshot.prompts)
+    ? snapshot.prompts.map((item) => String(item?.prompt ?? "").trim())
+    : [];
+  if (providers.length === 0 || questions.length === 0) return null;
+  return JSON.stringify({
+    providers,
+    questions,
+    country: snapshot.country ?? null,
+    language: snapshot.language ?? null,
+  });
+}
 
 type PendingAlert = {
   type: string;
@@ -74,12 +94,13 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
   const brand = await getBrandById(scan.brand_id);
   if (!brand?.owner_id) return;
   const settings = await getBrandMonitoringSettings(scan.brand_id);
-  const prefs: { scoreDrop?: boolean; competitor?: boolean; citation?: boolean } =
-    settings?.alerts ?? {};
+  const prefs: {
+    scoreDrop?: boolean;
+    competitor?: boolean;
+    citation?: boolean;
+  } = settings?.alerts ?? {};
   const sub = await getSubscription(brand.owner_id);
-  const emailAllowed = sub
-    ? PLAN_CONFIG[sub.plan].features.emailAlerts
-    : false;
+  const emailAllowed = sub ? PLAN_CONFIG[sub.plan].features.emailAlerts : false;
 
   const alerts: PendingAlert[] = [];
 
@@ -94,26 +115,55 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
       metadata: { scanId: scan.id, reason: scan.failure_reason ?? null },
     });
   } else if (["completed", "partial"].includes(scan.status)) {
-    const [latest, previous] = await q<SnapshotRow>(
-      `select id, scan_run_id, overall_score, mention_rate, average_position,
-              competitor_scores, created_at
-       from score_snapshots where brand_id = $1
-       order by created_at desc limit 2`,
+    const snapshots = await q<SnapshotRow>(
+      `select score_snapshots.id, score_snapshots.scan_run_id,
+              score_snapshots.overall_score, score_snapshots.mention_rate,
+              score_snapshots.average_position, score_snapshots.competitor_scores,
+              score_snapshots.created_at,
+              scan_runs.input_snapshot
+       from score_snapshots
+       join scan_runs on scan_runs.id = score_snapshots.scan_run_id
+       where score_snapshots.brand_id = $1
+       order by score_snapshots.created_at desc limit 30`,
       [scan.brand_id],
     );
 
-    if (latest && previous && latest.scan_run_id === scan.id) {
-      const delta =
-        Number(latest.overall_score) - Number(previous.overall_score);
-      if (Math.abs(delta) >= SCORE_ALERT_THRESHOLD && prefs.scoreDrop !== false) {
+    const latest = snapshots.find((item) => item.scan_run_id === scan.id);
+    const latestKey = latest ? comparisonKey(latest.input_snapshot) : null;
+    const comparable = latestKey
+      ? snapshots.filter(
+          (item) => comparisonKey(item.input_snapshot) === latestKey,
+        )
+      : [];
+    const previous = comparable.find((item) => item.scan_run_id !== scan.id);
+    const older = previous
+      ? comparable.find(
+          (item) =>
+            item.scan_run_id !== scan.id &&
+            item.scan_run_id !== previous.scan_run_id,
+        )
+      : undefined;
+
+    // AI answers naturally vary. Confirm a change in two consecutive runs
+    // before notifying, instead of treating one sample as a lasting shift.
+    if (latest && previous && older) {
+      const delta = Number(latest.overall_score) - Number(older.overall_score);
+      const previousDelta =
+        Number(previous.overall_score) - Number(older.overall_score);
+      if (
+        Math.abs(delta) >= SCORE_ALERT_THRESHOLD &&
+        Math.abs(previousDelta) >= SCORE_ALERT_THRESHOLD &&
+        Math.sign(delta) === Math.sign(previousDelta) &&
+        prefs.scoreDrop !== false
+      ) {
         alerts.push({
           type: "score_change",
           title: `${brand.name} visibility ${delta > 0 ? "up" : "down"} ${Math.abs(delta).toFixed(1)} points`,
-          body: `The AI visibility score moved from ${Number(previous.overall_score).toFixed(1)} to ${Number(latest.overall_score).toFixed(1)}.`,
+          body: `The AI visibility score stayed ${delta > 0 ? "higher" : "lower"} for two audits, moving from ${Number(older.overall_score).toFixed(1)} to ${Number(latest.overall_score).toFixed(1)}.`,
           dedupeKey: `score_change:${scan.brand_id}:${scan.id}`,
           metadata: {
             scanId: scan.id,
-            before: Number(previous.overall_score),
+            before: Number(older.overall_score),
             after: Number(latest.overall_score),
           },
         });
@@ -121,17 +171,18 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
 
       // Mention losses: the brand stopped appearing at all.
       if (
-        Number(previous.mention_rate) > 0 &&
+        Number(older.mention_rate) > 0 &&
+        Number(previous.mention_rate) === 0 &&
         Number(latest.mention_rate) === 0
       ) {
         alerts.push({
           type: "mention_lost",
           title: `${brand.name} is no longer mentioned in AI answers`,
-          body: `Mention rate fell from ${(Number(previous.mention_rate) * 100).toFixed(0)}% to 0% in the latest audit.`,
+          body: `Mention rate fell from ${(Number(older.mention_rate) * 100).toFixed(0)}% to 0% and stayed there for two audits.`,
           dedupeKey: `mention_lost:${scan.brand_id}:${scan.id}`,
           metadata: {
             scanId: scan.id,
-            before: Number(previous.mention_rate),
+            before: Number(older.mention_rate),
             after: 0,
           },
         });
@@ -140,23 +191,24 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
       if (prefs.competitor !== false) {
         const currentNames = competitorNames(latest.competitor_scores);
         const previousNames = competitorNames(previous.competitor_scores);
+        const olderNames = competitorNames(older.competitor_scores);
         for (const name of currentNames) {
-          if (!previousNames.has(name)) {
+          if (previousNames.has(name) && !olderNames.has(name)) {
             alerts.push({
               type: "competitor_appeared",
               title: `New competitor in AI answers: ${name}`,
-              body: `${name} started appearing in AI recommendations for ${brand.name}'s buyer questions.`,
+              body: `${name} appeared in AI recommendations for ${brand.name}'s buyer questions in two consecutive audits.`,
               dedupeKey: `competitor_appeared:${scan.brand_id}:${name}:${scan.id}`,
               metadata: { scanId: scan.id, competitor: name },
             });
           }
         }
-        for (const name of previousNames) {
-          if (!currentNames.has(name)) {
+        for (const name of olderNames) {
+          if (!previousNames.has(name) && !currentNames.has(name)) {
             alerts.push({
               type: "competitor_disappeared",
               title: `Competitor dropped out of AI answers: ${name}`,
-              body: `${name} no longer appears in AI recommendations for ${brand.name}'s buyer questions.`,
+              body: `${name} was absent from AI recommendations for ${brand.name}'s buyer questions in two consecutive audits.`,
               dedupeKey: `competitor_disappeared:${scan.brand_id}:${name}:${scan.id}`,
               metadata: { scanId: scan.id, competitor: name },
             });
@@ -167,17 +219,19 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
       if (prefs.citation !== false) {
         const currentDomains = await citationDomains(latest.scan_run_id);
         const previousDomains = await citationDomains(previous.scan_run_id);
+        const olderDomains = await citationDomains(older.scan_run_id);
         const gained = [...currentDomains].filter(
-          (domain) => !previousDomains.has(domain),
+          (domain) => previousDomains.has(domain) && !olderDomains.has(domain),
         );
-        const lost = [...previousDomains].filter(
-          (domain) => !currentDomains.has(domain),
+        const lost = [...olderDomains].filter(
+          (domain) =>
+            !previousDomains.has(domain) && !currentDomains.has(domain),
         );
         if (gained.length > 0) {
           alerts.push({
             type: "citation_gained",
             title: `New sources citing the market: ${gained.slice(0, 3).join(", ")}${gained.length > 3 ? "…" : ""}`,
-            body: `${gained.length} source domain(s) appeared in AI answers that were not cited last audit.`,
+            body: `${gained.length} source domain(s) appeared in AI answers in two consecutive audits.`,
             dedupeKey: `citation_gained:${scan.brand_id}:${scan.id}`,
             metadata: { scanId: scan.id, gained: gained.slice(0, 20) },
           });
@@ -186,7 +240,7 @@ export async function detectAlertsForScan(scan: ScanRun): Promise<void> {
           alerts.push({
             type: "citation_lost",
             title: `Sources dropped from AI answers: ${lost.slice(0, 3).join(", ")}${lost.length > 3 ? "…" : ""}`,
-            body: `${lost.length} source domain(s) cited last audit no longer appear.`,
+            body: `${lost.length} source domain(s) were absent from AI answers in two consecutive audits.`,
             dedupeKey: `citation_lost:${scan.brand_id}:${scan.id}`,
             metadata: { scanId: scan.id, lost: lost.slice(0, 20) },
           });

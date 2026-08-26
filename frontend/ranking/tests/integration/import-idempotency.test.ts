@@ -67,5 +67,11 @@ describe("importing the same audit twice", () => {
       [first.scanRunId],
     );
     expect(sentiments?.n).toBe(0);
+
+    const questions = await one<{ n: number }>(
+      `select count(*)::int as n from scan_questions where scan_run_id = $1`,
+      [first.scanRunId],
+    );
+    expect(questions?.n).toBe(audit.prompt_matrix?.length ?? 0);
   });
 });

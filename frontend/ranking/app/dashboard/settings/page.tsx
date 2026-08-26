@@ -11,7 +11,7 @@ export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  // Which ways this account can sign in. "credential" means a password.
+  // "credential" means this account has a password it can change.
   const accounts = await q<{ providerId: string }>(
     `select "providerId" from account where "userId" = $1`,
     [user.id],

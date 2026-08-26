@@ -8,6 +8,7 @@ import { PLAN_CONFIG, defaultScanProviders } from "@/lib/billing/entitlements";
 import {
   getLatestScanForBrand,
   getPrompts,
+  listQuestionSetsForBrands,
   listBrandsForOwner,
   listScansForBrands,
 } from "@/lib/db/repository";
@@ -46,6 +47,9 @@ export default async function NewScanPage({
     brands.length >= plan.features.brands && plan.features.brands > 0;
 
   const scans = await listScansForBrands(brands.map((b) => b.id));
+  const questionSets = isPaid
+    ? await listQuestionSetsForBrands(brands.map((b) => b.id))
+    : [];
 
   const brandOptions: ScanBrandOption[] = await Promise.all(
     brands.map(async (brand) => {
@@ -69,6 +73,13 @@ export default async function NewScanPage({
           country: p.country,
           language: p.language,
         })),
+        questionSets: questionSets
+          .filter((set) => set.brandId === brand.id)
+          .map((set) => ({
+            scanId: set.scanId,
+            createdAt: set.createdAt,
+            questions: set.questions,
+          })),
         lastScanAt: lastScan?.created_at ?? null,
         recentlyScanned: Boolean(cached),
         lastCompletedScanAt: cached?.scan.created_at ?? null,

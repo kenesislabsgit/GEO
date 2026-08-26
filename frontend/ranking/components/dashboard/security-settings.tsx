@@ -105,7 +105,9 @@ export function SecuritySettings({
       callbackURL: `${routes.verifyEmail}?verified=1`,
     });
     setResendNote(
-      res.error ? "Could not send it - try again shortly." : "Sent - check your inbox.",
+      res.error
+        ? "Could not send it - try again shortly."
+        : "Sent - check your inbox.",
     );
     setResendBusy(false);
   }
@@ -211,13 +213,23 @@ export function SecuritySettings({
                   className="max-w-xs"
                   required
                 />
-                <Button type="submit" variant="outline" disabled={emailBusy || !newEmail}>
-                  {emailBusy ? <Loader2 className="animate-spin" /> : "Send confirmation"}
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={emailBusy || !newEmail}
+                >
+                  {emailBusy ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    "Send confirmation"
+                  )}
                 </Button>
               </form>
             ) : null}
             {emailNote ? (
-              <p className="mt-1.5 text-xs text-muted-foreground">{emailNote}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {emailNote}
+              </p>
             ) : null}
           </div>
           <div>
@@ -252,10 +264,14 @@ export function SecuritySettings({
             </div>
             <div className="flex gap-1.5">
               {hasPassword ? (
-                <Badge variant="secondary" className="rounded-full">Password</Badge>
+                <Badge variant="secondary" className="rounded-full">
+                  Password
+                </Badge>
               ) : null}
               {hasGoogle ? (
-                <Badge variant="secondary" className="rounded-full">Google</Badge>
+                <Badge variant="secondary" className="rounded-full">
+                  Google
+                </Badge>
               ) : null}
             </div>
           </div>
@@ -356,7 +372,10 @@ export function SecuritySettings({
                 <p className="truncate text-sm">
                   {describeAgent(s.userAgent)}
                   {s.current ? (
-                    <Badge variant="secondary" className="ml-2 rounded-full text-[11px]">
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 rounded-full text-[11px]"
+                    >
                       This device
                     </Badge>
                   ) : null}

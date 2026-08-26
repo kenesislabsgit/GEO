@@ -5,6 +5,7 @@ import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { BrandMonitoringForm } from "@/components/dashboard/brand-monitoring-form";
+import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 
 export const metadata = { title: "Website settings" };
 
@@ -20,6 +21,9 @@ export default async function BrandSettingsPage({
   if (!brand || brand.owner_id !== user.id) notFound();
   const entitlements = await getAccountEntitlements(user.id);
   const isPaid = isPaidSubscription(entitlements);
+  const canEdit =
+    entitlements.providerChecksUsed <
+    PLAN_CONFIG[entitlements.plan].features.providerChecksPerMonth;
 
   return (
     <div className="space-y-6">
@@ -30,7 +34,11 @@ export default async function BrandSettingsPage({
         description="Monitoring schedule, market, and alert preferences for this website. Changes apply from the next scheduled audit."
         isPaid={isPaid}
       />
-      <BrandMonitoringForm brandId={brand.id} isPaid={isPaid} />
+      <BrandMonitoringForm
+        brandId={brand.id}
+        isPaid={isPaid}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

@@ -27,7 +27,7 @@ DEFAULT_BEDROCK_MODELS = {
     "bedrock_claude": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
     "bedrock_nova": "amazon.nova-lite-v1:0",
     "bedrock_llama": "us.meta.llama3-1-70b-instruct-v1:0",
-    "bedrock_mistral": "mistral.mistral-large-2402-v1:0",
+    "bedrock_mistral": "mistral.mistral-large-3-675b-instruct",
 }
 
 
@@ -376,6 +376,8 @@ def call_bedrock_converse(
     model: str | None = None,
     temperature: float = 0.2,
     max_tokens: int = 2000,
+    json_schema: dict[str, Any] | None = None,
+    schema_name: str = "structured_response",
 ) -> tuple[str, dict[str, Any]]:
     load_dotenv(override=True)
     try:
@@ -409,6 +411,23 @@ def call_bedrock_converse(
             "maxTokens": max_tokens,
         },
     }
+    # Large 3 supports Bedrock's native structured output. This makes AWS
+    # constrain the response to valid JSON instead of relying on prompt wording
+    # alone. Older Mistral models do not support this field, so an explicit
+    # override to one of those models keeps the previous prompt-only behavior.
+    if json_schema and "mistral-large-3" in selected_model:
+        request_payload["outputConfig"] = {
+            "textFormat": {
+                "type": "json_schema",
+                "structure": {
+                    "jsonSchema": {
+                        "schema": json.dumps(json_schema),
+                        "name": schema_name,
+                        "description": "Validated buyer recommendations",
+                    }
+                },
+            }
+        }
 
     try:
         response = run_ai_call(
@@ -429,6 +448,7 @@ def call_bedrock_converse(
         "region": region,
         "usage": response.get("usage", {}),
         "metrics": response.get("metrics", {}),
+        "structured_output": "outputConfig" in request_payload,
     }
     return text, metadata
 

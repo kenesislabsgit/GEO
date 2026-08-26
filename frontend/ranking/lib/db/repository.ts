@@ -3,8 +3,10 @@ import type {
   Alert,
   Brand,
   Competitor,
+  Json,
   QueryResult,
   Recommendation,
+  ScanQuestion,
   ScanRun,
   ScoreSnapshot,
   Subscription,
@@ -12,7 +14,10 @@ import type {
   UsageLedgerEntry,
   WebhookEvent,
 } from "@/types/database";
-import type { OnboardingState, BrandMonitoringSettings } from "@/types/onboarding";
+import type {
+  OnboardingState,
+  BrandMonitoringSettings,
+} from "@/types/onboarding";
 import type { PlanId } from "@/lib/billing/entitlements";
 
 /**
@@ -152,6 +157,61 @@ export async function getScanRun(id: string): Promise<ScanRun | null> {
   return one<ScanRun>(`select * from scan_runs where id = $1`, [id]);
 }
 
+export type BrandProfileCache = {
+  brand_id: string;
+  website_snapshot: Json;
+  website_evidence: Json;
+  company_profile: Json;
+  change_analysis: Json | null;
+  source_scan_run_id: string | null;
+  updated_at: string;
+};
+
+export async function getBrandProfileCache(
+  brandId: string,
+): Promise<BrandProfileCache | null> {
+  return one<BrandProfileCache>(
+    `select * from brand_profile_cache where brand_id = $1`,
+    [brandId],
+  );
+}
+
+export async function upsertBrandProfileCache(
+  brandId: string,
+  input: Pick<
+    BrandProfileCache,
+    | "website_snapshot"
+    | "website_evidence"
+    | "company_profile"
+    | "change_analysis"
+    | "source_scan_run_id"
+  >,
+): Promise<void> {
+  await exec(
+    `insert into brand_profile_cache
+       (brand_id, website_snapshot, website_evidence, company_profile,
+        change_analysis, source_scan_run_id)
+     values ($1, $2, $3, $4, $5, $6)
+     on conflict (brand_id) do update set
+       website_snapshot = excluded.website_snapshot,
+       website_evidence = excluded.website_evidence,
+       company_profile = excluded.company_profile,
+       change_analysis = excluded.change_analysis,
+       source_scan_run_id = excluded.source_scan_run_id,
+       updated_at = timezone('utc', now())`,
+    [
+      brandId,
+      JSON.stringify(input.website_snapshot),
+      JSON.stringify(input.website_evidence),
+      JSON.stringify(input.company_profile),
+      input.change_analysis === null
+        ? null
+        : JSON.stringify(input.change_analysis),
+      input.source_scan_run_id,
+    ],
+  );
+}
+
 export async function listScansForBrands(
   brandIds: string[],
 ): Promise<ScanRun[]> {
@@ -160,6 +220,62 @@ export async function listScansForBrands(
     `select * from scan_runs where brand_id = any($1::uuid[]) order by created_at desc`,
     [brandIds],
   );
+}
+
+export type HistoricalQuestionSet = {
+  scanId: string;
+  brandId: string;
+  createdAt: string;
+  questions: string[];
+};
+
+/** Finished audits and the exact questions each one owned. */
+export async function listQuestionSetsForBrands(
+  brandIds: string[],
+): Promise<HistoricalQuestionSet[]> {
+  if (brandIds.length === 0) return [];
+  const rows = await q<{
+    scan_id: string;
+    brand_id: string;
+    created_at: string;
+    position: number;
+    prompt: string;
+  }>(
+    `select s.id as scan_id, s.brand_id, s.created_at, q.position, q.prompt
+     from scan_runs s
+     join scan_questions q on q.scan_run_id = s.id
+     where s.brand_id = any($1::uuid[])
+       and s.status in ('completed', 'partial')
+     order by s.created_at desc, q.position asc`,
+    [brandIds],
+  );
+  const grouped = new Map<string, HistoricalQuestionSet>();
+  for (const row of rows) {
+    const current = grouped.get(row.scan_id) ?? {
+      scanId: row.scan_id,
+      brandId: row.brand_id,
+      createdAt: row.created_at,
+      questions: [],
+    };
+    current.questions.push(row.prompt);
+    grouped.set(row.scan_id, current);
+  }
+  return Array.from(grouped.values());
+}
+
+export async function replaceScanQuestions(
+  scanRunId: string,
+  questions: Array<
+    Pick<ScanQuestion, "position" | "prompt" | "source" | "source_scan_run_id">
+  >,
+): Promise<void> {
+  await exec(`delete from scan_questions where scan_run_id = $1`, [scanRunId]);
+  for (const question of questions) {
+    await insertRow<ScanQuestion>("scan_questions", {
+      scan_run_id: scanRunId,
+      ...question,
+    });
+  }
 }
 
 /**
@@ -221,7 +337,9 @@ export async function getPrompts(brandId: string): Promise<TrackedPrompt[]> {
   );
 }
 
-export async function listAllPrompts(brandId: string): Promise<TrackedPrompt[]> {
+export async function listAllPrompts(
+  brandId: string,
+): Promise<TrackedPrompt[]> {
   return q<TrackedPrompt>(
     `select * from tracked_prompts where brand_id = $1 order by created_at desc`,
     [brandId],
@@ -231,7 +349,9 @@ export async function listAllPrompts(brandId: string): Promise<TrackedPrompt[]> 
 export async function getTrackedPromptById(
   id: string,
 ): Promise<TrackedPrompt | null> {
-  return one<TrackedPrompt>(`select * from tracked_prompts where id = $1`, [id]);
+  return one<TrackedPrompt>(`select * from tracked_prompts where id = $1`, [
+    id,
+  ]);
 }
 
 export async function createTrackedPrompt(
@@ -307,6 +427,7 @@ export async function getBrandMonitoringSettings(
     frequency: "daily" | "weekly";
     alerts: BrandMonitoringSettings["alerts"];
     providers: BrandMonitoringSettings["providers"];
+    monitoring_questions: string[];
     country: string | null;
     language: string | null;
     enabled: boolean;
@@ -320,6 +441,7 @@ export async function getBrandMonitoringSettings(
     monitoringFrequency: row.frequency,
     alerts: row.alerts ?? {},
     providers: row.providers ?? [],
+    monitoringQuestions: row.monitoring_questions ?? [],
     country: row.country ?? "US",
     language: row.language ?? "en",
     enabled: row.enabled,
@@ -333,13 +455,16 @@ export async function getBrandMonitoringSettings(
 export async function upsertBrandMonitoringSettings(
   brandId: string,
   settings: Partial<BrandMonitoringSettings> &
-    Pick<BrandMonitoringSettings, "monitoringFrequency" | "alerts" | "providers">,
+    Pick<
+      BrandMonitoringSettings,
+      "monitoringFrequency" | "alerts" | "providers"
+    >,
 ): Promise<BrandMonitoringSettings> {
   await exec(
     `insert into brand_monitoring
        (brand_id, enabled, frequency, day_of_week, hour_local, timezone,
-        providers, country, language, alerts)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        providers, country, language, alerts, monitoring_questions)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      on conflict (brand_id) do update set
        enabled = excluded.enabled,
        frequency = excluded.frequency,
@@ -349,7 +474,8 @@ export async function upsertBrandMonitoringSettings(
        providers = excluded.providers,
        country = excluded.country,
        language = excluded.language,
-       alerts = excluded.alerts`,
+       alerts = excluded.alerts,
+       monitoring_questions = excluded.monitoring_questions`,
     [
       brandId,
       settings.enabled ?? true,
@@ -361,6 +487,7 @@ export async function upsertBrandMonitoringSettings(
       settings.country ?? null,
       settings.language ?? null,
       JSON.stringify(settings.alerts ?? {}),
+      JSON.stringify(settings.monitoringQuestions ?? []),
     ],
   );
   const stored = await getBrandMonitoringSettings(brandId);
@@ -374,11 +501,12 @@ export async function insertQueryResult(
   return insertRow<QueryResult>("query_results", row);
 }
 
-export async function getQueryResults(scanRunId: string): Promise<QueryResult[]> {
-  return q<QueryResult>(
-    `select * from query_results where scan_run_id = $1`,
-    [scanRunId],
-  );
+export async function getQueryResults(
+  scanRunId: string,
+): Promise<QueryResult[]> {
+  return q<QueryResult>(`select * from query_results where scan_run_id = $1`, [
+    scanRunId,
+  ]);
 }
 
 export async function upsertScore(
@@ -503,7 +631,9 @@ export async function sumUsage(userId: string, billingPeriod: string) {
   return row?.total ?? 0;
 }
 
-export async function getSubscription(userId: string): Promise<Subscription | null> {
+export async function getSubscription(
+  userId: string,
+): Promise<Subscription | null> {
   return one<Subscription>(
     `select * from subscriptions
      where user_id = $1 and status in ('active', 'trialing')
@@ -552,7 +682,11 @@ export async function upsertSubscription(
   if (target) {
     const { id: _rowId, ...fields } = row;
     void _rowId;
-    const updated = await updateRow<Subscription>("subscriptions", target.id, fields);
+    const updated = await updateRow<Subscription>(
+      "subscriptions",
+      target.id,
+      fields,
+    );
     if (!updated) throw new Error("Subscription update returned nothing.");
     return updated;
   }
@@ -674,7 +808,9 @@ export async function getActiveScanForBrand(
 export async function getRecommendationById(
   id: string,
 ): Promise<Recommendation | null> {
-  return one<Recommendation>(`select * from recommendations where id = $1`, [id]);
+  return one<Recommendation>(`select * from recommendations where id = $1`, [
+    id,
+  ]);
 }
 
 export async function updateRecommendationStatus(
@@ -809,12 +945,22 @@ export async function adminStats() {
               coalesce(sum(estimated_cost), 0)::float as cost
        from usage_ledger group by provider`,
     ),
-    q<{ event_id: string; event_type: string; error: string | null; processed_at: string }>(
+    q<{
+      event_id: string;
+      event_type: string;
+      error: string | null;
+      processed_at: string;
+    }>(
       `select event_id, event_type, error, processed_at
        from webhook_events where status = 'failed'
        order by processed_at desc limit 10`,
     ),
-    q<{ admin_email: string; action: string; target: string | null; created_at: string }>(
+    q<{
+      admin_email: string;
+      action: string;
+      target: string | null;
+      created_at: string;
+    }>(
       `select admin_email, action, target, created_at
        from admin_audit_log order by created_at desc limit 15`,
     ),

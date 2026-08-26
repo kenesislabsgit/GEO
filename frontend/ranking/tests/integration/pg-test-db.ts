@@ -18,8 +18,23 @@ export function pointAtTestDb(): void {
 export async function resetTestDb(): Promise<void> {
   pointAtTestDb();
   const { q, exec } = await import("@/lib/db/pg");
+  const questionsMigration = await readFile(
+    path.join(process.cwd(), "db/migrations/0005_scan_questions.sql"),
+    "utf8",
+  );
+  await exec(questionsMigration);
+  const monitoringQuestionsMigration = await readFile(
+    path.join(process.cwd(), "db/migrations/0006_monitoring_questions.sql"),
+    "utf8",
+  );
+  await exec(monitoringQuestionsMigration);
+  const profileCacheMigration = await readFile(
+    path.join(process.cwd(), "db/migrations/0007_brand_profile_cache.sql"),
+    "utf8",
+  );
+  await exec(profileCacheMigration);
   await q(
-    `truncate table brands, scan_runs, query_results, score_snapshots,
+    `truncate table brands, scan_runs, scan_questions, query_results, score_snapshots,
        recommendations, tracked_prompts, competitors, subscriptions,
        usage_ledger, webhook_events, free_scan_requests, alerts,
        "user", session, account, verification
@@ -32,6 +47,10 @@ export async function resetTestDb(): Promise<void> {
 
 export async function closeTestDb(): Promise<void> {
   const { getPool } = await import("@/lib/db/pg");
-  await getPool().end().catch(() => {});
+  await getPool()
+    .end()
+    .catch(() => {});
   (globalThis as { __rbaiPgPool?: unknown }).__rbaiPgPool = undefined;
 }
+import { readFile } from "node:fs/promises";
+import path from "node:path";

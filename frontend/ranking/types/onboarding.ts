@@ -51,6 +51,8 @@ export type BrandMonitoringSettings = {
   monitoringFrequency: MonitoringFrequency;
   alerts: OnboardingAlertPreferences;
   providers: ProviderId[];
+  /** The fixed five questions repeated by every monitoring audit. */
+  monitoringQuestions: string[];
   country: string;
   language: string;
   enabled?: boolean;

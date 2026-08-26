@@ -16,8 +16,9 @@ export default async function AlertsPage() {
           Alerts
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Material score changes, competitor movements, and citation shifts
-          from scheduled monitoring.
+          AI responses can vary; these alerts highlight repeated changes across
+          recent audits to help you track visibility, competitors, and cited
+          sources over time.
         </p>
       </div>
       <AlertList alerts={alerts} />

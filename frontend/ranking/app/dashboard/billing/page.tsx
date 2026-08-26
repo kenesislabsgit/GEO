@@ -49,7 +49,7 @@ export default async function BillingPage({
           Billing
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Usage limits always apply, including during trials.
+          See everything included in your plan and manage your subscription.
         </p>
       </div>
 
@@ -59,9 +59,7 @@ export default async function BillingPage({
             Current plan
           </p>
           <div className="mt-2 flex items-center gap-2.5">
-            <p className="text-2xl font-semibold tracking-tight">
-              {plan.name}
-            </p>
+            <p className="text-2xl font-semibold tracking-tight">{plan.name}</p>
             <Badge variant="secondary" className="rounded-full capitalize">
               {planStatus}
             </Badge>
