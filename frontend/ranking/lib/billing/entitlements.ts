@@ -2,10 +2,15 @@ import {
   ALL_PROVIDERS,
   DEFAULT_SCAN_PROVIDERS,
   FREE_AUDIT_PROVIDER,
+  MOST_USED_PROVIDERS,
 } from "@/lib/constants";
 import type { ProviderId } from "@/types/database";
 
 export type PlanId = "free" | "founder" | "growth" | "agency";
+
+/** Plus includes this many checks. Early-bird adds a bonus on top. */
+export const PLUS_CHECKS_INCLUDED = 500;
+export const PLUS_EARLY_BIRD_BONUS_CHECKS = 200;
 
 export type PlanFeatures = {
   brands: number;
@@ -91,9 +96,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   founder: {
     id: "founder",
     name: "Plus",
-    description: "One website, multi-provider monitoring, and full evidence.",
-    monthlyPriceUsd: 49,
-    yearlyPriceUsd: 490,
+    description: `One website, multi-provider monitoring, and ${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird checks.`,
+    monthlyPriceUsd: 79,
+    yearlyPriceUsd: 790,
     trialDays: 7,
     monthlyProductEnv: "DODO_FOUNDER_MONTHLY_PRODUCT_ID",
     yearlyProductEnv: "DODO_FOUNDER_YEARLY_PRODUCT_ID",
@@ -111,7 +116,8 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       competitorsPerBrand: 5,
       countries: 1,
       languages: 1,
-      providerChecksPerMonth: 400,
+      providerChecksPerMonth:
+        PLUS_CHECKS_INCLUDED + PLUS_EARLY_BIRD_BONUS_CHECKS,
       weeklyMonitoring: true,
       dailyMonitoring: false,
       geoMarketSearch: false,
@@ -128,26 +134,22 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       pdfCsvExport: false,
     },
   },
-  // Grandfathered: no longer sold. The pricing page and every "upgrade to"
-  // CTA skip this id now - it stays here only so the one existing "growth"
-  // subscriber's entitlements keep resolving instead of crashing on a
-  // missing plan lookup. Do not remove until that subscriber is migrated.
+  // Kept for the existing Growth subscriber and for when we open it to
+  // waitlist. Not listed for sale — see SOLD_PLAN_IDS.
   growth: {
     id: "growth",
-    name: "Pro+",
-    description: "Multi-website tracking, daily monitoring, and exports.",
-    monthlyPriceUsd: 79,
-    yearlyPriceUsd: 790,
+    name: "Growth",
+    description: "Five websites, daily monitoring, and the 8 most-used AIs.",
+    monthlyPriceUsd: 199,
+    yearlyPriceUsd: 1990,
     trialDays: 0,
     monthlyProductEnv: "DODO_GROWTH_MONTHLY_PRODUCT_ID",
     yearlyProductEnv: "DODO_GROWTH_YEARLY_PRODUCT_ID",
     features: {
       brands: 5,
       activePrompts: 100,
-      // Same catalog as ALL_PROVIDERS. A missing API key marks that
-      // provider partial rather than silently dropping it.
-      providers: [...ALL_PROVIDERS],
-      providersPerScan: 10,
+      providers: [...MOST_USED_PROVIDERS],
+      providersPerScan: MOST_USED_PROVIDERS.length,
       competitorsPerBrand: 10,
       countries: 5,
       languages: 5,
@@ -171,7 +173,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   agency: {
     id: "agency",
     name: "Pro",
-    description: "Everything in Plus, at higher limits: 20 websites and a 10k check allowance.",
+    description: "Custom limits, set up with our team: more websites, checks, and support.",
     monthlyPriceUsd: 199,
     yearlyPriceUsd: 1990,
     trialDays: 0,

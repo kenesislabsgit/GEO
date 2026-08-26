@@ -8,7 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import {
+  GROWTH_WAITLIST_HREF,
   PRO_CONTACT_HREF,
+  SOLD_PLAN_IDS,
+  isSalesLockedPlan,
   yearlySavingsUsd,
   type BillingInterval,
 } from "@/lib/billing/pricing";
@@ -74,9 +77,10 @@ export function BillingActions({
           {hasSubscription ? "Change plan" : "Upgrade"}
         </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {(["founder"] as PlanId[]).map((planId) => {
+          {SOLD_PLAN_IDS.map((planId) => {
             const plan = PLAN_CONFIG[planId];
             const highlight = highlightedPlan === planId;
+            const locked = isSalesLockedPlan(planId);
             return (
               <div
                 key={planId}
@@ -91,89 +95,102 @@ export function BillingActions({
                     Selected
                   </Badge>
                 ) : null}
-                <p className="text-sm font-medium">{plan.name}</p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight">
-                  ${plan.monthlyPriceUsd}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    /mo
+                {locked ? (
+                  <span className="absolute -top-2.5 right-4 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    By request
                   </span>
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  or ${plan.yearlyPriceUsd}/year
-                  {yearlySavingsUsd(plan) > 0
-                    ? ` · save $${yearlySavingsUsd(plan)}`
-                    : ""}
-                  {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
-                </p>
+                ) : null}
+                <p className="text-sm font-medium">{plan.name}</p>
+                {locked ? (
+                  <>
+                    <p className="mt-2 text-3xl font-semibold tracking-tight">
+                      Custom
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Pricing by request
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-3xl font-semibold tracking-tight">
+                      ${plan.monthlyPriceUsd}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        /mo
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      or ${plan.yearlyPriceUsd}/year
+                      {yearlySavingsUsd(plan) > 0
+                        ? ` · save $${yearlySavingsUsd(plan)}`
+                        : ""}
+                      {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
+                    </p>
+                  </>
+                )}
                 <p className="mt-3 flex-1 text-sm text-muted-foreground">
                   {plan.description}
+                  {locked ? " Set up with our team." : ""}
                 </p>
                 <div className="mt-4 flex flex-col gap-2">
-                  <Button
-                    size="sm"
-                    variant={highlightedInterval === "yearly" ? "outline" : "default"}
-                    disabled={loading !== null}
-                    onClick={() => checkout(planId, "monthly")}
-                  >
-                    {loading === `${planId}-monthly` ? (
-                      <>
-                        <Loader2
-                          data-icon="inline-start"
-                          className="animate-spin"
-                        />
-                        Redirecting…
-                      </>
-                    ) : (
-                      "Subscribe monthly"
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={highlightedInterval === "yearly" ? "default" : "outline"}
-                    disabled={loading !== null}
-                    onClick={() => checkout(planId, "yearly")}
-                  >
-                    {loading === `${planId}-yearly` ? (
-                      <>
-                        <Loader2
-                          data-icon="inline-start"
-                          className="animate-spin"
-                        />
-                        Redirecting…
-                      </>
-                    ) : (
-                      `Subscribe yearly · save $${yearlySavingsUsd(plan)}`
-                    )}
-                  </Button>
+                  {locked ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={PRO_CONTACT_HREF}>Contact us</Link>
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant={highlightedInterval === "yearly" ? "outline" : "default"}
+                        disabled={loading !== null}
+                        onClick={() => checkout(planId, "monthly")}
+                      >
+                        {loading === `${planId}-monthly` ? (
+                          <>
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
+                            Redirecting…
+                          </>
+                        ) : (
+                          "Subscribe monthly"
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={highlightedInterval === "yearly" ? "default" : "outline"}
+                        disabled={loading !== null}
+                        onClick={() => checkout(planId, "yearly")}
+                      >
+                        {loading === `${planId}-yearly` ? (
+                          <>
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
+                            Redirecting…
+                          </>
+                        ) : (
+                          `Subscribe yearly · save $${yearlySavingsUsd(plan)}`
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             );
           })}
-          <div className="relative flex flex-col rounded-xl border border-border bg-card p-5">
-            <span className="absolute -top-2.5 right-4 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              By request
-            </span>
-            <p className="text-sm font-medium">{PLAN_CONFIG.agency.name}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">
-              ${PLAN_CONFIG.agency.monthlyPriceUsd}
-              <span className="text-sm font-normal text-muted-foreground">/mo</span>
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              or ${PLAN_CONFIG.agency.yearlyPriceUsd}/year
-              {yearlySavingsUsd(PLAN_CONFIG.agency) > 0
-                ? ` · save $${yearlySavingsUsd(PLAN_CONFIG.agency)}`
-                : ""}
-            </p>
-            <p className="mt-3 flex-1 text-sm text-muted-foreground">
-              {PLAN_CONFIG.agency.description} Set up with our team.
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <Button asChild size="sm" variant="outline">
-                <Link href={PRO_CONTACT_HREF}>Contact us</Link>
-              </Button>
-            </div>
-          </div>
         </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Need more websites and daily scans? Growth is next.{" "}
+          <Link
+            href={GROWTH_WAITLIST_HREF}
+            className="text-foreground underline underline-offset-4"
+          >
+            Join the list
+          </Link>
+          .
+        </p>
       </div>
 
       {hasSubscription ? (

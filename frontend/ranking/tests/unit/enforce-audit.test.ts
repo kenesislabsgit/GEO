@@ -7,6 +7,7 @@ vi.mock("@/lib/billing/account", () => ({
 
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { authorizeAudit } from "@/lib/billing/enforce";
+import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 
 const mocked = vi.mocked(getAccountEntitlements);
 
@@ -43,9 +44,25 @@ describe("authorizeAudit", () => {
     if (!result.ok) expect(result.status).toBe(403);
   });
 
-  it("accepts bedrock_nova for a Pro+ subscriber", async () => {
+  it("accepts grok for a Growth subscriber", async () => {
     mocked.mockResolvedValueOnce(
-      account({ plan: "growth", status: "active", planName: "Pro+" }),
+      account({ plan: "growth", status: "active", planName: "Growth" }),
+    );
+    const result = await authorizeAudit("u1", {
+      mode: "pro",
+      assistants: ["grok", "openai_search"],
+      limitPerAssistant: 20,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.assistants).toContain("grok");
+      expect(result.limitPerAssistant).toBe(20);
+    }
+  });
+
+  it("accepts bedrock_nova for a Pro subscriber", async () => {
+    mocked.mockResolvedValueOnce(
+      account({ plan: "agency", status: "active", planName: "Pro" }),
     );
     const result = await authorizeAudit("u1", {
       mode: "pro",
@@ -72,7 +89,12 @@ describe("authorizeAudit", () => {
 
   it("refuses when the monthly allowance is spent", async () => {
     mocked.mockResolvedValueOnce(
-      account({ plan: "founder", status: "active", providerChecksUsed: 400, planName: "Pro" }),
+      account({
+        plan: "founder",
+        status: "active",
+        providerChecksUsed: PLAN_CONFIG.founder.features.providerChecksPerMonth,
+        planName: "Plus",
+      }),
     );
     const result = await authorizeAudit("u1", {
       mode: "pro",

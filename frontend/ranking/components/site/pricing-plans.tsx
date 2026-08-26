@@ -5,11 +5,19 @@ import Link from "next/link";
 import { Check, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProviderStack } from "@/components/providers/provider-logo";
-import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
 import {
+  PLAN_CONFIG,
+  PLUS_CHECKS_INCLUDED,
+  PLUS_EARLY_BIRD_BONUS_CHECKS,
+  type PlanId,
+} from "@/lib/billing/entitlements";
+import {
+  formatChecks,
   headlinePriceUsd,
+  GROWTH_WAITLIST_HREF,
   isSalesLockedPlan,
   PRO_CONTACT_HREF,
+  publicSubscribeHref,
   SOLD_PLAN_IDS,
   yearlySavingsUsd,
   type BillingInterval,
@@ -19,19 +27,21 @@ import { PricingIntervalToggle } from "@/components/site/pricing-interval-toggle
 
 type CardFeature = { text: string; providers?: readonly string[] };
 
+function checksFeature(planId: PlanId): CardFeature {
+  if (planId === "founder") {
+    return {
+      text: `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird checks per month`,
+    };
+  }
+  const count = PLAN_CONFIG[planId].features.providerChecksPerMonth;
+  return {
+    text: `${formatChecks(count)} provider checks per month`,
+  };
+}
+
 const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
-  free: [
-    { text: "1 website, 1 free audit every 30 days" },
-    { text: "5 real buyer questions" },
-    {
-      text: "ChatGPT with live web search",
-      providers: PLAN_CONFIG.free.features.providers,
-    },
-    { text: "Visibility score with full breakdown" },
-    { text: "Your top competitor, with evidence" },
-    { text: "One prioritized website fix" },
-  ],
   founder: [
+    checksFeature("founder"),
     { text: "20 buyer questions per audit" },
     {
       text: `${PLAN_CONFIG.founder.features.providers.length} AI providers compared side by side`,
@@ -43,13 +53,30 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
     { text: "Weekly monitoring, score alerts, history" },
     { text: "Private or public report link" },
   ],
+  growth: [
+    { text: "Everything in Plus" },
+    checksFeature("growth"),
+    {
+      text: `The ${PLAN_CONFIG.growth.features.providersPerScan} most-used AIs, checked on every audit`,
+      providers: PLAN_CONFIG.growth.features.providers,
+    },
+    {
+      text: `${PLAN_CONFIG.growth.features.brands} websites, ${PLAN_CONFIG.growth.features.activePrompts} tracked questions`,
+    },
+    { text: "Daily monitoring that rotates through your questions" },
+    { text: "CSV exports + PDF reports" },
+    { text: "Impact tracking on completed fixes" },
+  ],
   agency: [
     { text: "Everything in Plus" },
+    checksFeature("agency"),
     {
       text: `${PLAN_CONFIG.agency.features.providers.length} AI providers - run any ${PLAN_CONFIG.agency.features.providersPerScan} per audit`,
       providers: PLAN_CONFIG.agency.features.providers,
     },
-    { text: "20 websites, 500 tracked questions" },
+    {
+      text: `${PLAN_CONFIG.agency.features.brands} websites, ${PLAN_CONFIG.agency.features.activePrompts} tracked questions`,
+    },
     { text: "Daily monitoring that rotates through your questions" },
     { text: "CSV exports + PDF reports" },
     { text: "Impact tracking on completed fixes" },
@@ -61,7 +88,6 @@ function planCta(
   planId: PlanId,
   interval: BillingInterval,
   signedIn: boolean,
-  variant: "full" | "teaser",
 ): { href: string; label: string; external?: boolean } {
   if (isSalesLockedPlan(planId)) {
     return { href: PRO_CONTACT_HREF, label: "Contact us" };
@@ -70,12 +96,8 @@ function planCta(
     const href = signedIn ? routes.newScan() : routes.freeAuditSignup;
     return { href, label: "Run free audit" };
   }
-  const billing = routes.billing({ plan: planId, interval });
-  if (variant === "teaser") {
-    return { href: billing, label: "Get started" };
-  }
   return {
-    href: signedIn ? billing : routes.login({ returnTo: billing }),
+    href: publicSubscribeHref(planId, interval, signedIn),
     label: "Get started",
   };
 }
@@ -96,6 +118,15 @@ function PlanPrice({
     size === "full"
       ? "font-heading mt-3 text-4xl font-semibold tracking-tight"
       : "arc-tabular mt-3 font-heading text-3xl font-semibold tracking-tight";
+
+  if (isSalesLockedPlan(planId)) {
+    return (
+      <>
+        <p className={headingClass}>Custom</p>
+        <p className="mt-1 text-xs text-muted-foreground">Pricing by request</p>
+      </>
+    );
+  }
 
   if (headline === 0) {
     return (
@@ -148,12 +179,12 @@ export function PricingPlans({
       <div className="flex justify-center">
         <PricingIntervalToggle value={interval} onChange={setInterval} />
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
+      <div className="mt-8 mx-auto grid max-w-3xl gap-4 md:grid-cols-2">
         {SOLD_PLAN_IDS.map((planId) => {
           const plan = PLAN_CONFIG[planId];
           const popular = planId === "founder";
           const locked = isSalesLockedPlan(planId);
-          const cta = planCta(planId, interval, signedIn, variant);
+          const cta = planCta(planId, interval, signedIn);
           return (
             <div
               key={planId}
@@ -178,7 +209,11 @@ export function PricingPlans({
                   Most popular
                 </span>
               ) : null}
-              {locked ? (
+              {planId === "founder" ? (
+                <span className="absolute -top-2.5 right-5 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Early bird
+                </span>
+              ) : locked ? (
                 <span className="absolute -top-2.5 right-5 inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Lock className="size-2.5" aria-hidden />
                   By request
@@ -231,6 +266,19 @@ export function PricingPlans({
           );
         })}
       </div>
+      <p className="mt-8 text-center text-sm leading-relaxed text-muted-foreground">
+        Need more websites and daily scans? Growth is next —{" "}
+        {PLAN_CONFIG.growth.features.brands} sites, the{" "}
+        {PLAN_CONFIG.growth.features.providersPerScan} most-used AIs, opening
+        in waves.{" "}
+        <Link
+          href={GROWTH_WAITLIST_HREF}
+          className="text-foreground underline underline-offset-4"
+        >
+          Join the list
+        </Link>
+        .
+      </p>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
 
 const ROOT_DOMAIN = "arcanoris.in";
 const APP_DOMAIN = `app.${ROOT_DOMAIN}`;
@@ -14,6 +15,11 @@ export default async function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
 
+  const requestHeaders = new Headers(request.headers);
+  if (isProtected) {
+    requestHeaders.set(REQUEST_PATH_HEADER, `${pathname}${search}`);
+  }
+
   if (isProtected && isProductionDomain(hostname)) {
     const dashboardUrl = new URL(`https://${APP_DOMAIN}`);
     if (hostname !== APP_DOMAIN) {
@@ -23,9 +29,9 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next({ request: { headers: request.headers } });
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/admin", "/admin/:path*"],
 };

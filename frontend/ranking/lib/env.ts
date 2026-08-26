@@ -22,7 +22,7 @@ const REQUIRED_IN_PRODUCTION: Requirement[] = [
   { name: "DODO_FOUNDER_MONTHLY_PRODUCT_ID", why: "the Plus plan product" },
   {
     name: "DODO_GROWTH_MONTHLY_PRODUCT_ID",
-    why: "the legacy Pro+ plan product - grandfathered, no longer sold, but still resolved for its one existing subscriber",
+    why: "the Growth plan product",
   },
   { name: "RESEND_API_KEY", why: "verification and alert email" },
   { name: "EMAIL_FROM", why: "the sending address" },

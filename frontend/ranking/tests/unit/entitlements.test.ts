@@ -6,7 +6,7 @@ import {
   EntitlementError,
   PLAN_CONFIG,
 } from "@/lib/billing/entitlements";
-import { ALL_PROVIDERS } from "@/lib/constants";
+import { ALL_PROVIDERS, MOST_USED_PROVIDERS } from "@/lib/constants";
 
 describe("entitlements", () => {
   it("allows free plan one brand, then blocks the second", () => {
@@ -55,6 +55,13 @@ describe("entitlements", () => {
     expect(defaultScanProviders("founder")).toHaveLength(
       PLAN_CONFIG.founder.features.providersPerScan,
     );
+  });
+
+  it("checks the 8 most-used AIs on every Growth audit", () => {
+    expect(PLAN_CONFIG.growth.features.providers).toEqual([...MOST_USED_PROVIDERS]);
+    expect(PLAN_CONFIG.growth.features.providersPerScan).toBe(8);
+    expect(defaultScanProviders("growth")).toHaveLength(8);
+    expect(defaultScanProviders("growth")).toEqual([...MOST_USED_PROVIDERS]);
   });
 
   it("offers all 14 providers on Pro and selects 10 per audit", () => {

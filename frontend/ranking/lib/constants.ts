@@ -57,7 +57,15 @@ export const ALL_PROVIDERS = [
 ] as const satisfies readonly ProviderId[];
 
 /**
- * The ten providers pre-selected for a Pro+/Agency audit, in display order.
+ * The eight most-used consumer AIs, in display order. Growth checks all of
+ * these on every audit. Pro still offers the full catalog below.
+ */
+export const MOST_USED_PROVIDERS = [
+  ...ALL_PROVIDERS.slice(0, 8),
+] as const satisfies readonly ProviderId[];
+
+/**
+ * The ten providers pre-selected for a Pro audit, in display order.
  * Every id here is genuinely integrated in the audit engine
  * (GEO/geo_audit/llm.py - the OpenAI-compatible registry covers Perplexity,
  * Grok, DeepSeek, Kimi, Groq, MiniMax, Sarvam and Qwen). Plans offer more than an

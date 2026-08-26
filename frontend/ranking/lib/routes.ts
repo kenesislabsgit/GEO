@@ -42,6 +42,17 @@ export const routes = {
   scanProgress: (scanId: string) => `/dashboard/scans/${scanId}`,
 
   alerts: "/dashboard/alerts",
+  checkoutStart: (opts: {
+    plan: string;
+    interval: "monthly" | "yearly";
+    returnTo?: string;
+  }) => {
+    const params = new URLSearchParams();
+    params.set("plan", opts.plan);
+    params.set("interval", opts.interval);
+    if (opts.returnTo) params.set("returnTo", opts.returnTo);
+    return `/dashboard/billing/start?${params.toString()}`;
+  },
   billing: (opts?: {
     plan?: string;
     returnTo?: string;

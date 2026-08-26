@@ -12,6 +12,7 @@ export const COMPANY_SIZES = [
 export const CONTACT_INTERESTS = [
   { id: "pro", label: "Pro plan" },
   { id: "plus", label: "Plus plan" },
+  { id: "growth", label: "Growth waitlist" },
   { id: "multiple-sites", label: "Monitoring more than one website" },
   { id: "custom", label: "Custom limits or providers" },
   { id: "support", label: "Account or billing support" },
@@ -46,7 +47,7 @@ export const contactInquirySchema = z.object({
     }),
   website: z.string().trim().min(3, "Website is required.").max(200),
   interest: z.enum(
-    ["pro", "plus", "multiple-sites", "custom", "support", "other"],
+    ["pro", "plus", "growth", "multiple-sites", "custom", "support", "other"],
     { error: "Please select what you are interested in." },
   ),
   needs: z.string().trim().max(4000),

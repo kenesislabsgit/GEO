@@ -57,8 +57,7 @@ type PlanInfo = {
  * Every id here is wired into the audit engine - nothing aspirational. */
 const OFFERED_PROVIDERS: ProviderId[] = [...ALL_PROVIDERS];
 
-/** The cheapest plan whose provider list includes this provider. "growth" is
- * grandfathered and no longer sold, so it's deliberately not offered here. */
+/** The cheapest sold plan whose provider list includes this provider. */
 function planThatUnlocks(provider: ProviderId): PlanId | null {
   for (const planId of ["founder", "agency"] as const) {
     if (PLAN_CONFIG[planId].features.providers.includes(provider)) {

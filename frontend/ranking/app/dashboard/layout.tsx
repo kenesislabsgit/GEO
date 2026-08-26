@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser, isAdminEmail } from "@/lib/auth/session";
+import { REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
 import Link from "next/link";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import {
@@ -7,7 +9,7 @@ import {
   getUserOnboarding,
   listBrandsForOwner,
 } from "@/lib/db/repository";
-import { routes } from "@/lib/routes";
+import { routes, safeReturnTo } from "@/lib/routes";
 import { DashboardShell } from "@/components/dashboard/shell";
 
 export const metadata = {
@@ -20,7 +22,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const returnTo = safeReturnTo(
+      (await headers()).get(REQUEST_PATH_HEADER),
+    );
+    redirect(returnTo ? routes.login({ returnTo }) : routes.login());
+  }
   const [account, unreadAlerts, onboarding, brands] = await Promise.all([
     getAccountEntitlements(user.id),
     countUnreadAlerts(user.id),

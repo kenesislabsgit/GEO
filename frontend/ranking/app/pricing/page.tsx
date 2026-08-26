@@ -6,8 +6,8 @@ import { ProviderStack } from "@/components/providers/provider-logo";
 import { JsonLd } from "@/components/site/json-ld";
 import { PricingPlans } from "@/components/site/pricing-plans";
 import { HorizontalScrollHint } from "@/components/site/scroll-hint";
-import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
-import { SOLD_PLAN_IDS } from "@/lib/billing/pricing";
+import { PLAN_CONFIG, PLUS_CHECKS_INCLUDED, PLUS_EARLY_BIRD_BONUS_CHECKS, type PlanId } from "@/lib/billing/entitlements";
+import { formatChecks, isSalesLockedPlan, SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
 import { ALL_PROVIDERS, APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -17,15 +17,9 @@ const PLAN_IDS: PlanId[] = SOLD_PLAN_IDS;
 
 export const metadata = {
   title: "Pricing",
-  description: "Free, Plus and Pro plans for AI visibility monitoring.",
+  description: "Plus and Pro plans for AI visibility monitoring.",
   alternates: { canonical: "/pricing" },
 };
-
-function formatChecks(count: number): string {
-  return count >= 1000
-    ? `${(count / 1000).toFixed(count % 1000 ? 1 : 0)}k`
-    : String(count);
-}
 
 type Cell =
   | string
@@ -33,30 +27,35 @@ type Cell =
   | { label: string; providers: readonly string[] };
 
 /** The exhaustive comparison. One row per real capability, one column per
- * PLAN_IDS entry (free, founder/Plus, agency/Pro - in that order). */
+ * PLAN_IDS entry (founder/Plus, agency/Pro - in that order). */
 const COMPARISON: Array<{
   section: string;
-  rows: Array<{ label: string; cells: [Cell, Cell, Cell] }>;
+  rows: Array<{ label: string; cells: [Cell, Cell] }>;
 }> = [
   {
     section: "Audit",
     rows: [
-      { label: "Websites", cells: ["1", "1", "20"] },
+      {
+        label: "Websites",
+        cells: [
+          String(PLAN_CONFIG.founder.features.brands),
+          String(PLAN_CONFIG.agency.features.brands),
+        ],
+      },
       {
         label: "Tracked buyer questions per website",
-        cells: ["5", "20", "500"],
+        cells: [
+          String(PLAN_CONFIG.founder.features.activePrompts),
+          String(PLAN_CONFIG.agency.features.activePrompts),
+        ],
       },
       {
         label: "Questions asked per audit run",
-        cells: ["5", "20", "20"],
+        cells: ["20", "20"],
       },
       {
         label: "AI providers compared",
         cells: [
-          {
-            label: "1",
-            providers: PLAN_CONFIG.free.features.providers,
-          },
           {
             label: String(PLAN_CONFIG.founder.features.providers.length),
             providers: PLAN_CONFIG.founder.features.providers,
@@ -70,28 +69,30 @@ const COMPARISON: Array<{
       {
         label: "Provider checks per month",
         cells: [
-          formatChecks(PLAN_CONFIG.free.features.providerChecksPerMonth),
-          formatChecks(PLAN_CONFIG.founder.features.providerChecksPerMonth),
+          `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS}`,
           formatChecks(PLAN_CONFIG.agency.features.providerChecksPerMonth),
         ],
       },
       {
         label: "Competitors tracked per website",
-        cells: ["1", "5", "20"],
+        cells: [
+          String(PLAN_CONFIG.founder.features.competitorsPerBrand),
+          String(PLAN_CONFIG.agency.features.competitorsPerBrand),
+        ],
       },
     ],
   },
   {
     section: "Evidence",
     rows: [
-      { label: "Visibility score & breakdown", cells: [true, true, true] },
-      { label: "Full AI answers", cells: [false, true, true] },
+      { label: "Visibility score & breakdown", cells: [true, true] },
+      { label: "Full AI answers", cells: [true, true] },
       {
         label: "Sources & verified web mentions",
-        cells: [false, true, true],
+        cells: [true, true],
       },
-      { label: "Citation gaps", cells: [false, true, true] },
-      { label: "Score history", cells: [false, true, true] },
+      { label: "Citation gaps", cells: [true, true] },
+      { label: "Score history", cells: [true, true] },
     ],
   },
   {
@@ -99,15 +100,15 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Website improvement plan",
-        cells: ["First fix only", "Full plan", "Full plan"],
+        cells: ["Full plan", "Full plan"],
       },
       {
         label: "Copy-paste prompt for your AI coding tool",
-        cells: [true, true, true],
+        cells: [true, true],
       },
       {
         label: "Impact tracking on completed fixes",
-        cells: [false, false, true],
+        cells: [false, true],
       },
     ],
   },
@@ -116,18 +117,18 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Scheduled re-scans",
-        cells: [false, "Weekly", "Daily"],
+        cells: ["Weekly", "Daily"],
       },
-      { label: "Score alerts by email", cells: [false, true, true] },
+      { label: "Score alerts by email", cells: [true, true] },
     ],
   },
   {
     section: "Sharing",
     rows: [
-      { label: "Shareable report link", cells: [true, true, true] },
-      { label: "Private reports", cells: [false, true, true] },
-      { label: "CSV export", cells: [false, false, true] },
-      { label: "PDF report", cells: [false, false, true] },
+      { label: "Shareable report link", cells: [true, true] },
+      { label: "Private reports", cells: [true, true] },
+      { label: "CSV export", cells: [false, true] },
+      { label: "PDF report", cells: [false, true] },
     ],
   },
 ];
@@ -143,7 +144,11 @@ const FAQS = [
   },
   {
     q: "How do the AI providers work on each plan?",
-    a: `Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all ${ALL_PROVIDERS.length} AI providers - also Grok, DeepSeek, Llama, Kimi, Nova, Groq, MiniMax, Sarvam, and Qwen - and runs any 10 of them per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
+    a: `Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all ${ALL_PROVIDERS.length} providers and runs any ${PLAN_CONFIG.agency.features.providersPerScan} per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
+  },
+  {
+    q: "What about Growth?",
+    a: `Growth adds more websites, daily scans, and the ${PLAN_CONFIG.growth.features.providersPerScan} most-used AIs. We're letting people in in waves — join the list on this page and we'll email you when a spot opens.`,
   },
   {
     q: "What does the free audit include?",
@@ -174,7 +179,7 @@ function CellValue({ value }: { value: Cell }) {
     return (
       <span className="inline-flex flex-col items-center gap-1.5">
         <span className="text-sm">{value.label}</span>
-        <ProviderStack providers={value.providers} max={6} />
+        <ProviderStack providers={value.providers} max={8} />
       </span>
     );
   }
@@ -198,28 +203,29 @@ export default async function PricingPage() {
           offers: {
             "@type": "AggregateOffer",
             priceCurrency: "USD",
-            lowPrice: "0",
-            highPrice: String(PLAN_CONFIG.agency.monthlyPriceUsd),
+            lowPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
+            highPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
             offerCount: PLAN_IDS.length,
             offers: PLAN_IDS.map((planId) => {
               const plan = PLAN_CONFIG[planId];
+              const custom = isSalesLockedPlan(planId);
               return {
                 "@type": "Offer",
                 name: `${plan.name} plan`,
                 description: plan.description,
-                price: String(plan.monthlyPriceUsd),
-                priceCurrency: "USD",
                 url: `${SITE_URL}${routes.pricing}`,
-                ...(plan.monthlyPriceUsd > 0
-                  ? {
+                ...(custom
+                  ? {}
+                  : {
+                      price: String(plan.monthlyPriceUsd),
+                      priceCurrency: "USD",
                       priceSpecification: {
                         "@type": "UnitPriceSpecification",
                         price: String(plan.monthlyPriceUsd),
                         priceCurrency: "USD",
                         billingDuration: "P1M",
                       },
-                    }
-                  : {}),
+                    }),
               };
             }),
           },
@@ -273,7 +279,7 @@ export default async function PricingPage() {
                 <Fragment key={group.section}>
                   <tr className="border-b border-border bg-muted/40">
                     <td
-                      colSpan={4}
+                      colSpan={1 + planIds.length}
                       className="arc-eyebrow py-2.5 pr-4 pl-1"
                     >
                       {group.section}

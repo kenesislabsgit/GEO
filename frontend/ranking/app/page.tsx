@@ -18,6 +18,7 @@ import {
   ALL_PROVIDERS,
   providerDisplayName,
 } from "@/lib/constants";
+import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
 
@@ -505,7 +506,8 @@ const RADAR_BLIPS = [
 
 /* ----------------------------------------------------------------- page -- */
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getSessionUser();
   return (
     <>
       <JsonLd
@@ -1089,7 +1091,7 @@ export default function HomePage() {
             </Reveal>
 
             <div className="mt-12">
-              <PricingPlans variant="teaser" />
+              <PricingPlans variant="teaser" signedIn={Boolean(user)} />
             </div>
 
             <div className="mt-8 text-center">

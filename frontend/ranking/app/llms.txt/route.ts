@@ -17,7 +17,7 @@ Results are sampled and non-deterministic; ${APP_NAME} reports rates, not guaran
 ## Pages
 
 - [Home](${SITE_URL}/): What the product does and a free AI visibility audit.
-- [Pricing](${SITE_URL}/pricing): Free, Plus and Pro plans.
+- [Pricing](${SITE_URL}/pricing): Plus and Pro plans.
 - [Contact](${SITE_URL}/contact): Sales form for the Pro plan and other inquiries.
 - [Methodology](${SITE_URL}/methodology): How scores are computed - provider sampling, prompt design, scoring weights, and known limitations.
 - [Blog](${SITE_URL}/blog): Practical writing on generative engine optimization (GEO) and AI visibility.
