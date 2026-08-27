@@ -45,6 +45,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  transpilePackages: [
+    "three",
+    "@react-three/fiber",
+    "@react-three/postprocessing",
+    "postprocessing",
+  ],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

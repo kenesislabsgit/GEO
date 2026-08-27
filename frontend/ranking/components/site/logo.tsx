@@ -66,7 +66,7 @@ export function Logo({
         // Block-level, not inline: an inline box sits on a text baseline, and
         // the fractional offset that comes with it makes the mark rasterise
         // differently in the footer than in the header.
-        "flex w-fit items-center",
+        "flex w-fit items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:hover:scale-[1.03]",
         invert ? "text-white" : "text-foreground",
         large ? "gap-2.5" : "gap-2",
         className,

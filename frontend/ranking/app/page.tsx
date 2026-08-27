@@ -4,13 +4,12 @@ import { ArrowRight, ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
-import { HeroDemo } from "@/components/site/hero-demo";
+import { LandingHero } from "@/components/site/hero";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
 import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
-import { RainbowButton } from "@/components/ui/rainbow-button";
 import { PricingPlans } from "@/components/site/pricing-plans";
 import {
   APP_NAME,
@@ -556,105 +555,23 @@ export default async function HomePage() {
           ],
         }}
       />
-      <SiteHeader />
+      <SiteHeader overlay />
+
+      <div aria-hidden className="arc-grain" />
 
       <main className="overflow-x-clip">
-        {/* Hero - editorial blueprint */}
-        <section className="relative bg-background">
-          <div aria-hidden className="arc-hatch h-8 border-b border-border" />
-          <div className="mx-auto max-w-6xl px-2 sm:px-0">
-            <div className="relative border-x border-border px-5 py-16 sm:px-8 md:px-12 md:py-28">
-              <Cross corner="tl" />
-              <Cross corner="tr" />
-              <Cross corner="bl" />
-              <Cross corner="br" />
-
-              <div
-                aria-hidden
-                className="arc-halftone absolute inset-6 text-foreground/20 [mask-image:radial-gradient(ellipse_70%_90%_at_30%_45%,black,transparent_75%)]"
-              />
-
-              <div className="relative z-10 grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
-                <div>
-                  <h1 className="arc-fade-up font-heading text-4xl leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
-                    When buyers ask AI what to buy,
-                    <span className="block text-muted-foreground">
-                      are you in the answer?
-                    </span>
-                  </h1>
-
-                  <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-md text-base text-pretty text-muted-foreground md:text-lg">
-                    See when{" "}
-                    <InlineProviderName provider="openai">ChatGPT</InlineProviderName>,{" "}
-                    <InlineProviderName provider="claude">Claude</InlineProviderName>,{" "}
-                    <InlineProviderName provider="gemini">Gemini</InlineProviderName>{" "}
-                    and other AI platforms recommend your brand, who outranks you,
-                    and what to fix.
-                  </p>
-
-                  {/* A GET form ignores any query string already on `action`
-                      (the browser replaces it with the form's own fields on
-                      submit) - so mode=signup travels as a real field, not
-                      baked into the URL, and the domain rides along with it
-                      to /login. The login page turns that into a returnTo
-                      that lands the same domain back on the audit form after
-                      sign-up, pre-filled and started - see AddBrandScanForm. */}
-                  <form
-                    action={routes.login()}
-                    method="GET"
-                    className="arc-fade-up arc-fade-up-delay-2 mt-7 w-full max-w-md space-y-2.5"
-                  >
-                    <input type="hidden" name="mode" value="signup" />
-                    <div className="flex h-12 items-center rounded-xl border border-border bg-card px-3.5 shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-                      <span
-                        aria-hidden
-                        className="mr-2 shrink-0 select-none font-mono text-xs text-muted-foreground"
-                      >
-                        https://
-                      </span>
-                      <input
-                        type="text"
-                        name="domain"
-                        inputMode="url"
-                        autoComplete="url"
-                        spellCheck={false}
-                        placeholder="yourcompany.com"
-                        aria-label="Your website"
-                        className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
-                      />
-                    </div>
-                    <RainbowButton type="submit" className="h-12 w-full">
-                      Get your free report
-                      <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </RainbowButton>
-                  </form>
-                  <p className="arc-fade-up arc-fade-up-delay-3 mt-3 text-xs text-muted-foreground">
-                    Free account · no card · report in ~2 minutes ·{" "}
-                    <Link href={routes.methodology} className="underline underline-offset-2 hover:text-foreground">
-                      How it&rsquo;s measured
-                    </Link>
-                  </p>
-                </div>
-
-                <div className="arc-fade-up arc-fade-up-delay-2">
-                  <HeroDemo />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div aria-hidden className="arc-hatch h-8 border-y border-border" />
-        </section>
+        <LandingHero />
 
         {/* The shift - why AI answers decide who gets found */}
         <section className="relative border-b border-border bg-background">
           <SectionFrame />
 
           <div className="relative overflow-hidden">
-            <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-24">
+            <div className="relative mx-auto max-w-6xl px-4 pt-24 md:px-6 md:pt-32">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">The shift</p>
-                <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                   AI doesn&rsquo;t give ten links. It names two or three products.
                 </h2>
                 <p className="mt-4 max-w-md text-muted-foreground">
@@ -710,12 +627,12 @@ export default async function HomePage() {
           </div>
         </section>
         {/* Bento - the evidence grid */}
-        <section className="relative bg-background">
+        <section className="relative bg-[color:var(--arc-mist)] dark:bg-background">
           <SectionFrame />
-          <div className="relative mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          <div className="relative mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <Reveal className="max-w-2xl">
               <p className="arc-eyebrow">The report</p>
-              <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+              <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                 Evidence, not vibes
               </h2>
               <p className="mt-3 text-muted-foreground">
@@ -727,7 +644,7 @@ export default async function HomePage() {
             <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {/* Visibility score - stat + bars */}
               <Reveal className="sm:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6 md:p-8">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6 md:p-8 arc-card-hover">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
                   Visibility score
                 </p>
@@ -760,7 +677,7 @@ export default async function HomePage() {
 
               {/* Regional growth - interactive globe */}
               <Reveal delay={100} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
                 <div className="relative flex min-h-44 flex-1 items-center justify-center sm:min-h-56" aria-hidden>
                   <div className="arc-glow absolute inset-0" />
                   <RegionalGlobe className="relative aspect-square w-full max-w-[220px] sm:max-w-[380px]" />
@@ -782,7 +699,7 @@ export default async function HomePage() {
 
               {/* Providers - floating pills */}
               <Reveal delay={150} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
                 <div className="relative min-h-52 flex-1 sm:min-h-72">
                   {/* The radar dial: rings, crosshair, and a sweeping beam. */}
                   <div aria-hidden className="absolute inset-0 grid place-items-center">
@@ -823,7 +740,7 @@ export default async function HomePage() {
 
               {/* Big stat card */}
               <Reveal delay={100} className="sm:col-span-2 lg:col-span-1">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
                 <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                   200
                 </p>
@@ -861,7 +778,7 @@ export default async function HomePage() {
 
               {/* Monitoring - trend chart */}
               <Reveal delay={150} className="sm:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
                 <div className="relative px-2 pt-12 sm:pt-14">
                   <span
                     className="arc-fade-late absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:left-[31%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
@@ -910,10 +827,10 @@ export default async function HomePage() {
         {/* What you get - the report turned into moves */}
         <section className="relative bg-background">
           <SectionFrame />
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          <div className="mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <Reveal className="max-w-2xl">
               <p className="arc-eyebrow">What you get</p>
-              <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+              <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                 From a score to a plan
               </h2>
               <p className="mt-3 text-muted-foreground">
@@ -1025,11 +942,11 @@ export default async function HomePage() {
         {/* How it works */}
         <section className="relative bg-background">
           <SectionFrame />
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          <div className="mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">How it works</p>
-                <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                   Measurement you can defend
                 </h2>
                 <p className="mt-3 text-muted-foreground">
@@ -1078,10 +995,10 @@ export default async function HomePage() {
         {/* Pricing */}
         <section id="plans" className="relative scroll-mt-20 border-y border-border bg-card">
           <SectionFrame />
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          <div className="mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <Reveal className="mx-auto max-w-2xl text-center">
               <p className="arc-eyebrow">Pricing</p>
-              <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+              <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
@@ -1109,11 +1026,11 @@ export default async function HomePage() {
         {/* FAQ */}
         <section className="relative bg-background">
           <SectionFrame />
-          <div className="mx-auto max-w-6xl px-4 py-20 md:px-6 md:py-28">
+          <div className="mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <div className="grid gap-12 lg:grid-cols-[0.9fr_1.3fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">FAQ</p>
-                <h2 className="font-heading mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                   Honest answers
                 </h2>
                 <p className="mt-3 text-muted-foreground">
@@ -1124,7 +1041,7 @@ export default async function HomePage() {
                 {faqs.map((faq, index) => (
                   <div
                     key={faq.q}
-                    className="arc-rise py-6 first:pt-0 last:pb-0"
+                    className="arc-rise py-6 first:pt-0 last:pb-0 transition-colors hover:text-foreground"
                     style={delayStyle(index * 110)}
                   >
                     <h3 className="font-medium tracking-tight">{faq.q}</h3>
@@ -1154,7 +1071,7 @@ export default async function HomePage() {
               Two minutes to your first report
             </p>
             <h2
-              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
+              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-white md:text-6xl"
               style={delayStyle(100)}
             >
               Find out before your competitors do.
