@@ -114,7 +114,7 @@ For the current production-style test mix, use OpenAI web grounding plus AWS
 Bedrock-hosted models:
 
 ```bash
-python -m geo_audit collect outputs/<run-folder>/customer_prompts.json --assistants openai_search bedrock_claude bedrock_llama bedrock_mistral --limit-per-assistant 5
+python -m geo_audit collect outputs/<run-folder>/customer_prompts.json --assistants openai_search bedrock_claude bedrock_mistral --limit-per-assistant 5
 ```
 
 This collects up to 20 total responses. Configure keys as needed:

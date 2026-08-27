@@ -92,9 +92,12 @@ export function ContactForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setFormError(data.error ?? "Something went wrong. Try again.");
+        setFormError(
+          data.error ??
+            "The server could not send your message. Please try again or email us directly.",
+        );
         return;
       }
       setDone(true);
@@ -138,7 +141,7 @@ export function ContactForm({
             Company size <span className="text-destructive">*</span>
           </Label>
           <Select
-            value={form.companySize || undefined}
+            value={form.companySize}
             onValueChange={(value) => setField("companySize", value as CompanySizeId)}
           >
             <SelectTrigger

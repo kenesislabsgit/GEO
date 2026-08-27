@@ -75,14 +75,12 @@ export const routes = {
     const qs = params.toString();
     return qs ? `/dashboard/billing/success?${qs}` : "/dashboard/billing/success";
   },
-  onboarding: "/dashboard/onboarding",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   verifyEmail: "/verify-email",
 
   api: {
     prompts: "/api/prompts",
-    onboarding: "/api/onboarding",
     billingStatus: "/api/billing/status",
     billingConfirm: "/api/billing/confirm",
     alerts: "/api/alerts",

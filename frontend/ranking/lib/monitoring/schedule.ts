@@ -1,4 +1,4 @@
-import type { MonitoringFrequency } from "@/types/onboarding";
+import type { MonitoringFrequency } from "@/types/monitoring";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

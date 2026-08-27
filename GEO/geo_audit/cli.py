@@ -669,7 +669,7 @@ def main() -> None:
         choices=sorted(supported_assistants()),
         help=(
             "Assistants to query. Example: --assistants openai_search "
-            "bedrock_claude bedrock_llama bedrock_mistral"
+            "bedrock_claude bedrock_mistral"
         ),
     )
     collect_parser.add_argument(
@@ -863,7 +863,7 @@ def main() -> None:
         "--assistants",
         nargs="+",
         choices=sorted(supported_assistants()),
-        default=["openai_search", "bedrock_claude", "bedrock_llama", "bedrock_mistral"],
+        default=["openai_search", "bedrock_claude", "bedrock_mistral"],
     )
     run_parser.add_argument(
         "--limit-per-assistant",

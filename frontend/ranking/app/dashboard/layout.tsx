@@ -2,11 +2,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser, isAdminEmail } from "@/lib/auth/session";
 import { REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
-import Link from "next/link";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import {
   countUnreadAlerts,
-  getUserOnboarding,
   listBrandsForOwner,
 } from "@/lib/db/repository";
 import { routes, safeReturnTo } from "@/lib/routes";
@@ -28,16 +26,14 @@ export default async function DashboardLayout({
     );
     redirect(returnTo ? routes.login({ returnTo }) : routes.login());
   }
-  const [account, unreadAlerts, onboarding, brands] = await Promise.all([
+  const [account, unreadAlerts, brands] = await Promise.all([
     getAccountEntitlements(user.id),
     countUnreadAlerts(user.id),
-    getUserOnboarding(user.id),
     listBrandsForOwner(user.id),
   ]);
   const paid =
     account.plan !== "free" &&
     (account.status === "active" || account.status === "trialing");
-  const setupPending = paid && !onboarding?.completed;
   return (
     <DashboardShell
       email={user.email}
@@ -51,22 +47,6 @@ export default async function DashboardLayout({
         domain: brand.canonical_domain,
       }))}
     >
-      {setupPending ? (
-        <Link
-          href={routes.onboarding}
-          className="mb-6 flex items-center justify-between rounded-full border border-transparent bg-[color:var(--arc-accent-soft)] px-5 py-3 text-sm transition-colors hover:border-[color:var(--arc-accent)]/40"
-        >
-          <span>
-            <span className="font-medium">Finish setting up your plan</span>
-            <span className="ml-2 text-muted-foreground">
-              Competitors, questions and monitoring - a few minutes.
-            </span>
-          </span>
-          <span className="font-medium text-[color:var(--arc-accent)]">
-            Continue setup
-          </span>
-        </Link>
-      ) : null}
       {children}
     </DashboardShell>
   );
