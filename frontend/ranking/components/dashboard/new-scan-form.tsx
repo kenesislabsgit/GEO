@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BorderBeam } from "border-beam";
 import { AuditProgress } from "@/components/scan/audit-progress";
 import { useDetachedAudit } from "@/components/scan/use-detached-audit";
 import { routes } from "@/lib/routes";
@@ -244,17 +245,24 @@ export function NewScanForm({
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-2xl">
-        <section className="arc-panel p-6">
-          <AuditProgress
-            progress={scanProgress}
-            step={scanStep}
-            plan="pro"
-            providers={providers}
-            questionCount={questionsPerProvider}
-            events={scanEvents}
-            className=""
-          />
-        </section>
+        <BorderBeam
+          size="pulse-inner"
+          colorVariant="sunset"
+          strength={0.7}
+          className="w-full"
+        >
+          <section className="arc-panel p-6">
+            <AuditProgress
+              progress={scanProgress}
+              step={scanStep}
+              plan="pro"
+              providers={providers}
+              questionCount={questionsPerProvider}
+              events={scanEvents}
+              className=""
+            />
+          </section>
+        </BorderBeam>
         {error ? (
           <Alert variant="destructive" className="mt-4">
             <AlertTitle>Audit could not start</AlertTitle>

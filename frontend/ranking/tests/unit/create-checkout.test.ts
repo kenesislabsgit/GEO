@@ -42,7 +42,7 @@ describe("createCheckoutSession", () => {
   it("returns the Dodo checkout URL for Plus", async () => {
     vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
     vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://arcanoris.in");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in");
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -66,6 +66,107 @@ describe("createCheckoutSession", () => {
     const body = JSON.parse(String(init.body));
     expect(body.customer).toEqual({ email: user.email });
     expect(body.product_cart[0].product_id).toBe("prod_plus_monthly");
-    expect(body.return_url).toBe("https://arcanoris.in/dashboard/billing/success");
+    expect(body.return_url).toBe(
+      "https://app.arcanoris.in/dashboard/billing/success",
+    );
+    expect(new URL(body.return_url).search).toBe("");
+  });
+
+  it("ignores a loopback request origin in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
+    vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in/");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createCheckoutSession({
+      user,
+      plan: "founder",
+      interval: "monthly",
+      origin: "http://127.0.0.1:3000",
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.return_url).toBe(
+      "https://app.arcanoris.in/dashboard/billing/success",
+    );
+  });
+
+  it("fails clearly in production when NEXT_PUBLIC_APP_URL is missing", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
+    vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createCheckoutSession({
+      user,
+      plan: "founder",
+      interval: "monthly",
+      origin: "http://127.0.0.1:3000",
+    });
+
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    if (!result.ok) {
+      expect(result.error).toContain("NEXT_PUBLIC_APP_URL");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails clearly in production when NEXT_PUBLIC_APP_URL is localhost", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
+    vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createCheckoutSession({
+      user,
+      plan: "founder",
+      interval: "monthly",
+      origin: "https://app.arcanoris.in",
+    });
+
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    if (!result.ok) {
+      expect(result.error).toMatch(/localhost|127\.0\.0\.1/);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the request origin on localhost when the env URL is unset", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
+    vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createCheckoutSession({
+      user,
+      plan: "founder",
+      interval: "monthly",
+      origin: "http://localhost:3000",
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.return_url).toBe(
+      "http://localhost:3000/dashboard/billing/success",
+    );
   });
 });
