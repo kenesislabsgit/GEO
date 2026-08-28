@@ -17,6 +17,7 @@ import { PrintReportButton } from "@/components/report/print-report-button";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { hasFeature } from "@/lib/billing/entitlements";
 import { ScoreRing } from "@/components/report/score-ring";
+import { ScoreBreakdown } from "@/components/dashboard/score-breakdown";
 import {
   getBrandBySlug,
   getLatestScanForBrand,
@@ -128,7 +129,7 @@ export default async function ReportPage({
                   : routes.freeAuditSignup
               }
             >
-              Run a free audit
+              Run free audit
               <ArrowRight data-icon="inline-end" />
             </Link>
           </Button>
@@ -153,6 +154,7 @@ export default async function ReportPage({
     <>
       {brand.visibility === "public" ? (
         <JsonLd
+          id="json-ld-report"
           data={{
             "@context": "https://schema.org",
             "@graph": [
@@ -260,7 +262,7 @@ export default async function ReportPage({
 
             <div className="mt-8 flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
-                <h1 className="truncate text-3xl font-semibold tracking-tight text-white md:text-5xl">
+                <h1 className="font-heading truncate text-3xl font-semibold tracking-tight text-white md:text-5xl">
                   {report.brand.name}
                 </h1>
                 <p className="mt-2 font-mono text-sm text-white/50">
@@ -293,6 +295,19 @@ export default async function ReportPage({
                     </p>
                   </div>
                 </div>
+                <ScoreBreakdown
+                  tone="onDark"
+                  snapshot={{
+                    mention_score: report.score.mentionScore,
+                    position_score: report.score.positionScore,
+                    breakdown:
+                      report.score.evidenceQuality == null
+                        ? null
+                        : {
+                            data_confidence_score: report.score.evidenceQuality,
+                          },
+                  }}
+                />
               </div>
               <div className="shrink-0">
                 <ScoreRing score={report.score.overall} />
@@ -610,7 +625,7 @@ export default async function ReportPage({
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                 {isOwner
                   ? "This is the shareable preview. Your complete provider answers, competitors, sources, improvements, and history remain in the dashboard."
-                  : "Claim this report to own it, control visibility, track changes over time, and unlock the full action centre."}
+                  : "Claim this report to own it, control visibility, and track changes in your dashboard."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

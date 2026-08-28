@@ -53,6 +53,8 @@ const SCAN_STATUS_COLOR: Record<string, string> = {
 function providerBucket(provider: string): keyof Omit<ProviderBarRow, "label"> {
   if (provider.startsWith("openai")) return "openai";
   if (provider === "claude" || provider === "bedrock_claude") return "claude";
+  if (provider === "gemini") return "gemini";
+  if (provider === "perplexity") return "perplexity";
   return "others";
 }
 
@@ -164,6 +166,8 @@ export default async function DashboardPage() {
         at: new Date(row.created_at).getTime(),
         openai: 0,
         claude: 0,
+        gemini: 0,
+        perplexity: 0,
         others: 0,
       } as ProviderBarRow & { at: number });
     existing[providerBucket(row.provider)] += row.answers;
@@ -175,6 +179,8 @@ export default async function DashboardPage() {
       label: row.label,
       openai: row.openai,
       claude: row.claude,
+      gemini: row.gemini,
+      perplexity: row.perplexity,
       others: row.others,
     }));
 

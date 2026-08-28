@@ -1,5 +1,6 @@
 import {
   getProductIdForPlan,
+  PLAN_CONFIG,
   type PlanId,
 } from "@/lib/billing/entitlements";
 import { dodoApiBase } from "@/lib/billing/dodo";
@@ -126,6 +127,13 @@ export async function createCheckoutSession(input: {
       product_cart: [{ product_id: productId, quantity: 1 }],
       customer: { email: input.user.email },
       return_url: returnUrl,
+      ...(PLAN_CONFIG[input.plan].trialDays > 0
+        ? {
+            subscription_data: {
+              trial_period_days: PLAN_CONFIG[input.plan].trialDays,
+            },
+          }
+        : {}),
       metadata: {
         user_id: input.user.id,
         plan: input.plan,

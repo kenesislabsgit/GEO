@@ -102,7 +102,7 @@ describe("audit authorization", () => {
     if (!result.ok) expect(result.status).toBe(403);
   });
 
-  it("geo market search is a Pro+ capability, not a request parameter", async () => {
+  it("geo market search is a Pro and Growth capability, not a request parameter", async () => {
     const { authorizeAudit } = await import("@/lib/billing/enforce");
     const founder = await makeUser("ent-geo-founder", "founder");
     const growth = await makeUser("ent-geo-growth", "growth");

@@ -100,14 +100,14 @@ export default async function BrandsPage() {
 
       {!isPaid && atLimit ? (
         <p className="text-sm text-muted-foreground">
-          The Free plan tracks one website.{" "}
+          The Free plan tracks one website. Plus does too.{" "}
           <Link
-            href={routes.billing()}
+            href={routes.pricing}
             className="font-medium text-[color:var(--arc-accent)] hover:underline"
           >
-            Upgrade
+            See Growth and Pro
           </Link>{" "}
-          to monitor up to {PLAN_CONFIG.agency.features.brands} with Pro.
+          for more sites.
         </p>
       ) : null}
     </div>

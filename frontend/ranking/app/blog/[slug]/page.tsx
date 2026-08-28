@@ -139,6 +139,7 @@ export default async function BlogPostPage({ params }: Props) {
   return (
     <MarketingShell narrow>
       <JsonLd
+        id="json-ld-blog-post"
         data={{
           "@context": "https://schema.org",
           "@graph": [
@@ -218,7 +219,7 @@ export default async function BlogPostPage({ params }: Props) {
         </p>
         <Button asChild size="sm" className="relative mt-4">
           <Link href={routes.freeAuditSignup}>
-            Start free audit
+            Run free audit
             <ArrowRight data-icon="inline-end" />
           </Link>
         </Button>

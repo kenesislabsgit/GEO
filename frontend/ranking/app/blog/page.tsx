@@ -31,6 +31,7 @@ export default function BlogIndexPage() {
   return (
     <MarketingShell narrow>
       <JsonLd
+        id="json-ld-blog"
         data={{
           "@context": "https://schema.org",
           "@type": "Blog",

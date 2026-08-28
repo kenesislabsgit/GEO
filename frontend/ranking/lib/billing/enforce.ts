@@ -63,7 +63,7 @@ export async function authorizeAudit(
     return {
       ok: false,
       status: 402,
-      error: "The Pro audit needs an active subscription. Upgrade to run it.",
+      error: "A paid audit needs an active subscription. Upgrade to run it.",
     };
   }
 

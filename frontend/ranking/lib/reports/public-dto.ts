@@ -6,7 +6,7 @@ import type {
   ScoreSnapshot,
   TrackedPrompt,
 } from "@/types/database";
-import { roundForDisplay } from "@/lib/scores/format";
+import { roundForDisplay, scoreBreakdownParts } from "@/lib/scores/format";
 import { canonicalCompanyKey } from "@/lib/utils/company-name";
 
 function safeHost(url: string): string {
@@ -42,6 +42,9 @@ export type PublicReportDTO = {
     mentionRate: number;
     averagePosition: number | null;
     shareOfVoice: number;
+    mentionScore: number | null;
+    positionScore: number | null;
+    evidenceQuality: number | null;
   };
   promptMatrix: Array<{
     prompt: string;
@@ -326,6 +329,8 @@ export function toPublicReportDTO(input: {
       ? firstRecEvidence.summary
       : null;
 
+  const parts = scoreBreakdownParts(input.score ?? {});
+
   return {
     brand: {
       name: input.brand.name,
@@ -356,6 +361,9 @@ export function toPublicReportDTO(input: {
       shareOfVoice: roundForDisplay(
         Number(input.score?.share_of_voice ?? 0) * 100,
       ),
+      mentionScore: parts.mention,
+      positionScore: parts.position,
+      evidenceQuality: parts.evidence,
     },
     promptMatrix,
     topCompetitor,

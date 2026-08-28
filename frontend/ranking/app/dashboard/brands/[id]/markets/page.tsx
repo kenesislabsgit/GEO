@@ -147,10 +147,10 @@ export default async function MarketsPage({
             </span>
             <div>
               <h2 className="text-sm font-semibold">
-                Geographic market search is a Pro feature
+                Geographic market search is on Pro and Growth
               </h2>
               <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-                Pro audits ask up to half their questions the way buyers in
+                Pro and Growth audits ask up to half their questions the way buyers in
                 India, the US, Europe and other markets would - with web search
                 located in each country - and map where you get recommended.
               </p>
@@ -172,7 +172,7 @@ export default async function MarketsPage({
           <Globe className="mx-auto size-5 text-muted-foreground" aria-hidden />
           <p className="mt-3 font-medium">No market answers yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Run an audit - Pro+ audits spread a slice of their questions across
+            Run an audit - Pro and Growth audits spread a slice of their questions across
             world markets automatically. Pick a home market in audit settings
             to lead the sweep.
           </p>

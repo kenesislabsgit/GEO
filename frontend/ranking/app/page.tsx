@@ -28,7 +28,7 @@ export const metadata = {
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search; paid audits compare the same questions across multiple providers.",
+    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across five AIs; Pro picks any ten from a catalog of fourteen.",
   },
   {
     q: "Can results change between runs?",
@@ -36,11 +36,11 @@ const faqs = [
   },
   {
     q: "Do free scans require an account?",
-    a: "Yes - a free account, no card. Sign up, run your free audit, and your report is saved to your dashboard so you can come back to it any time.",
+    a: "Yes - a free account, no card. If you sign up with email, confirm the inbox before the audit starts. Google sign-in skips that step. Your report is saved to the dashboard.",
   },
   {
     q: "Do you guarantee ranking improvements?",
-    a: "No - and you should distrust anyone who does. The action centre gives evidence-based, directional recommendations tied to exact prompts and sources.",
+    a: "No - and you should distrust anyone who does. The Action centre gives evidence-based, directional recommendations tied to exact prompts and sources.",
   },
 ];
 
@@ -316,7 +316,7 @@ function ShareOfVoicePanel() {
           Share of voice
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          20 questions · 10 AIs
+          20 questions · 5 AIs · Plus
         </p>
       </div>
       <div className="mt-5 space-y-4">
@@ -358,7 +358,7 @@ function ActionListPanel() {
     },
     {
       title: "Get listed in the G2 analytics roundup",
-      why: "Cited by 3 of 10 providers",
+      why: "Cited by 3 of 5 providers",
       priority: "High",
     },
     {
@@ -510,6 +510,7 @@ export default async function HomePage() {
   return (
     <>
       <JsonLd
+        id="json-ld-home"
         data={{
           "@context": "https://schema.org",
           "@graph": [
@@ -609,7 +610,8 @@ export default async function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Answers measured across {ALL_PROVIDERS.length} AI providers
+              Catalog of {ALL_PROVIDERS.length} providers. Plus runs 5 per
+              audit; Pro picks any 10.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {PROVIDER_STRIP.map((id, index) => (
@@ -652,8 +654,8 @@ export default async function HomePage() {
                   A score that moves when you do
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Mentions and position rolled into a comparable 0-100 view,
-                  with evidence quality shown alongside it.
+                  Mentions and position rolled into a comparable 0-100. The
+                  report also shows evidence quality beside the score.
                 </p>
                 <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
                   <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -684,14 +686,15 @@ export default async function HomePage() {
                 </div>
                 <div className="p-5 sm:p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Regional growth
+                    Regional growth · Pro
                   </p>
                   <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
                     Grow across every market
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Compare AI visibility across countries to see where your
-                    brand leads or falls behind.
+                    On Pro and Growth, compare AI visibility across countries
+                    to see where your brand leads or falls behind. Plus is one
+                    market.
                   </p>
                 </div>
               </div>
@@ -731,8 +734,8 @@ export default async function HomePage() {
                     One method, every provider
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Compare the same buyer questions across 10 selected
-                    providers from a catalog of {ALL_PROVIDERS.length}.
+                    Plus compares the same buyer questions across 5 AIs. Pro
+                    picks any 10 from a catalog of {ALL_PROVIDERS.length}.
                   </p>
                 </div>
               </div>
@@ -861,7 +864,7 @@ export default async function HomePage() {
                       Question-by-question breakdown
                     </CheckItem>
                     <CheckItem delay={400}>
-                      Split by provider and by market
+                      Split by provider. Country markets on Pro.
                     </CheckItem>
                   </ul>
                 </Reveal>
@@ -875,14 +878,14 @@ export default async function HomePage() {
               <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
                 <Reveal direction="left" delay={120}>
                   <span className="inline-flex rounded-full border border-border bg-background px-3.5 py-1.5 text-sm font-medium shadow-sm">
-                    Website improvements
+                    Action centre
                   </span>
                   <h3 className="font-heading mt-5 max-w-md text-3xl font-semibold tracking-tight md:text-4xl">
                     Leave with a fix list, not a grade
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    The action centre reads your results and writes the to-do
-                    list, prioritized by how many answers each fix can move.
+                    The to-do list is written from your results, prioritized
+                    by how many answers each fix can move.
                   </p>
                   <ul className="mt-6 space-y-3.5">
                     <CheckItem delay={200}>
@@ -917,13 +920,13 @@ export default async function HomePage() {
                   </p>
                   <ul className="mt-6 space-y-3.5">
                     <CheckItem delay={200}>
-                      Weekly or daily monitoring
+                      Weekly monitoring on Plus; daily on Pro
                     </CheckItem>
                     <CheckItem delay={300}>
                       Email alerts when visibility shifts
                     </CheckItem>
                     <CheckItem delay={400}>
-                      Public or private links, plus PDF and CSV exports
+                      Shareable links on Plus; PDF and CSV on Pro
                     </CheckItem>
                   </ul>
                 </Reveal>
@@ -959,7 +962,7 @@ export default async function HomePage() {
                 {[
                   {
                     title: "We read your website",
-                    body: "Category, audience and claims extracted from your public pages - you correct anything before the scan.",
+                    body: "Category, audience and claims extracted from your public pages. On Plus and Pro you can correct anything before the scan; the free audit starts from the live site.",
                   },
                   {
                     title: "AI gets asked real buyer questions",
@@ -1002,8 +1005,8 @@ export default async function HomePage() {
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                The free audit is the trial. Upgrade for more providers,
-                monitoring, and the full evidence.
+                Start with a free ChatGPT audit. Plus adds a 7-day trial,
+                five AIs, and weekly monitoring.
               </p>
             </Reveal>
 
@@ -1068,7 +1071,7 @@ export default async function HomePage() {
           <Reveal className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
             <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
               <Sparkles className="arc-pulse-soft size-3" aria-hidden />
-              Two minutes to your first report
+              Two minutes for the free ChatGPT report
             </p>
             <h2
               className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-white md:text-6xl"
@@ -1080,8 +1083,8 @@ export default async function HomePage() {
               className="arc-rise mx-auto mt-4 max-w-lg text-white/55"
               style={delayStyle(200)}
             >
-              Run a free AI visibility audit. No card needed - a shareable
-              report in minutes.
+              Run a free AI visibility audit. No card. Confirm your email,
+              then a shareable ChatGPT report in about two minutes.
             </p>
             <div
               className="arc-rise mt-9 flex flex-wrap items-center justify-center gap-3"
@@ -1093,7 +1096,7 @@ export default async function HomePage() {
                 className="group h-10 bg-white px-5 text-black shadow-none hover:bg-white/90"
               >
                 <Link href={routes.freeAuditSignup}>
-                  Start free audit
+                  Run free audit
                   <ArrowRight
                     data-icon="inline-end"
                     className="transition-transform duration-200 group-hover:translate-x-0.5"

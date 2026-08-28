@@ -11,8 +11,9 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { hasFeature } from "@/lib/billing/entitlements";
+import { hasFeature, PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
+import { FREE_AUDIT_ACTION_COUNT } from "@/lib/constants";
 import { roundForDisplay } from "@/lib/scores/format";
 import { ProviderBadge } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { ReportVisibilityToggle } from "@/components/dashboard/report-visibility
 import { routes } from "@/lib/routes";
 import { CompetitorLLMChart } from "@/components/dashboard/competitor-llm-chart";
 import { AuditCompleteBanner } from "@/components/dashboard/audit-complete-banner";
+import { ScoreBreakdown } from "@/components/dashboard/score-breakdown";
 import type { CompetitorWithLLM } from "@/components/dashboard/competitor-llm-chart";
 
 type CompetitorSignal = {
@@ -107,7 +109,7 @@ export default async function WebsiteReportSummary({
   const topActions = actions
     .filter((action) => action.status === "open")
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 3);
+    .slice(0, isPaid ? 3 : FREE_AUDIT_ACTION_COUNT);
   // The engine's stored per-question mention rate - never recomputed here.
   // Counting raw rows looked similar but measured question × provider pairs,
   // which drifts from the scored number as soon as providers differ.
@@ -155,7 +157,7 @@ export default async function WebsiteReportSummary({
               {brand.name}
             </h1>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {isPaid ? "Pro report" : "Free report"}
+              {isPaid ? `${PLAN_CONFIG[entitlements.plan].name} report` : "Free report"}
             </Badge>
           </div>
           <p className="mt-1 font-mono text-[13px] text-muted-foreground">
@@ -235,7 +237,7 @@ export default async function WebsiteReportSummary({
             label: "Sources found",
             value: String(sourceUrls.size),
             delta: null,
-            detail: isPaid ? "citations and verified mentions" : "details on Pro",
+            detail: isPaid ? "citations and verified mentions" : "upgrade for sources",
           },
         ].map((item) => (
           <div key={item.label} className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0">
@@ -261,6 +263,14 @@ export default async function WebsiteReportSummary({
           </div>
         ))}
       </div>
+      {latest ? (
+        <div className="arc-panel px-5 py-4">
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            Score breakdown
+          </p>
+          <ScoreBreakdown snapshot={latest} />
+        </div>
+      ) : null}
 
 
       {hasMarketAnswers ? (
@@ -308,7 +318,7 @@ export default async function WebsiteReportSummary({
 
         <section className="arc-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
-            <h2 className="text-sm font-medium">Top website improvements</h2>
+            <h2 className="text-sm font-medium">Top action centre items</h2>
             <Link
               href={routes.brandSection(brand.id, "actions")}
               className="text-[13px] text-muted-foreground transition-colors hover:text-foreground"
