@@ -162,10 +162,16 @@ void mainImage(in vec4 inputColor, in vec2 uv, out vec4 outputColor) {
 `;
 
 class RetroEffectImpl extends Effect {
-  constructor() {
+  constructor({
+    colorNum = DEFAULT_COLOR_NUM,
+    pixelSize = DEFAULT_PIXEL_SIZE,
+  }: {
+    colorNum?: number;
+    pixelSize?: number;
+  } = {}) {
     const uniforms = new Map<string, THREE.Uniform<number>>([
-      ["colorNum", new THREE.Uniform(4)],
-      ["pixelSize", new THREE.Uniform(2)],
+      ["colorNum", new THREE.Uniform(colorNum)],
+      ["pixelSize", new THREE.Uniform(pixelSize)],
     ]);
     super("RetroEffect", ditherFragmentShader, { uniforms });
   }
@@ -192,7 +198,7 @@ class RetroEffectImpl extends Effect {
 const WrappedRetro = wrapEffect(RetroEffectImpl);
 
 const RetroEffect = forwardRef<
-  unknown,
+  RetroEffectImpl,
   { colorNum: number; pixelSize: number }
 >(function RetroEffect({ colorNum, pixelSize }, ref) {
   return (
