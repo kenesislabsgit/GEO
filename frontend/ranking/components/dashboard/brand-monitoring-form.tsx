@@ -5,11 +5,7 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  providerDisplayName,
-  SUPPORTED_COUNTRIES,
-  SUPPORTED_LANGUAGES,
-} from "@/lib/constants";
+import { providerDisplayName } from "@/lib/constants";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 
 type MonitoringResponse = {
@@ -415,51 +411,6 @@ export function BrandMonitoringForm({
             Finish one audit before enabling monitoring.
           </p>
         )}
-      </section>
-
-      <section className="arc-panel space-y-4 p-6">
-        <div>
-          <p className="text-sm font-medium">Market</p>
-          <p className="text-xs text-muted-foreground">
-            Country and language used for scheduled audits of this website.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 text-sm">
-            Country
-            <select
-              disabled={!canEdit}
-              className={selectClass}
-              value={form.country}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, country: e.target.value }))
-              }
-            >
-              {SUPPORTED_COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm">
-            Language
-            <select
-              disabled={!canEdit}
-              className={selectClass}
-              value={form.language}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, language: e.target.value }))
-              }
-            >
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
       </section>
 
       <section className="arc-panel space-y-4 p-6">

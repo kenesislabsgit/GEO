@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,14 @@ export function BillingActions({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Browsers may restore this page from memory after the customer returns
+  // from the billing portal. Clear the old "Opening" state on every restore.
+  useEffect(() => {
+    const resetNavigationState = () => setLoading(null);
+    window.addEventListener("pageshow", resetNavigationState);
+    return () => window.removeEventListener("pageshow", resetNavigationState);
+  }, []);
 
   async function checkout(plan: PlanId, interval: "monthly" | "yearly") {
     setLoading(`${plan}-${interval}`);

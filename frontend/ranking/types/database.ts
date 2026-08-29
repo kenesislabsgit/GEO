@@ -185,6 +185,8 @@ export type QueryResult = {
   id: string;
   scan_run_id: string;
   tracked_prompt_id: string | null;
+  /** Position in the immutable question set owned by this audit. */
+  question_position?: number | null;
   provider: ProviderId;
   model: string;
   raw_answer: string;

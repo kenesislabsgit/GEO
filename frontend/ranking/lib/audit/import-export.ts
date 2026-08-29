@@ -289,6 +289,7 @@ async function importInTransaction(
     await insertQueryResult({
       scan_run_id: scan.id,
       tracked_prompt_id: promptIdByIndex.get(Number(row.prompt_index)) ?? null,
+      question_position: Number(row.prompt_index) || null,
       provider,
       model: asString(row.model, "unknown"),
       raw_answer: asString(row.raw_answer, ""),

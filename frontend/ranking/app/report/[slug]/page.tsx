@@ -22,7 +22,9 @@ import {
   getLatestScanForBrand,
   getPrompts,
   getQueryResults,
-  getRecommendations,
+  getRecommendationsForScan,
+  getScanQuestions,
+  getScanRun,
   getScoreForScan,
 } from "@/lib/db/repository";
 import { toPublicReportDTO, type PublicReportDTO } from "@/lib/reports/public-dto";
@@ -30,6 +32,7 @@ import { APP_NAME, providerDisplayName } from "@/lib/constants";
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import type { QueryResult, TrackedPrompt } from "@/types/database";
 
 function ordinal(position: number): string {
   const suffix =
@@ -41,7 +44,7 @@ function ordinal(position: number): string {
 
 async function loadReport(
   slug: string,
-  options?: { allowPrivate?: boolean },
+  options?: { allowPrivate?: boolean; scanId?: string | null },
 ): Promise<PublicReportDTO | null> {
   const brand = await getBrandBySlug(slug);
   if (!brand) return null;
@@ -52,35 +55,91 @@ async function loadReport(
 
   // Resolve by brand record, not by domain: several people can have their own
   // audit of the same website, and this link belongs to exactly one of them.
-  const cached = await getLatestScanForBrand(brand.id);
+  const requestedScan = options?.scanId
+    ? await getScanRun(options.scanId)
+    : null;
+  if (
+    options?.scanId &&
+    (!requestedScan ||
+      requestedScan.brand_id !== brand.id ||
+      !["completed", "partial"].includes(requestedScan.status))
+  ) {
+    return null;
+  }
+  const cached = requestedScan
+    ? {
+        scan: requestedScan,
+        score: await getScoreForScan(requestedScan.id),
+      }
+    : await getLatestScanForBrand(brand.id);
   if (!cached) return null;
 
-  const [prompts, results, score, recommendations] = await Promise.all([
+  const [currentPrompts, frozenQuestions, results, score, recommendations] =
+    await Promise.all([
     getPrompts(brand.id),
+    getScanQuestions(cached.scan.id),
     getQueryResults(cached.scan.id),
     getScoreForScan(cached.scan.id),
-    getRecommendations(brand.id),
+    getRecommendationsForScan(cached.scan.id),
   ]);
+
+  // A later audit may replace brand-level prompts. Re-key the saved answers to
+  // this audit's immutable question rows before building the report.
+  const frozenPrompts: TrackedPrompt[] = frozenQuestions.map((question) => ({
+    id: `scan-question-${question.position}`,
+    brand_id: brand.id,
+    prompt: question.prompt,
+    prompt_type: "buyer_question",
+    buyer_stage: "unknown",
+    country: cached.scan.country ?? "global",
+    language: cached.scan.language ?? "en",
+    active: false,
+    is_custom: question.source === "user",
+    rationale: null,
+    created_at: question.created_at,
+  }));
+  const stableResults: QueryResult[] = results.map((result) =>
+    result.question_position
+      ? {
+          ...result,
+          tracked_prompt_id: `scan-question-${result.question_position}`,
+        }
+      : result,
+  );
+  const frozenIds = new Set(frozenPrompts.map((prompt) => prompt.id));
+  const prompts = [
+    ...frozenPrompts,
+    ...currentPrompts.filter((prompt) => !frozenIds.has(prompt.id)),
+  ];
 
   return toPublicReportDTO({
     brand,
     scan: cached.scan,
     score: score ?? cached.score,
     prompts,
-    results,
-    recommendations: recommendations.filter(
-      (r) => r.scan_run_id === cached.scan.id,
-    ),
+    results: stableResults,
+    recommendations,
   });
+}
+
+function selectedScanId(
+  value: string | string[] | undefined,
+): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ scan?: string | string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const report = await loadReport(slug);
+  const query = await searchParams;
+  const report = await loadReport(slug, {
+    scanId: selectedScanId(query.scan),
+  });
   if (!report) {
     return { title: "Report not found", robots: { index: false } };
   }
@@ -97,17 +156,23 @@ export async function generateMetadata({
 
 export default async function ReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ scan?: string | string[] }>;
 }) {
   const { slug } = await params;
+  const query = await searchParams;
   const brand = await getBrandBySlug(slug);
   if (!brand) notFound();
   const user = await getSessionUser();
   const isOwner = user?.id === brand.owner_id;
   if (brand.visibility === "private" && !isOwner) notFound();
 
-  const report = await loadReport(slug, { allowPrivate: isOwner });
+  const report = await loadReport(slug, {
+    allowPrivate: isOwner,
+    scanId: selectedScanId(query.scan),
+  });
 
   if (!report) {
     return (

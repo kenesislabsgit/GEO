@@ -275,6 +275,17 @@ export async function replaceScanQuestions(
   }
 }
 
+export async function getScanQuestions(
+  scanRunId: string,
+): Promise<ScanQuestion[]> {
+  return q<ScanQuestion>(
+    `select * from scan_questions
+     where scan_run_id = $1
+     order by position asc`,
+    [scanRunId],
+  );
+}
+
 /**
  * Latest finished audit for one brand record. Pass a max age only when you need
  * "was this audited recently"; leave it out to always get the newest report.

@@ -173,7 +173,7 @@ export default async function ScansPage() {
                       {scan.status === "completed" ||
                       scan.status === "partial" ? (
                         <Link
-                          href={routes.brand(brand.id)}
+                          href={routes.publicReport(brand.slug, scan.id)}
                           className="text-[color:var(--arc-accent)] hover:underline"
                         >
                           Report

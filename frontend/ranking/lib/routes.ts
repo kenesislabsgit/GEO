@@ -21,7 +21,10 @@ export const routes = {
     return qs ? `/login?${qs}` : "/login";
   },
 
-  publicReport: (slug: string) => `/report/${slug}`,
+  publicReport: (slug: string, scanId?: string) =>
+    scanId
+      ? `/report/${slug}?scan=${encodeURIComponent(scanId)}`
+      : `/report/${slug}`,
   claim: (slug: string) => `/claim/${slug}`,
 
   dashboard: "/dashboard",

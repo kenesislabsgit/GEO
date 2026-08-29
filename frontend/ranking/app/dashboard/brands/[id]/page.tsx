@@ -11,14 +11,12 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { hasFeature } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { roundForDisplay } from "@/lib/scores/format";
 import { ProviderBadge } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RescanButton } from "@/components/dashboard/rescan-button";
-import { ReportVisibilityToggle } from "@/components/dashboard/report-visibility-toggle";
 import { routes } from "@/lib/routes";
 import { CompetitorLLMChart } from "@/components/dashboard/competitor-llm-chart";
 import { AuditCompleteBanner } from "@/components/dashboard/audit-complete-banner";
@@ -164,11 +162,6 @@ export default async function WebsiteReportSummary({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <ReportVisibilityToggle
-            brandId={brand.id}
-            visibility={brand.visibility === "private" ? "private" : "public"}
-            canMakePrivate={hasFeature(entitlements.plan, "publicPrivateReports")}
-          />
           <Button asChild variant="outline" size="sm">
             <Link href={routes.publicReport(brand.slug)} target="_blank">
               {brand.visibility === "private" ? "Report" : "Public report"}

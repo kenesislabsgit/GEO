@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
-import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import {
   getBrandById,
   getLatestCompletedScanForBrand,
@@ -13,7 +12,6 @@ import { providerDisplayName } from "@/lib/constants";
 import { assistantNames } from "@/lib/audit/progress-copy";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { ProviderStack } from "@/components/providers/provider-logo";
-import { PromptsManager } from "@/components/dashboard/prompts-manager";
 import {
   AnswerExplorer,
   type ExplorerQuestion,
@@ -49,9 +47,6 @@ export default async function AIAnswersPage({
   ]);
   const results = latestScan ? await getQueryResults(latestScan.id) : [];
   const isPaid = isPaidSubscription(entitlements);
-  const plan = PLAN_CONFIG[entitlements.plan];
-  const canEditAuditSetup =
-    entitlements.providerChecksUsed < plan.features.providerChecksPerMonth;
   const promptMap = new Map(prompts.map((prompt) => [prompt.id, prompt]));
 
   // Group the flat provider results into one entry per buyer question,
@@ -167,31 +162,6 @@ export default async function AIAnswersPage({
           </div>
         </section>
       )}
-
-      {isPaid ? (
-        <section className="arc-panel">
-          <div className="border-b border-border px-5 py-4">
-            <h2 className="text-[15px] font-semibold tracking-tight">
-              Buyer question library
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              The questions your audits ask. Active questions run in the next
-              audit; monitoring rotates through the rest.
-            </p>
-          </div>
-          <div className="p-5">
-            <PromptsManager
-              brandId={brand.id}
-              initialPrompts={prompts}
-              activePromptLimit={plan.features.activePrompts}
-              isPaid={isPaid}
-              canEdit={canEditAuditSetup}
-              defaultCountry={brand.default_country}
-              defaultLanguage={brand.default_language}
-            />
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
