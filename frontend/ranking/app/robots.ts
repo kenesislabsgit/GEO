@@ -1,7 +1,18 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 
-const PUBLIC = ["/", "/pricing", "/methodology", "/blog", "/report/"];
+const PUBLIC = [
+  "/",
+  "/pricing",
+  "/methodology",
+  "/reporting",
+  "/getting-started",
+  "/scale",
+  "/providers",
+  "/action-centre",
+  "/blog",
+  "/report/",
+];
 const PRIVATE = ["/dashboard", "/admin", "/api/", "/login"];
 
 /**

@@ -240,6 +240,19 @@ export default async function PricingPage() {
           The free audit is the trial. Paid plans add more providers, ongoing
           monitoring, and the full evidence behind every answer.
         </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          <Link href={routes.providers} className="underline underline-offset-4 hover:text-foreground">
+            Provider coverage
+          </Link>
+          {" · "}
+          <Link href={routes.scale} className="underline underline-offset-4 hover:text-foreground">
+            Scale &amp; reliability
+          </Link>
+          {" · "}
+          <Link href={routes.reporting} className="underline underline-offset-4 hover:text-foreground">
+            Reporting
+          </Link>
+        </p>
       </div>
 
       <div className="mt-14">

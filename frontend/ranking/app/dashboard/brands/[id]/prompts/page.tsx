@@ -131,6 +131,7 @@ export default async function AIAnswersPage({
         title="Audit Details"
         description="The complete question and answer record behind the competitor findings."
         isPaid={isPaid}
+        newAudit
       />
 
       {results.length === 0 ? (

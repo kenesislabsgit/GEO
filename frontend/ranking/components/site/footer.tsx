@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/site/logo";
+import { PRODUCT_PAGES } from "@/lib/product-pages";
 import { routes } from "@/lib/routes";
 
 const columns = [
@@ -8,6 +9,7 @@ const columns = [
     links: [
       { href: routes.freeAuditSignup, label: "Free audit" },
       { href: routes.pricing, label: "Pricing" },
+      ...PRODUCT_PAGES.map((page) => ({ href: page.href, label: page.label })),
       { href: routes.dashboard, label: "Dashboard" },
     ],
   },

@@ -39,7 +39,7 @@ export function CopyMasterPrompt({ prompt }: { prompt: string }) {
         </>
       ) : (
         <>
-          <Copy className="size-3.5" aria-hidden /> Copy AI prompt
+            <Copy className="size-3.5" aria-hidden /> Copy the plan
         </>
       )}
     </Button>

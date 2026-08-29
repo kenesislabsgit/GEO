@@ -9,6 +9,11 @@ export const routes = {
   freeAuditSignup: "/login?mode=signup&returnTo=%2Fdashboard%2Fscans%2Fnew",
   pricing: "/pricing",
   methodology: "/methodology",
+  reporting: "/reporting",
+  gettingStarted: "/getting-started",
+  scale: "/scale",
+  providers: "/providers",
+  actionCentre: "/action-centre",
   blog: "/blog",
   blogPost: (slug: string) => `/blog/${slug}`,
 

@@ -18,6 +18,11 @@ Results are sampled and non-deterministic; ${APP_NAME} reports rates, not guaran
 
 - [Home](${SITE_URL}/): What the product does and a free AI visibility audit.
 - [Pricing](${SITE_URL}/pricing): Plus and Pro plans.
+- [Getting started](${SITE_URL}/getting-started): Browser signup, first audit, no SDK or customer API keys.
+- [Reporting & alerts](${SITE_URL}/reporting): Scheduled re-scans, email alerts, shareable links, Pro CSV/PDF.
+- [Provider coverage](${SITE_URL}/providers): Every supported AI provider and which plan includes it.
+- [Action centre](${SITE_URL}/action-centre): Prioritized website fixes tied to lost buyer questions.
+- [Scale & reliability](${SITE_URL}/scale): Queue, retries, and monthly check caps.
 - [Contact](${SITE_URL}/contact): Sales form for the Pro plan and other inquiries.
 - [Methodology](${SITE_URL}/methodology): How scores are computed - provider sampling, prompt design, scoring weights, and known limitations.
 - [Blog](${SITE_URL}/blog): Practical writing on generative engine optimization (GEO) and AI visibility.

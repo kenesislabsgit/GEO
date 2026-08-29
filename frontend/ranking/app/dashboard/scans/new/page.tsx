@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
+import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { PLAN_CONFIG, defaultScanProviders } from "@/lib/billing/entitlements";
 import {
   getLatestScanForBrand,
@@ -40,16 +41,17 @@ export default async function NewScanPage({
     listBrandsForOwner(user.id),
   ]);
   const plan = PLAN_CONFIG[entitlements.plan];
-  const isPaid =
-    entitlements.plan !== "free" &&
-    (entitlements.status === "active" || entitlements.status === "trialing");
+  const isPaid = isPaidSubscription(entitlements);
   const brandLimitReached =
     brands.length >= plan.features.brands && plan.features.brands > 0;
 
   const scans = await listScansForBrands(brands.map((b) => b.id));
-  const questionSets = isPaid
-    ? await listQuestionSetsForBrands(brands.map((b) => b.id))
-    : [];
+  let questionSets: Awaited<ReturnType<typeof listQuestionSetsForBrands>> = [];
+  try {
+    questionSets = await listQuestionSetsForBrands(brands.map((b) => b.id));
+  } catch (error) {
+    console.error("Could not load earlier audit questions", error);
+  }
 
   const brandOptions: ScanBrandOption[] = await Promise.all(
     brands.map(async (brand) => {

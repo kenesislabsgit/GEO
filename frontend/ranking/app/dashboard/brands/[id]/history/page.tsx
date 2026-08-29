@@ -47,6 +47,7 @@ export default async function HistoryPage({
         title="Score history"
         description="How your AI Visibility Score has moved across scans. AI answers are non-deterministic, so single runs vary - judge the trend, not one audit."
         isPaid={isPaid}
+        newAudit
       />
       {!isPaid ? (
         <ProReportLock

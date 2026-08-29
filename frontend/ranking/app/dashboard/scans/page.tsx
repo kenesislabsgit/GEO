@@ -77,7 +77,7 @@ export default async function ScansPage() {
           </p>
         </div>
         <Button asChild size="sm">
-          <Link href={routes.newScan()}>
+          <Link href={routes.newScan(brands[0]?.id)}>
             <Plus data-icon="inline-start" />
             New audit
           </Link>

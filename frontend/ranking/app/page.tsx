@@ -898,6 +898,14 @@ export default async function HomePage() {
                       Every fix tied to its exact prompts
                     </CheckItem>
                   </ul>
+                  <p className="mt-5">
+                    <Link
+                      href={routes.actionCentre}
+                      className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      How the Action centre ranks fixes
+                    </Link>
+                  </p>
                 </Reveal>
                 <Reveal direction="right">
                   <VisualTile>
@@ -929,6 +937,14 @@ export default async function HomePage() {
                       Shareable links on Plus; PDF and CSV on Pro
                     </CheckItem>
                   </ul>
+                  <p className="mt-5">
+                    <Link
+                      href={routes.reporting}
+                      className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      Reporting, alerts, and exports
+                    </Link>
+                  </p>
                 </Reveal>
                 <Reveal direction="left" className="lg:order-1">
                   <VisualTile>
@@ -955,6 +971,21 @@ export default async function HomePage() {
                 <p className="mt-3 text-muted-foreground">
                   No black boxes. Every score decomposes across prompts and
                   providers, and every claim links to its evidence.
+                </p>
+                <p className="mt-5">
+                  <Link
+                    href={routes.gettingStarted}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Getting started in the browser
+                  </Link>
+                  {" · "}
+                  <Link
+                    href={routes.providers}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Provider coverage
+                  </Link>
                 </p>
               </Reveal>
               <Reveal delay={120}>

@@ -129,6 +129,9 @@ export function NewScanForm({
     reportSlug: string;
     lastScanAt: string | null;
   } | null>(null);
+  // Resume from a leftover stored run must not hide this setup page.
+  // Only hide options after the user clicks Start on this visit.
+  const [startedHere, setStartedHere] = useState(false);
   const {
     loading,
     error,
@@ -216,6 +219,7 @@ export function NewScanForm({
 
   function startScan() {
     setRecentBlock(null);
+    setStartedHere(true);
     const questions = draftQuestions.map((item) => item.trim()).filter(Boolean);
     // A free account gets the free audit it is entitled to - requesting Pro
     // here used to hand free users a payment error instead of their audit.
@@ -242,7 +246,7 @@ export function NewScanForm({
 
   // While the audit runs, the form gives way to a full-width progress view - 
   // the reasoning timeline was unreadable squeezed into the summary sidebar.
-  if (loading) {
+  if (loading && startedHere) {
     return (
       <div className="mx-auto w-full max-w-2xl">
         <BorderBeam
@@ -332,12 +336,24 @@ export function NewScanForm({
           </div>
         </section>
 
+        {loading && !startedHere ? (
+          <Alert>
+            <AlertTitle>An audit is still running</AlertTitle>
+            <AlertDescription>
+              You can start another after it finishes, or wait on this page.
+              The options below stay available so you can set the next run.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {/* Questions */}
         <section className="arc-panel">
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
             <h2 className="text-sm font-semibold">2. Choose questions</h2>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {draftQuestions.filter((item) => item.trim()).length} provided
+              {plan.isPaid
+                ? `${draftQuestions.filter((item) => item.trim()).length} provided`
+                : `${questionsPerProvider} this run`}
             </Badge>
           </div>
           {plan.isPaid ? (
@@ -457,10 +473,22 @@ export function NewScanForm({
               </p>
             </div>
           ) : (
-            <p className="px-5 py-4 text-sm text-muted-foreground">
-              The free audit creates {questionsPerProvider} buyer questions for
-              this run.
-            </p>
+            <div className="space-y-3 px-5 py-4">
+              <p className="text-sm text-muted-foreground">
+                The free audit writes {questionsPerProvider} buyer questions
+                and runs them on {providerDisplayName(FREE_AUDIT_PROVIDER)}.
+                Upgrade to pick models, reuse an earlier set, or add your own.
+              </p>
+              {brand.questionSets[0] ? (
+                <ol className="max-h-64 list-decimal space-y-1.5 overflow-y-auto pl-5 text-sm">
+                  {brand.questionSets[0].questions.map((prompt, index) => (
+                    <li key={`${brand.questionSets[0]!.scanId}-${index}`}>
+                      {prompt}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
           )}
         </section>
 
