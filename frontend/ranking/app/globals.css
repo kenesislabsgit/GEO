@@ -101,7 +101,7 @@
   --sidebar-ring: #0068d6;
 }
 
-/* Dark theme, toggled by next-themes putting .dark on <html>. Same design
+/* Dark theme, toggled by the theme provider putting .dark on <html>. Same design
    language as light: borders carry structure, color means something. */
 .dark {
   /* --arc-ink is deliberately NOT flipped: it names the dark brand surface

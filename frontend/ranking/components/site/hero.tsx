@@ -107,8 +107,8 @@ export function LandingHero() {
         </h1>
 
         <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-lg text-sm text-pretty text-foreground/65 sm:text-base md:text-lg">
-          See when ChatGPT, Claude, Gemini and other AI platforms recommend
-          your brand, who outranks you, and what to fix.
+          The free report checks ChatGPT. Plus and Pro add Claude, Gemini and
+          more, so you see who outranks you and what to fix.
         </p>
 
         {/* A GET form ignores any query string already on `action`
@@ -135,19 +135,19 @@ export function LandingHero() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <RainbowButton type="submit" className="h-12 flex-1 shadow-md">
-              Get your free report
+              Run free audit
               <ArrowRight className="size-4" aria-hidden />
             </RainbowButton>
             <Link
               href={routes.methodology}
               className="inline-flex h-12 items-center justify-center rounded-xl border border-foreground bg-background px-5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-foreground hover:text-background sm:min-w-36"
             >
-              How it&rsquo;s measured
+              Methodology
             </Link>
           </div>
         </form>
         <p className="arc-fade-up arc-fade-up-delay-3 mt-4 text-xs text-foreground/45">
-          Free account · no card · report in ~2 minutes
+          Free account · no card · confirm email · ~2 min on ChatGPT
         </p>
       </div>
     </section>

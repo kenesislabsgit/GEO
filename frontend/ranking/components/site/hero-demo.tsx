@@ -204,7 +204,7 @@ export function HeroDemo() {
           {scanning ? (
             <>
               <span className="arc-pulse-dot size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
-              Asking 10 providers at once&hellip;
+              Asking each AI at once&hellip;
             </>
           ) : complete ? (
             <>
@@ -214,7 +214,7 @@ export function HeroDemo() {
           ) : (
             <>
               <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-              Sending to 10 providers&hellip;
+              Sending to each AI&hellip;
             </>
           )}
         </p>

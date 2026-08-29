@@ -69,7 +69,7 @@ describe("createCheckoutSession", () => {
     expect(body.return_url).toBe(
       "https://app.arcanoris.in/dashboard/billing/success",
     );
-    expect(new URL(body.return_url).search).toBe("");
+    expect(body.subscription_data).toEqual({ trial_period_days: 7 });
   });
 
   it("ignores a loopback request origin in production", async () => {

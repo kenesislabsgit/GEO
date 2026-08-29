@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
+import { hasFeature } from "@/lib/billing/entitlements";
 import {
   getBrandById,
   getLatestCompletedScanForBrand,
@@ -47,6 +48,7 @@ export default async function AIAnswersPage({
   ]);
   const results = latestScan ? await getQueryResults(latestScan.id) : [];
   const isPaid = isPaidSubscription(entitlements);
+  const showFullAnswers = hasFeature(entitlements.plan, "fullAnswers");
   const promptMap = new Map(prompts.map((prompt) => [prompt.id, prompt]));
 
   // Group the flat provider results into one entry per buyer question,
@@ -76,13 +78,15 @@ export default async function AIAnswersPage({
     const citations = Array.isArray(result.citations)
       ? (result.citations as Citation[])
       : [];
-    const answer = (
-      result.raw_answer ||
-      result.answer_summary ||
-      "No answer saved"
-    )
-      .replaceAll("**", "")
-      .replace(/^#+\s*/gm, "");
+    const answer = showFullAnswers
+      ? (
+          result.raw_answer ||
+          result.answer_summary ||
+          "No answer saved"
+        )
+          .replaceAll("**", "")
+          .replace(/^#+\s*/gm, "")
+      : "";
 
     group.answers.push({
       id: result.id,
@@ -158,7 +162,12 @@ export default async function AIAnswersPage({
             </span>
           </div>
           <div className="mt-4">
-            <AnswerExplorer questions={questions} brandName={brand.name} />
+            <AnswerExplorer
+              questions={questions}
+              brandName={brand.name}
+              showFullAnswers={showFullAnswers}
+              brandId={brand.id}
+            />
           </div>
         </section>
       )}

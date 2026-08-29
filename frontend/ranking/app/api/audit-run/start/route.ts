@@ -51,7 +51,7 @@ const requestSchema = z.object({
   questions: z.array(z.string().trim().min(1).max(300)).max(20).optional(),
   sourceScanRunId: z.string().uuid().optional(),
   resume: z.boolean().optional(),
-  /** Pro+ geo search: a market name, or omitted for auto-detect. */
+  /** Pro and Growth geo search: a market name, or omitted for auto-detect. */
   market: z.string().trim().max(40).optional(),
   /** Same key twice returns the same scan instead of paying for two. */
   idempotencyKey: z.string().trim().min(8).max(80).optional(),

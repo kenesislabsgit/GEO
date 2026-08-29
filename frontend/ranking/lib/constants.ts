@@ -5,7 +5,7 @@ export const APP_TAGLINE = "Does AI recommend your company?";
 // The one inbox that actually gets read. Override with
 // NEXT_PUBLIC_SUPPORT_EMAIL if a dedicated support address goes live.
 export const SUPPORT_EMAIL =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "admin@kenesis.ai";
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "hello@arcanoris.in";
 // Must track GEO/geo_audit/aggregation.py - the engine stamps every scan
 // with its own version; this constant is only the import fallback and the
 // version shown on marketing pages.

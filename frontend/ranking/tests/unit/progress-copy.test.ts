@@ -63,6 +63,7 @@ describe("audit progress copy", () => {
     expect(
       describeAssistants(["openai_search", "bedrock_claude", "bedrock_llama"]),
     ).toBe("ChatGPT, Claude and others");
+    expect(describeAssistants(["grok", "deepseek"])).toBe("Grok and DeepSeek");
   });
 
   it("does not leak the infrastructure an assistant is served from", () => {
