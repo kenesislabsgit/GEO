@@ -73,10 +73,10 @@ const BRAND_SECTIONS: Array<{
   { path: "/competitors", label: "Competitors", icon: Users },
   { path: "/citations", label: "Sources", icon: Link2 },
   { path: "/markets", label: "Markets", icon: MapPin },
-  { path: "/actions", label: "Action centre", icon: Wrench },
+  { path: "/actions", label: "Website improvements", icon: Wrench },
   { path: "/prompts", label: "Audit details", icon: MessageSquare },
   { path: "/history", label: "History", icon: TrendingUp },
-  { path: "/settings", label: "Schedule", icon: Radar },
+  { path: "/settings", label: "Monitoring", icon: Radar },
 ];
 
 function buildNav(

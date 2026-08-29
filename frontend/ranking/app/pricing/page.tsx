@@ -7,7 +7,7 @@ import { JsonLd } from "@/components/site/json-ld";
 import { PricingPlans } from "@/components/site/pricing-plans";
 import { HorizontalScrollHint } from "@/components/site/scroll-hint";
 import { PLAN_CONFIG, PLUS_CHECKS_INCLUDED, PLUS_EARLY_BIRD_BONUS_CHECKS, type PlanId } from "@/lib/billing/entitlements";
-import { isSalesLockedPlan, SOLD_PLAN_IDS } from "@/lib/billing/pricing";
+import { formatChecks, isSalesLockedPlan, SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
 import { ALL_PROVIDERS, APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -39,14 +39,14 @@ const COMPARISON: Array<{
         label: "Websites",
         cells: [
           String(PLAN_CONFIG.founder.features.brands),
-          "Custom",
+          String(PLAN_CONFIG.agency.features.brands),
         ],
       },
       {
         label: "Tracked buyer questions per website",
         cells: [
           String(PLAN_CONFIG.founder.features.activePrompts),
-          "Custom",
+          String(PLAN_CONFIG.agency.features.activePrompts),
         ],
       },
       {
@@ -70,14 +70,14 @@ const COMPARISON: Array<{
         label: "Provider checks per month",
         cells: [
           `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS}`,
-          "Custom",
+          formatChecks(PLAN_CONFIG.agency.features.providerChecksPerMonth),
         ],
       },
       {
         label: "Competitors tracked per website",
         cells: [
           String(PLAN_CONFIG.founder.features.competitorsPerBrand),
-          "Custom",
+          String(PLAN_CONFIG.agency.features.competitorsPerBrand),
         ],
       },
     ],
@@ -139,8 +139,8 @@ const FAQS = [
     a: `One question asked to one AI provider. A 20-question Plus audit across ${PLAN_CONFIG.founder.features.providers.length} providers uses ${20 * PLAN_CONFIG.founder.features.providers.length} checks. Monthly limits reset on the 1st.`,
   },
   {
-    q: "How do tracked questions work on Pro?",
-    a: "On Pro, you curate a custom set of tracked questions per website. Each audit run still asks 20 of them; scheduled monitoring rotates through the rest, sized to your check allowance. Your dashboard shows which questions the latest run checked.",
+    q: "How do 500 tracked questions fit into audits of 20?",
+    a: "On Pro, you curate up to 500 tracked questions per website. Each audit run asks 20 of them; scheduled monitoring rotates deterministically through the rest, sized so a month of runs fits inside your provider-check allowance. Your dashboard shows which questions the latest run checked.",
   },
   {
     q: "How do the AI providers work on each plan?",
@@ -148,19 +148,19 @@ const FAQS = [
   },
   {
     q: "What about Growth?",
-    a: `Growth adds more websites, daily scans, and the ${PLAN_CONFIG.growth.features.providersPerScan} most-used AIs. It sits between Plus and a custom Pro plan. We're letting people in in waves — join the list on this page and we'll email you when a spot opens.`,
+    a: `Growth adds more websites, daily scans, and the ${PLAN_CONFIG.growth.features.providersPerScan} most-used AIs. We're letting people in in waves — join the list on this page and we'll email you when a spot opens.`,
   },
   {
     q: "What does the free audit include?",
-    a: "A real audit, not a teaser: your visibility score, five buyer questions with mention status, your top competitor with evidence, and your first prioritized fix. One ChatGPT audit per website per calendar month.",
+    a: "A real audit, not a teaser: your visibility score, five buyer questions with mention status, your top competitor with evidence, and your first prioritized fix. One per website every 30 days.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Manage or cancel from the billing portal in one click. You can export your account as JSON from Settings while it exists. CSV and PDF report files are Pro (and Growth).",
+    a: "Yes. Manage or cancel from the billing portal in one click. Your data stays exportable while your account exists.",
   },
   {
     q: "How does the 7-day Plus trial work?",
-    a: "Full Plus features with the same usage limits as the paid plan. Checkout starts a 7-day trial; no charge until it ends. Cancel before then and you pay nothing. The free ChatGPT audit is separate — it is not the Plus trial.",
+    a: "Full Plus features with the same usage limits as the paid plan. No charge until the trial ends; cancel before then and you pay nothing.",
   },
   {
     q: "Do you guarantee better AI rankings?",
@@ -193,7 +193,6 @@ export default async function PricingPage() {
   return (
     <MarketingShell className="py-10 md:py-16">
       <JsonLd
-        id="json-ld-pricing"
         data={{
           "@context": "https://schema.org",
           "@type": "Product",
@@ -238,8 +237,8 @@ export default async function PricingPage() {
           Start free. Scale when it matters.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Start with a free ChatGPT audit. Plus adds a 7-day trial, five AIs,
-          and weekly monitoring. Pro is custom.
+          The free audit is the trial. Paid plans add more providers, ongoing
+          monitoring, and the full evidence behind every answer.
         </p>
       </div>
 

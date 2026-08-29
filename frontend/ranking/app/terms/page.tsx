@@ -19,7 +19,7 @@ const sections = [
   },
   {
     title: "Billing",
-    body: "Paid plans are billed through Dodo Payments and can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans, including the 7-day Plus trial. Unused monthly AI checks are not refundable.",
+    body: "Paid plans are billed through Dodo Payments and can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans, including trials.",
   },
 ];
 

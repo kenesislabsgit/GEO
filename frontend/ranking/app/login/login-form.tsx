@@ -85,7 +85,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {mode === "signup"
-          ? "Create an account to save your audits. We'll email a confirm link before the first run."
+          ? "Create an account to save your audits."
           : "Sign in to your dashboard."}
       </p>
 

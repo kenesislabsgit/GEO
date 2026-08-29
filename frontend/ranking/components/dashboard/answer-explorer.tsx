@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { ProviderLogo } from "@/components/providers/provider-logo";
-import { routes } from "@/lib/routes";
 
 export type ExplorerCitation = {
   url: string;
@@ -43,13 +41,9 @@ export type ExplorerQuestion = {
 export function AnswerExplorer({
   questions,
   brandName,
-  showFullAnswers = true,
-  brandId,
 }: {
   questions: ExplorerQuestion[];
   brandName: string;
-  showFullAnswers?: boolean;
-  brandId?: string;
 }) {
   return (
     <div className="space-y-3">
@@ -58,8 +52,6 @@ export function AnswerExplorer({
           key={question.promptId}
           question={question}
           brandName={brandName}
-          showFullAnswers={showFullAnswers}
-          brandId={brandId}
         />
       ))}
     </div>
@@ -69,13 +61,9 @@ export function AnswerExplorer({
 function QuestionCard({
   question,
   brandName,
-  showFullAnswers,
-  brandId,
 }: {
   question: ExplorerQuestion;
   brandName: string;
-  showFullAnswers: boolean;
-  brandId?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -133,13 +121,7 @@ function QuestionCard({
       {open ? (
         <div className="divide-y divide-border border-t border-border">
           {question.answers.map((answer) => (
-            <AnswerBlock
-              key={answer.id}
-              answer={answer}
-              brandName={brandName}
-              showFullAnswers={showFullAnswers}
-              brandId={brandId}
-            />
+            <AnswerBlock key={answer.id} answer={answer} brandName={brandName} />
           ))}
         </div>
       ) : null}
@@ -150,13 +132,9 @@ function QuestionCard({
 function AnswerBlock({
   answer,
   brandName,
-  showFullAnswers,
-  brandId,
 }: {
   answer: ExplorerAnswer;
   brandName: string;
-  showFullAnswers: boolean;
-  brandId?: string;
 }) {
   const brandKey = brandName.trim().toLowerCase();
 
@@ -178,26 +156,9 @@ function AnswerBlock({
               : `Does not mention ${brandName}`}
           </span>
         </div>
-        {showFullAnswers ? (
-          <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-            {highlightBrand(answer.answer, brandName)}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Full answer text is on Plus.{" "}
-            {brandId ? (
-              <Link
-                href={routes.billing({
-                  plan: "founder",
-                  returnTo: routes.brandUpgrade(brandId),
-                })}
-                className="font-medium text-foreground underline underline-offset-4"
-              >
-                Continue with Plus
-              </Link>
-            ) : null}
-          </p>
-        )}
+        <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+          {highlightBrand(answer.answer, brandName)}
+        </div>
       </div>
 
       <div className="space-y-5">

@@ -69,10 +69,13 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
   ],
   agency: [
     { text: "Everything in Plus" },
-    { text: "Custom website, check, and question limits, set up with our team" },
+    checksFeature("agency"),
     {
       text: `${PLAN_CONFIG.agency.features.providers.length} AI providers - run any ${PLAN_CONFIG.agency.features.providersPerScan} per audit`,
       providers: PLAN_CONFIG.agency.features.providers,
+    },
+    {
+      text: `${PLAN_CONFIG.agency.features.brands} websites, ${PLAN_CONFIG.agency.features.activePrompts} tracked questions`,
     },
     { text: "Daily monitoring that rotates through your questions" },
     { text: "CSV exports + PDF reports" },
@@ -151,10 +154,11 @@ function PlanPrice({
               </span>
             ) : null}
           </>
-        ) : plan.trialDays > 0 ? (
-          <>{plan.trialDays}-day trial</>
         ) : (
-          <>or ${plan.yearlyPriceUsd}/year</>
+          <>
+            ${plan.yearlyPriceUsd}/year
+            {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
+          </>
         )}
       </p>
     </>
@@ -263,8 +267,8 @@ export function PricingPlans({
         })}
       </div>
       <p className="mt-8 text-center text-sm leading-relaxed text-muted-foreground">
-        Need more websites than Plus before a custom Pro plan? Growth is a
-        waitlist tier — {PLAN_CONFIG.growth.features.brands} sites, the{" "}
+        Need more websites and daily scans? Growth is next —{" "}
+        {PLAN_CONFIG.growth.features.brands} sites, the{" "}
         {PLAN_CONFIG.growth.features.providersPerScan} most-used AIs, opening
         in waves.{" "}
         <Link

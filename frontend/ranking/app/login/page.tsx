@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
@@ -8,14 +7,9 @@ import { getSessionUser } from "@/lib/auth/session";
 import { resolveReturnTo } from "@/lib/routes";
 import { LoginForm } from "./login-form";
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: Promise<{ mode?: string }>;
-}): Promise<Metadata> {
-  const params = await searchParams;
-  return { title: params.mode === "signup" ? "Create account" : "Sign in" };
-}
+export const metadata = {
+  title: "Sign in",
+};
 
 export default async function LoginPage({
   searchParams,

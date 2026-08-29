@@ -34,8 +34,8 @@ export function SiteFooter() {
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Measure whether AI answer engines recommend your brand before
-              your competitors do. Plus samples ChatGPT, Claude, Gemini,
-              Perplexity and Mistral. Pro adds Grok, DeepSeek and more.
+              your competitors do. Sampled from ChatGPT, Claude, Gemini,
+              Perplexity, Grok, DeepSeek and more.
             </p>
           </div>
           <div className="flex gap-16">
@@ -49,7 +49,7 @@ export function SiteFooter() {
                     <li key={link.href}>
                       <Link
                         href={link.href}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline hover:underline-offset-4"
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
                         {link.label}
                       </Link>

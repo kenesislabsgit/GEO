@@ -25,13 +25,27 @@ export type AuditStage = {
   at: number;
 };
 
-import { providerDisplayName } from "@/lib/constants";
+/**
+ * Assistant names as customers know them ("ChatGPT"), which can differ from
+ * the report's model names ("OpenAI Search").
+ */
+const ASSISTANT_NAMES: Record<string, string> = {
+  openai: "ChatGPT",
+  openai_search: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  perplexity: "Perplexity",
+  bedrock_claude: "Claude",
+  bedrock_nova: "Nova",
+  bedrock_llama: "Llama",
+  bedrock_mistral: "Mistral",
+};
 
 /** Distinct customer-facing names, in the order the providers were given. */
 export function assistantNames(providers: readonly string[]): string[] {
   const names: string[] = [];
   for (const provider of providers) {
-    const name = providerDisplayName(provider);
+    const name = ASSISTANT_NAMES[provider];
     if (name && !names.includes(name)) names.push(name);
   }
   return names;

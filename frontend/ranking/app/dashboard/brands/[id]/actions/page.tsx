@@ -13,7 +13,6 @@ import {
 import { routes } from "@/lib/routes";
 import { evidenceText, meaningfulGaps, parseEvidence } from "@/lib/actions/evidence";
 import { hasFeature } from "@/lib/billing/entitlements";
-import { FREE_AUDIT_ACTION_COUNT } from "@/lib/constants";
 import { buildMasterPrompt } from "@/lib/actions/master-prompt";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,9 +62,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
     : [];
   const topCompetitor = competitorScores[0];
   const sorted = actions.slice().sort((a, b) => a.priority - b.priority);
-  const visibleActions = isPaid
-    ? sorted
-    : sorted.slice(0, FREE_AUDIT_ACTION_COUNT);
+  const visibleActions = isPaid ? sorted : sorted.slice(0, 3);
   // Free accounts get the prompt for the fixes they can see, nothing more.
   const masterPrompt = visibleActions.length
     ? buildMasterPrompt({
@@ -80,7 +77,7 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
       <BrandPageHeader
         brandId={brand.id}
         brandName={brand.name}
-        title="Action centre"
+        title="Website Improvements"
         description="Prioritized changes tied to website evidence, competitor patterns, and the AI answers in this audit."
         isPaid={isPaid}
       />
@@ -319,10 +316,10 @@ export default async function WebsiteImprovementsPage({ params }: { params: Prom
             <Lock className="mt-0.5 size-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">{sorted.length - visibleActions.length} more improvements available</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Plus includes the full action plan. Impact tracking on completed fixes is Pro.</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Pro includes the full action plan and progress tracking.</p>
             </div>
           </div>
-          <Button asChild size="sm"><Link href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brand.id) })}>Continue with Plus</Link></Button>
+          <Button asChild size="sm"><Link href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brand.id) })}>Continue with Pro</Link></Button>
         </div>
       ) : null}
     </div>

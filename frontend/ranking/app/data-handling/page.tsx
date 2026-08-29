@@ -15,7 +15,7 @@ const sections = [
   },
   {
     title: "Public scans",
-    body: "Free audits need an account. We read publicly available website information. Older public reports can be claimed by a verified owner.",
+    body: "Anonymous free scans use publicly available website information. Results may appear in a public report until claimed by an verified owner.",
   },
   {
     title: "Premium data",

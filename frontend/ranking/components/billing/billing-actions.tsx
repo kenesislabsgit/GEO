@@ -152,6 +152,7 @@ export function BillingActions({
                 )}
                 <p className="mt-3 flex-1 text-sm text-muted-foreground">
                   {plan.description}
+                  {locked ? " Set up with our team." : ""}
                 </p>
                 {planId === "founder" ? (
                   <div className="mt-4 rounded-lg border border-[color:var(--arc-green)]/25 bg-[color:var(--arc-green)]/5 p-4">
@@ -223,9 +224,7 @@ export function BillingActions({
           })}
         </div>
         <p className="mt-4 text-sm text-muted-foreground">
-          Need more websites than Plus before a custom Pro plan? Growth is a
-          waitlist tier — {PLAN_CONFIG.growth.features.brands} sites, the{" "}
-          {PLAN_CONFIG.growth.features.providersPerScan} most-used AIs.{" "}
+          Need more websites and daily scans? Growth is next.{" "}
           <Link
             href={GROWTH_WAITLIST_HREF}
             className="text-foreground underline underline-offset-4"

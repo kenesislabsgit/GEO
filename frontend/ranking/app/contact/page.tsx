@@ -22,7 +22,7 @@ export const metadata = {
 const PRO_FEATURES = [
   {
     icon: Globe2,
-    text: "Custom website and check limits, set up with our team",
+    text: "Up to 20 websites on one plan, with a 10k monthly check allowance",
   },
   {
     icon: Radar,

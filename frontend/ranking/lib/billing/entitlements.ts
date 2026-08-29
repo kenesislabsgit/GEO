@@ -62,8 +62,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",
     name: "Free",
-    description:
-      "One public website, five questions, one audit per calendar month.",
+    description: "One public website, five questions, one audit every 30 days.",
     monthlyPriceUsd: 0,
     yearlyPriceUsd: 0,
     trialDays: 0,
@@ -368,7 +367,7 @@ export function assertCanAddCompetitor(
 export function assertCanExport(ctx: EntitlementContext): void {
   if (!PLAN_CONFIG[ctx.plan].features.pdfCsvExport) {
     throw new EntitlementError(
-      "CSV and PDF exports require Pro or Growth.",
+      "CSV and PDF exports require the Pro plan.",
     );
   }
 }

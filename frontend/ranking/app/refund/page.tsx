@@ -16,10 +16,9 @@ export default function RefundPage() {
       </h1>
       <div className="mt-8 space-y-6 text-muted-foreground leading-relaxed">
         <p>
-          Plus includes a 7-day trial. Cancel during the trial and you are not
-          charged. After that, subscriptions renew automatically each billing
-          period. You may cancel at any time from Billing; access continues until
-          the end of the paid period.
+          Arcanoris subscriptions renew automatically each billing period.
+          You may cancel at any time from Billing; access continues until the
+          end of the paid period.
         </p>
         <p>
           If you believe you were charged in error, contact support within 14
@@ -27,9 +26,9 @@ export default function RefundPage() {
           duplicate charges, failed service delivery, or billing mistakes.
         </p>
         <p>
-          Unused monthly AI checks are not refundable. Downgrading takes effect
-          at the next renewal and does not retroactively refund unused time on a
-          higher tier.
+          Usage-based AI checks consumed during a billing period are not
+          refundable. Downgrading takes effect at the next renewal and does not
+          retroactively refund unused time on a higher tier.
         </p>
       </div>
     </MarketingShell>

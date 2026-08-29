@@ -76,7 +76,7 @@ export function AddBrandScanForm({
           Upgrade your plan to monitor another website.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button asChild size="sm"><Link href={routes.pricing}>See plans</Link></Button>
+          <Button asChild size="sm"><Link href={routes.billing({ plan: "agency" })}>Upgrade</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={routes.brands}>View websites</Link></Button>
         </div>
       </div>
