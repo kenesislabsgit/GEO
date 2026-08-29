@@ -46,7 +46,6 @@ export const ALL_PROVIDERS = [
   "perplexity",
   "grok",
   "deepseek",
-  "bedrock_llama",
   "bedrock_mistral",
   "kimi",
   "bedrock_nova",

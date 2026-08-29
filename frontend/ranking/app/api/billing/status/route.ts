@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
-import { getLatestSubscription, getUserOnboarding } from "@/lib/db/repository";
+import { getLatestSubscription } from "@/lib/db/repository";
 
 /**
  * What the signed-in user's subscription actually is, straight from the
@@ -14,14 +14,10 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [subscription, onboarding] = await Promise.all([
-    getLatestSubscription(user.id),
-    getUserOnboarding(user.id),
-  ]);
+  const subscription = await getLatestSubscription(user.id);
   return NextResponse.json({
     plan: subscription?.plan ?? "free",
     status: subscription?.status ?? "inactive",
     currentPeriodEnd: subscription?.current_period_end ?? null,
-    onboardingComplete: Boolean(onboarding?.completed),
   });
 }

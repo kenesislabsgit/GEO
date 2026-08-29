@@ -12,7 +12,6 @@ type BillingStatus = {
   plan: string;
   status: string;
   currentPeriodEnd: string | null;
-  onboardingComplete: boolean;
 };
 
 const POLL_MS = 3000;
@@ -34,13 +33,7 @@ export function ConfirmSubscription({
   const askedServer = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const destination = useCallback(
-    (status: BillingStatus) =>
-      status.onboardingComplete
-        ? (returnTo ?? routes.dashboard)
-        : routes.onboarding,
-    [returnTo],
-  );
+  const destination = returnTo ?? routes.dashboard;
 
   // The poll re-arms itself via this ref so the callback never has to name
   // itself before it exists.
@@ -118,9 +111,7 @@ export function ConfirmSubscription({
               </p>
             ) : null}
             <Button asChild className="mt-6 w-full">
-              <Link href={destination(confirmed)}>
-                {confirmed.onboardingComplete ? "Continue" : "Set up your audit"}
-              </Link>
+              <Link href={destination}>Continue</Link>
             </Button>
           </>
         ) : null}

@@ -177,19 +177,30 @@ export default async function SourcesPage({
       .flatMap((group) => group.rows.map(hostOf))
       .filter(Boolean) as string[],
   );
-  const gapMap = new Map<string, Set<string>>();
+  const gapMap = new Map<
+    string,
+    { companies: Set<string>; pages: Map<string, VerifiedMention> }
+  >();
   for (const group of mentionGroups) {
     if (group.own) continue;
     for (const row of group.rows) {
       const domain = hostOf(row);
       if (!domain || ownDomains.has(domain)) continue;
-      const companies = gapMap.get(domain) ?? new Set<string>();
-      companies.add(group.company);
-      gapMap.set(domain, companies);
+      const gap = gapMap.get(domain) ?? {
+        companies: new Set<string>(),
+        pages: new Map<string, VerifiedMention>(),
+      };
+      gap.companies.add(group.company);
+      gap.pages.set(canonicalUrl(row.url), row);
+      gapMap.set(domain, gap);
     }
   }
   const citationGapRows = Array.from(gapMap.entries())
-    .map(([domain, companies]) => ({ domain, companies: Array.from(companies) }))
+    .map(([domain, gap]) => ({
+      domain,
+      companies: Array.from(gap.companies),
+      pages: Array.from(gap.pages.values()),
+    }))
     .sort((a, b) => b.companies.length - a.companies.length)
     .slice(0, 12);
   const showCitationGaps = hasFeature(entitlements.plan, "citationGaps");
@@ -331,6 +342,21 @@ export default async function SourcesPage({
                         : ""}{" "}
                       - not you
                     </p>
+                    <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+                      {gap.pages.slice(0, 2).map((page) => (
+                        <SourceLink
+                          key={canonicalUrl(page.url)}
+                          url={page.url}
+                          label={sourceLabel(page)}
+                        />
+                      ))}
+                      {gap.pages.length > 2 ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          +{gap.pages.length - 2} more page
+                          {gap.pages.length - 2 === 1 ? "" : "s"} below
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>

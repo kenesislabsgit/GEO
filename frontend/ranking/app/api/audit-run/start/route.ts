@@ -34,7 +34,6 @@ const requestSchema = z.object({
         "perplexity",
         "bedrock_claude",
         "bedrock_nova",
-        "bedrock_llama",
         "bedrock_mistral",
         "grok",
         "deepseek",
