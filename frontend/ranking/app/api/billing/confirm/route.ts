@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getLatestSubscription,
-  getUserOnboarding,
   upsertSubscription,
 } from "@/lib/db/repository";
 import { resolvePlanFromProductId } from "@/lib/billing/entitlements";
@@ -81,14 +80,10 @@ export async function POST(request: Request) {
 
   // Answer in the same shape as /api/billing/status so the success page can
   // treat this as its first poll.
-  const [subscription, onboarding] = await Promise.all([
-    getLatestSubscription(user.id),
-    getUserOnboarding(user.id),
-  ]);
+  const subscription = await getLatestSubscription(user.id);
   return NextResponse.json({
     plan: subscription?.plan ?? "free",
     status: subscription?.status ?? "inactive",
     currentPeriodEnd: subscription?.current_period_end ?? null,
-    onboardingComplete: Boolean(onboarding?.completed),
   });
 }

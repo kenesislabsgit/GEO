@@ -33,6 +33,14 @@ export async function resetTestDb(): Promise<void> {
     "utf8",
   );
   await exec(profileCacheMigration);
+  const questionPositionMigration = await readFile(
+    path.join(
+      process.cwd(),
+      "db/migrations/0008_query_result_question_position.sql",
+    ),
+    "utf8",
+  );
+  await exec(questionPositionMigration);
   await q(
     `truncate table brands, scan_runs, scan_questions, query_results, score_snapshots,
        recommendations, tracked_prompts, competitors, subscriptions,

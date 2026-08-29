@@ -14,10 +14,7 @@ import type {
   UsageLedgerEntry,
   WebhookEvent,
 } from "@/types/database";
-import type {
-  OnboardingState,
-  BrandMonitoringSettings,
-} from "@/types/onboarding";
+import type { BrandMonitoringSettings } from "@/types/monitoring";
 import type { PlanId } from "@/lib/billing/entitlements";
 
 /**
@@ -278,6 +275,17 @@ export async function replaceScanQuestions(
   }
 }
 
+export async function getScanQuestions(
+  scanRunId: string,
+): Promise<ScanQuestion[]> {
+  return q<ScanQuestion>(
+    `select * from scan_questions
+     where scan_run_id = $1
+     order by position asc`,
+    [scanRunId],
+  );
+}
+
 /**
  * Latest finished audit for one brand record. Pass a max age only when you need
  * "was this audited recently"; leave it out to always get the newest report.
@@ -377,45 +385,6 @@ export async function updateBrand(
   patch: Partial<Brand>,
 ): Promise<Brand | null> {
   return updateRow<Brand>("brands", id, patch);
-}
-
-// What look like their own tables are rows in app_settings, whole state as
-// one JSON value. See docs/DATABASE.md before writing a migration for these.
-function onboardingSettingsKey(userId: string): string {
-  return `user_onboarding:${userId}`;
-}
-
-async function getSetting<T>(key: string): Promise<T | null> {
-  const row = await one<{ value: T }>(
-    `select value from app_settings where key = $1`,
-    [key],
-  );
-  return row?.value ?? null;
-}
-
-async function putSetting(key: string, value: unknown): Promise<void> {
-  await exec(
-    `insert into app_settings (key, value, updated_at)
-     values ($1, $2, timezone('utc', now()))
-     on conflict (key) do update
-       set value = excluded.value, updated_at = excluded.updated_at`,
-    [key, JSON.stringify(value)],
-  );
-}
-
-export async function getUserOnboarding(
-  userId: string,
-): Promise<OnboardingState | null> {
-  return getSetting<OnboardingState>(onboardingSettingsKey(userId));
-}
-
-export async function upsertUserOnboarding(
-  userId: string,
-  state: OnboardingState,
-): Promise<OnboardingState> {
-  const next = { ...state, updatedAt: new Date().toISOString() };
-  await putSetting(onboardingSettingsKey(userId), next);
-  return next;
 }
 
 /** Monitoring settings live in brand_monitoring (0002); they cascade with

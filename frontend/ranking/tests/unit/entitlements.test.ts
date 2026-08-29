@@ -94,6 +94,14 @@ describe("entitlements", () => {
     );
   });
 
+  it("does not offer Llama on any selectable plan", () => {
+    expect(ALL_PROVIDERS).not.toContain("bedrock_llama");
+    for (const plan of Object.values(PLAN_CONFIG)) {
+      expect(plan.features.providers).not.toContain("bedrock_llama");
+      expect(defaultScanProviders(plan.id)).not.toContain("bedrock_llama");
+    }
+  });
+
   it("checks the 8 most-used AIs on every Growth audit", () => {
     expect(PLAN_CONFIG.growth.features.providers).toEqual([...MOST_USED_PROVIDERS]);
     expect(PLAN_CONFIG.growth.features.providersPerScan).toBe(8);
@@ -101,7 +109,7 @@ describe("entitlements", () => {
     expect(defaultScanProviders("growth")).toEqual([...MOST_USED_PROVIDERS]);
   });
 
-  it("offers all 14 providers on Pro and selects 10 per audit", () => {
+  it("offers the complete provider catalog on Pro and selects 10 per audit", () => {
     expect(PLAN_CONFIG.agency.features.providers).toEqual([...ALL_PROVIDERS]);
     expect(PLAN_CONFIG.agency.features.providersPerScan).toBe(10);
     expect(defaultScanProviders("agency")).toHaveLength(10);
