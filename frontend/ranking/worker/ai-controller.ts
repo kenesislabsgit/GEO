@@ -146,10 +146,19 @@ function envProvider(provider: string): string {
 }
 
 function defaultConcurrency(provider: string): number {
-  if (provider === "openai") return 12;
+  if (provider === "openai") return 50;
+  if (provider === "grok") return 25;
   if (provider.startsWith("bedrock")) return 8;
   if (provider === "anthropic" || provider === "gemini") return 8;
   return 6;
+}
+
+function defaultRpm(provider: string): number {
+  return provider === "grok" ? 1800 : 0;
+}
+
+function defaultTpm(provider: string): number {
+  return provider === "grok" ? 10_000_000 : 0;
 }
 
 function getRedis(): ValkeyCluster | null {
@@ -197,8 +206,8 @@ export class AiCallController {
         `${prefix}_MAX_CONCURRENT`,
         defaultConcurrency(provider),
       ),
-      rpm: nonNegativeNumber(`${prefix}_RPM`, 0),
-      tpm: nonNegativeNumber(`${prefix}_TPM`, 0),
+      rpm: nonNegativeNumber(`${prefix}_RPM`, defaultRpm(provider)),
+      tpm: nonNegativeNumber(`${prefix}_TPM`, defaultTpm(provider)),
     };
   }
 

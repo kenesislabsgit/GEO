@@ -109,8 +109,8 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
       providers: [
         "openai_search",
         "bedrock_claude",
-        "gemini",
-        "perplexity",
+        "grok",
+        "bedrock_llama",
         "bedrock_mistral",
       ],
       providersPerScan: 5,
@@ -342,7 +342,7 @@ export function assertCanAddPrompt(ctx: EntitlementContext): void {
 
 export function assertCanUseProvider(
   plan: PlanId,
-  provider: "openai" | "gemini" | "perplexity",
+  provider: ProviderId,
 ): void {
   if (!PLAN_CONFIG[plan].features.providers.includes(provider)) {
     throw new EntitlementError(

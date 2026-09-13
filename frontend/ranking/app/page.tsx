@@ -28,7 +28,7 @@ export const metadata = {
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across five AIs; Pro picks any ten from a catalog of fourteen.",
+    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across five AIs; Pro picks any ten from the full provider catalog.",
   },
   {
     q: "Can results change between runs?",

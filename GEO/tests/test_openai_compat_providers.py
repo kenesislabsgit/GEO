@@ -37,6 +37,30 @@ class Registry(unittest.TestCase):
 
 
 class Calls(unittest.TestCase):
+    def test_grok_search_uses_responses_and_preserves_only_native_citations(self):
+        body = {"model": "grok-4.3", "status": "completed", "output": [
+            {"type": "web_search_call", "action": {"sources": [{"url": "https://example.com/uncited"}]}},
+            {"type": "message", "content": [{"type": "output_text", "text": "answer",
+              "annotations": [{"type": "url_citation", "url": "https://example.com/proof"}]}]},
+        ], "usage": {"total_tokens": 90}}
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(body).encode()
+        with mock.patch.dict("os.environ", {"GROK_API_KEY": "test"}, clear=True), mock.patch(
+            "geo_audit.llm.load_dotenv"
+        ), mock.patch("geo_audit.llm.urlopen", return_value=response) as send:
+            answer, metadata = call_openai_compatible("grok", "system", "question", json_schema={"type": "object"})
+        request = send.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertTrue(request.full_url.endswith("/v1/responses"))
+        self.assertEqual(payload["tools"], [{"type": "web_search"}])
+        self.assertEqual(
+            payload["prompt_cache_key"], "geo-audit-v1-grok-buyer-answers"
+        )
+        self.assertEqual(payload["text"]["format"]["type"], "json_schema")
+        self.assertEqual(answer, "answer")
+        self.assertEqual(metadata["citations"], ["https://example.com/proof"])
+        self.assertEqual(metadata["usage"]["total_tokens"], 90)
+
     def test_missing_key_raises_not_configured(self) -> None:
         with mock.patch.dict("os.environ", {}, clear=True):
             with mock.patch("geo_audit.llm.load_dotenv"):
@@ -50,6 +74,8 @@ class Calls(unittest.TestCase):
                 "model": "sonar",
                 "choices": [{"message": {"content": "Here are five options."}}],
                 "usage": {"total_tokens": 42},
+                "citations": ["https://example.com/evidence"],
+                "search_results": [{"url": "https://example.com/evidence", "title": "Evidence"}],
             }
         ).encode("utf-8")
 
@@ -77,16 +103,20 @@ class Calls(unittest.TestCase):
             with mock.patch("geo_audit.llm.load_dotenv"):
                 with mock.patch("geo_audit.llm.urlopen", fake_urlopen):
                     content, metadata = call_openai_compatible(
-                        "perplexity", "be neutral", "best crm?"
+                        "perplexity", "be neutral", "best crm?",
+                        json_schema={"type": "object", "properties": {}},
                     )
 
         self.assertEqual(content, "Here are five options.")
         self.assertEqual(metadata["model"], "sonar")
+        self.assertEqual(metadata["citations"], ["https://example.com/evidence"])
+        self.assertEqual(metadata["search_results"][0]["title"], "Evidence")
         self.assertEqual(
             captured["url"], "https://api.perplexity.ai/chat/completions"
         )
         self.assertEqual(captured["auth"], "Bearer pk-test")
         payload = captured["payload"]
+        self.assertEqual(payload["response_format"]["type"], "json_schema")
         self.assertEqual(payload["messages"][0]["role"], "system")
         self.assertEqual(payload["messages"][1]["content"], "best crm?")
 

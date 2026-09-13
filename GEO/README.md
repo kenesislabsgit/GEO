@@ -114,15 +114,24 @@ For the current production-style test mix, use OpenAI web grounding plus AWS
 Bedrock-hosted models:
 
 ```bash
-python -m geo_audit collect outputs/<run-folder>/customer_prompts.json --assistants openai_search bedrock_claude bedrock_mistral --limit-per-assistant 5
+python -m geo_audit collect outputs/<run-folder>/customer_prompts.json --assistants openai_search bedrock_claude grok bedrock_llama bedrock_mistral --limit-per-assistant 5
 ```
 
-This collects up to 20 total responses. Configure keys as needed:
+This collects up to 25 total responses. Configure keys as needed:
 
 ```text
 OPENAI_API_KEY or LLM_API_KEY
 ANTHROPIC_API_KEY or CLAUDE_API_KEY
+XAI_API_KEY required for Grok
+GROK_MODEL optional; defaults to grok-4.3
+GROK_WEB_SEARCH optional; defaults to true
+GROK_PROMPT_CACHE_KEY optional; a stable default is provided
 GEMINI_API_KEY or GOOGLE_API_KEY
+# Or use Vertex AI with local ADC / production Workload Identity Federation:
+GOOGLE_GENAI_USE_VERTEXAI=True
+GOOGLE_CLOUD_PROJECT=your-google-cloud-project
+GOOGLE_CLOUD_LOCATION=global
+GOOGLE_APPLICATION_CREDENTIALS optional path to a federation credential file
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 AWS_SESSION_TOKEN optional

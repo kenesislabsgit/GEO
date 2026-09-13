@@ -42,7 +42,9 @@ function checksFeature(planId: PlanId): CardFeature {
 const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
   founder: [
     checksFeature("founder"),
-    { text: "20 buyer questions per audit" },
+    {
+      text: `${PLAN_CONFIG.founder.features.activePrompts} buyer questions · ${PLAN_CONFIG.founder.features.activePrompts * PLAN_CONFIG.founder.features.providersPerScan} provider checks per audit`,
+    },
     {
       text: `${PLAN_CONFIG.founder.features.providers.length} AI providers compared side by side`,
       providers: PLAN_CONFIG.founder.features.providers,

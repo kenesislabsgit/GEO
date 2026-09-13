@@ -116,7 +116,13 @@ function assertColumns(keys: string[]): void {
 // jsonb columns must receive JSON text: handed a plain JS array, the driver
 // would try to write a Postgres array instead and the insert fails.
 function toParam(value: unknown): unknown {
-  if (value !== null && typeof value === "object") return JSON.stringify(value);
+  // PostgreSQL text and jsonb cannot store the NUL character. Website and AI
+  // content can occasionally contain one, so remove it at the database edge
+  // instead of letting an otherwise complete audit fail during import.
+  if (typeof value === "string") return value.replaceAll("\u0000", "");
+  if (value !== null && typeof value === "object") {
+    return JSON.stringify(value).replaceAll("\\u0000", "");
+  }
   return value;
 }
 

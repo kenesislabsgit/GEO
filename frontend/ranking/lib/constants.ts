@@ -23,7 +23,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   perplexity: "Perplexity",
   bedrock_claude: "Claude",
   bedrock_nova: "Nova",
-  bedrock_llama: "Llama",
+  bedrock_llama: "Llama Search",
   bedrock_mistral: "Mistral",
   grok: "Grok",
   deepseek: "DeepSeek",
@@ -53,6 +53,7 @@ export const ALL_PROVIDERS = [
   "minimax",
   "sarvam",
   "qwen",
+  "bedrock_llama",
 ] as const satisfies readonly ProviderId[];
 
 /**

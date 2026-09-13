@@ -86,20 +86,22 @@ describe("entitlements", () => {
     ).toThrow(EntitlementError);
   });
 
-  it("includes Perplexity in every Plus audit", () => {
-    expect(PLAN_CONFIG.founder.features.providers).toContain("perplexity");
-    expect(defaultScanProviders("founder")).toContain("perplexity");
+  it("uses the five production-ready Plus providers", () => {
+    expect(PLAN_CONFIG.founder.features.providersPerScan).toBe(5);
+    expect(PLAN_CONFIG.founder.features.providers).not.toContain("perplexity");
+    expect(PLAN_CONFIG.founder.features.providers).not.toContain("gemini");
+    expect(defaultScanProviders("founder")).not.toContain("perplexity");
+    expect(defaultScanProviders("founder")).toContain("grok");
+    expect(defaultScanProviders("founder")).toContain("bedrock_llama");
     expect(defaultScanProviders("founder")).toHaveLength(
       PLAN_CONFIG.founder.features.providersPerScan,
     );
   });
 
-  it("does not offer Llama on any selectable plan", () => {
-    expect(ALL_PROVIDERS).not.toContain("bedrock_llama");
-    for (const plan of Object.values(PLAN_CONFIG)) {
-      expect(plan.features.providers).not.toContain("bedrock_llama");
-      expect(defaultScanProviders(plan.id)).not.toContain("bedrock_llama");
-    }
+  it("offers Llama Search on Plus and Pro", () => {
+    expect(ALL_PROVIDERS).toContain("bedrock_llama");
+    expect(PLAN_CONFIG.founder.features.providers).toContain("bedrock_llama");
+    expect(PLAN_CONFIG.agency.features.providers).toContain("bedrock_llama");
   });
 
   it("checks the 8 most-used AIs on every Growth audit", () => {

@@ -58,7 +58,7 @@ function pythonEnv(
     "ANTHROPIC_",
     "CLAUDE_",
     "GEMINI_",
-    "GOOGLE_API_KEY",
+    "GOOGLE_",
     "AWS_",
     "BEDROCK_",
     "GEO_BEDROCK_",

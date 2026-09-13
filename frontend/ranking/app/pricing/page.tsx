@@ -74,6 +74,16 @@ const COMPARISON: Array<{
         ],
       },
       {
+        label: "Provider checks per full audit",
+        cells: [
+          String(
+            PLAN_CONFIG.founder.features.activePrompts *
+              PLAN_CONFIG.founder.features.providersPerScan,
+          ),
+          "Custom",
+        ],
+      },
+      {
         label: "Competitors tracked per website",
         cells: [
           String(PLAN_CONFIG.founder.features.competitorsPerBrand),
@@ -144,7 +154,7 @@ const FAQS = [
   },
   {
     q: "How do the AI providers work on each plan?",
-    a: `Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all ${ALL_PROVIDERS.length} providers and runs any ${PLAN_CONFIG.agency.features.providersPerScan} per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
+    a: `Plus checks ChatGPT, Claude, Grok, Llama Search, and Mistral on every audit. ChatGPT, Grok, and Llama Search use the live web. Pro unlocks all ${ALL_PROVIDERS.length} providers and runs any ${PLAN_CONFIG.agency.features.providersPerScan} per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
   },
   {
     q: "What about Growth?",

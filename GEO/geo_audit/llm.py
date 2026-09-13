@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .ai_control import run_ai_call
@@ -53,7 +54,7 @@ OPENAI_COMPAT_PROVIDERS: dict[str, dict[str, Any]] = {
     "grok": {
         "key_envs": ("XAI_API_KEY", "GROK_API_KEY"),
         "base": "https://api.x.ai/v1",
-        "model": "grok-3-mini",
+        "model": "grok-4.3",
     },
     "deepseek": {
         "key_envs": ("DEEPSEEK_API_KEY",),
@@ -102,6 +103,7 @@ def call_openai_compatible(
     *,
     model: str | None = None,
     temperature: float = 0.2,
+    json_schema: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     load_dotenv(override=True)
     config = OPENAI_COMPAT_PROVIDERS[provider]
@@ -139,8 +141,32 @@ def call_openai_compatible(
             {"role": "user", "content": user_prompt},
         ],
     }
+    if json_schema is not None:
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "buyer_answer", "schema": json_schema, "strict": True},
+        }
+    grok_search = provider == "grok" and os.environ.get("GROK_WEB_SEARCH", "true").lower() not in {"0", "false", "no"}
+    endpoint = f"{api_base}/chat/completions"
+    if grok_search:
+        endpoint = f"{api_base}/responses"
+        payload = {
+            "model": resolved_model,
+            "input": payload["messages"],
+            "tools": [{"type": "web_search"}],
+            # Keep requests with the same leading instructions on the same
+            # xAI cache route. The changing buyer question remains uncached.
+            "prompt_cache_key": os.environ.get(
+                "GROK_PROMPT_CACHE_KEY", f"{PROMPT_CACHE_KEY}-grok-buyer-answers"
+            ),
+        }
+        if json_schema is not None:
+            payload["text"] = {"format": {
+                "type": "json_schema", "name": "buyer_answer",
+                "schema": json_schema, "strict": True,
+            }}
     request = Request(
-        f"{api_base}/chat/completions",
+        endpoint,
         data=json.dumps(payload).encode("utf-8"),
         headers=headers,
         method="POST",
@@ -160,13 +186,32 @@ def call_openai_compatible(
     except URLError as exc:
         raise RuntimeError(f"{provider} request failed: {exc}") from exc
 
-    content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+    content = (extract_openai_response_text(body) if grok_search else
+               body.get("choices", [{}])[0].get("message", {}).get("content", ""))
     if not content:
         raise RuntimeError(f"{provider} returned an empty answer.")
     metadata = {
         "model": body.get("model") or resolved_model,
         "usage": body.get("usage") or {},
+        "citations": body.get("citations") or [],
+        "search_results": body.get("search_results") or [],
+        "finish_reason": body.get("choices", [{}])[0].get("finish_reason"),
     }
+    if grok_search:
+        # Preserve native citations at answer level. They do not establish
+        # which particular company each page supports.
+        metadata["citations"] = list(dict.fromkeys(
+            annotation["url"]
+            for item in body.get("output", []) if item.get("type") == "message"
+            for part in item.get("content", [])
+            for annotation in part.get("annotations", [])
+            if annotation.get("type") == "url_citation" and annotation.get("url")
+        ))
+        metadata["search_results"] = [
+            source for item in body.get("output", []) if item.get("type") == "web_search_call"
+            for source in item.get("action", {}).get("sources", [])
+        ]
+        metadata["finish_reason"] = "length" if body.get("status") == "incomplete" else body.get("status")
     return content, metadata
 
 
@@ -684,27 +729,82 @@ def call_gemini_generate_content(
     model: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     load_dotenv(override=True)
+    use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not api_key:
+    if not use_vertex and not api_key:
         raise LLMNotConfigured(
-            "Set GEMINI_API_KEY or GOOGLE_API_KEY to run Gemini generation."
+            "Set GEMINI_API_KEY/GOOGLE_API_KEY, or enable Vertex AI with "
+            "GOOGLE_GENAI_USE_VERTEXAI=True."
         )
 
     selected_model = model or os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
-    api_base = os.environ.get("GEMINI_API_BASE", DEFAULT_GEMINI_API_BASE).rstrip("/")
-    request = Request(
-        f"{api_base}/models/{selected_model}:generateContent",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "x-goog-api-key": api_key,
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    request_body = json.dumps(payload).encode("utf-8")
 
-    def send() -> dict[str, Any]:
-        with urlopen(request, timeout=120) as response:
-            return json.loads(response.read().decode("utf-8"))
+    if use_vertex:
+        try:
+            import google.auth
+            from google.auth.transport.requests import Request as GoogleAuthRequest
+        except ImportError as exc:
+            raise LLMNotConfigured(
+                "Install google-auth to use Gemini through Vertex AI."
+            ) from exc
+
+        credentials, detected_project = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT") or detected_project
+        if not project:
+            raise LLMNotConfigured(
+                "Set GOOGLE_CLOUD_PROJECT to use Gemini through Vertex AI."
+            )
+        location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+        if location == "global":
+            api_base = "https://aiplatform.googleapis.com"
+        else:
+            api_base = f"https://{location}-aiplatform.googleapis.com"
+        url = (
+            f"{api_base}/v1/projects/{quote(project, safe='')}/locations/"
+            f"{quote(location, safe='')}/publishers/google/models/"
+            f"{quote(selected_model, safe='')}:generateContent"
+        )
+        auth_request = GoogleAuthRequest()
+
+        def send() -> dict[str, Any]:
+            credentials.before_request(auth_request, "POST", url, {})
+            request = Request(
+                url,
+                data=request_body,
+                headers={
+                    "Authorization": f"Bearer {credentials.token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urlopen(request, timeout=120) as response:
+                return json.loads(response.read().decode("utf-8"))
+
+    else:
+        api_base = os.environ.get(
+            "GEMINI_API_BASE", DEFAULT_GEMINI_API_BASE
+        ).rstrip("/")
+        url = f"{api_base}/models/{selected_model}:generateContent"
+
+        def send() -> dict[str, Any]:
+            request = Request(
+                url,
+                data=request_body,
+                headers={
+                    "x-goog-api-key": api_key or "",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urlopen(request, timeout=120) as response:
+                return json.loads(response.read().decode("utf-8"))
 
     try:
         body = run_ai_call("gemini", payload, send)

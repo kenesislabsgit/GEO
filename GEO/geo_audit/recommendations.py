@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import json
 from json import JSONDecodeError
+import os
 import re
 from typing import Any
 
@@ -24,9 +25,12 @@ from .llm import (
     call_openai_compatible,
     call_openai_response,
     extract_openai_response_source_urls,
+    load_dotenv,
     openai_compatible_assistants,
+    run_ai_call,
 )
 from .source_analysis import verify_source_url
+from .web_presence import build_search_client
 
 
 # Standard names reduce avoidable spelling differences before the later merge
@@ -297,6 +301,47 @@ OPENAI_SEARCH_BATCH_SCHEMA = {
     },
     "required": ["answers"],
 }
+
+
+LLAMA_SEARCH_BATCH_SYSTEM_PROMPT = f"""{OPENAI_SEARCH_BATCH_SYSTEM_PROMPT}
+
+The web search has already been run separately for every question. Each input
+question contains web_search_results with real titles, snippets, and URLs.
+Base current factual claims and citations on those supplied results. Never
+invent a URL. Keep every question and its sources independent from the others.
+"""
+
+
+def collect_llama_search_context(
+    group: list[tuple[str, int, dict[str, str]]],
+) -> dict[int, list[dict[str, Any]]]:
+    """Search once per buyer question before Llama writes its answer."""
+    load_dotenv(override=True)
+    gateway_url = os.getenv("AGENTCORE_GATEWAY_URL") or os.getenv("GATEWAY_URL")
+    client = build_search_client(gateway_url=gateway_url)
+    contexts: dict[int, list[dict[str, Any]]] = {}
+    for _, index, record in group:
+        query = str(record.get("prompt") or "").strip()
+        try:
+            outcome = run_ai_call(
+                "web_search",
+                {"query": query, "max_results": 5},
+                lambda query=query: client.search(query, max_results=5),
+            )
+            rows = outcome.get("results", []) if isinstance(outcome, dict) else outcome
+        except Exception:  # noqa: BLE001 - Llama can still answer from training.
+            rows = []
+        contexts[index] = [
+            {
+                "title": str(row.get("title") or "").strip(),
+                "url": str(row.get("url") or "").strip(),
+                "snippet": str(row.get("snippet") or "").strip(),
+            }
+            for row in rows or []
+            if isinstance(row, dict)
+            and str(row.get("url") or "").startswith(("http://", "https://"))
+        ][:5]
+    return contexts
 
 
 ANSWER_ANALYSIS_SYSTEM_PROMPT = """Analyze an AI answer for recommendation visibility.
@@ -686,6 +731,9 @@ def collect_recommendation_group(
             defer_analysis=defer_analysis,
         )
 
+    if assistant in {"perplexity", "grok"}:
+        return collect_compatible_structured(group, model=model)
+
     if assistant not in bedrock_assistants():
         return collect_group_individually(
             group,
@@ -693,14 +741,28 @@ def collect_recommendation_group(
             defer_analysis=defer_analysis,
         )
 
-    items = [
-        {"prompt_index": index, "question": prompt_record["prompt"]}
-        for _, index, prompt_record in group
-    ]
+    llama_search_context = (
+        collect_llama_search_context(group)
+        if assistant == "bedrock_llama"
+        else {}
+    )
+    items = []
+    for _, index, prompt_record in group:
+        item: dict[str, Any] = {
+            "prompt_index": index,
+            "question": prompt_record["prompt"],
+        }
+        if assistant == "bedrock_llama":
+            item["web_search_results"] = llama_search_context.get(index, [])
+        items.append(item)
     system_prompt = (
         MISTRAL_BATCH_BUYER_ANSWER_SYSTEM_PROMPT
         if assistant == "bedrock_mistral"
-        else BATCH_BUYER_ANSWER_SYSTEM_PROMPT
+        else (
+            LLAMA_SEARCH_BATCH_SYSTEM_PROMPT
+            if assistant == "bedrock_llama"
+            else BATCH_BUYER_ANSWER_SYSTEM_PROMPT
+        )
     )
     # Room for every answer in the batch, not a fixed ceiling. One call carries
     # all of an assistant's questions, so the reply grows with the batch. At
@@ -866,6 +928,20 @@ def collect_recommendation_group(
                 "recommendation_rejections": recommendation_rejections,
                 "raw_response": answer,
             }
+            if assistant == "bedrock_llama":
+                search_rows = llama_search_context.get(index, [])
+                allowed_urls = [row["url"] for row in search_rows]
+                claimed_urls = normalize_http_urls(
+                    structured_answer.get("source_urls", [])
+                )
+                sources = [url for url in claimed_urls if url in allowed_urls]
+                result.update(
+                    {
+                        "provider_source_urls": sources or allowed_urls,
+                        "provider_citation_origin": "aws_web_search_context",
+                        "provider_search_results": search_rows,
+                    }
+                )
             results.append((index, result, preview, None))
         return results
     except (LLMNotConfigured, RuntimeError, JSONDecodeError, ValueError) as exc:
@@ -882,6 +958,74 @@ def collect_recommendation_group(
                     "reason": str(exc),
                 }
         return fallback_results
+
+
+def collect_compatible_structured(
+    group: list[tuple[str, int, dict[str, str]]],
+    *,
+    model: str | None,
+) -> list[tuple[int, dict[str, Any] | None, dict[str, Any], str | None]]:
+    """One question per request preserves native citation ownership.
+
+    Use the existing answer schema so the analyzer is unnecessary on success.
+    Malformed answers use the existing analyzer without repeating the search.
+    """
+    assistant, index, record = group[0]
+    prompt = json.dumps({"questions": [{"prompt_index": index, "question": record["prompt"]}]})
+    raw, metadata = call_openai_compatible(
+        assistant, BATCH_BUYER_ANSWER_SYSTEM_PROMPT, prompt,
+        model=model, json_schema=BEDROCK_BATCH_SCHEMA,
+    )
+    sources = normalize_http_urls(metadata.get("citations", []))
+    preview = build_payload_preview(
+        record, assistant=assistant, prompt_index=index,
+        model=metadata["model"],
+        payload={"system_prompt": BATCH_BUYER_ANSWER_SYSTEM_PROMPT,
+                 "prompt": prompt, "response_schema": BEDROCK_BATCH_SCHEMA},
+    )
+    try:
+        parsed = extract_json_object(raw)
+        answers = parsed.get("answers", [])
+        if len(answers) != 1 or answers[0].get("prompt_index") != index:
+            raise ValueError("Provider omitted or mismatched the question.")
+        answer = answers[0]
+        text = str(answer.get("answer_text") or "").strip()
+        if not text or metadata.get("finish_reason") == "length":
+            raise ValueError("Provider returned an empty or truncated answer.")
+        rejections: list[dict[str, Any]] = []
+        companies = normalize_recommendations(
+            answer.get("recommended_companies", []), answer_text=text,
+            require_evidence=True, rejection_log=rejections,
+        )[:5]
+        result = {
+            "prompt_index": index, "prompt": record["prompt"],
+            "prompt_category": record["category"], "buying_stage": record["buying_stage"],
+            "assistant": assistant, "model": metadata["model"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "recommended_companies": companies,
+            "overall_reasoning": answer.get("overall_reasoning", ""),
+            "unknowns": answer.get("unknowns", []), "parse_error": None,
+            "analysis_confidence": structured_answer_confidence(companies),
+            "collection_mode": "structured_provider_batch",
+            "raw_response": text, "provider_structured_answer": answer,
+            "recommendation_rejections": rejections,
+        }
+        if rejections:
+            # Recover names from the actual prose using the existing analyzer.
+            result["collection_mode"] = "provider_answer_pending_analysis"
+    except (JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
+        result = normalize_recommendation_response(
+            raw, record, assistant=assistant, prompt_index=index,
+            model=metadata["model"], defer_analysis=True,
+        )
+        result["structured_output_error"] = str(exc)
+    result.update({
+        "provider_source_urls": sources,
+        "provider_citation_origin": f"native_{assistant}_citation" if sources else "none",
+        "provider_search_results": metadata.get("search_results", []),
+        "provider_batch": {"question_count": 1, "usage": metadata.get("usage", {})},
+    })
+    return [(index, result, preview, None)]
 
 
 def collect_openai_search_batch(
