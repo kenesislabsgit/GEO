@@ -125,10 +125,13 @@ export function safeReturnTo(value: string | null | undefined): string | null {
 export function resolveReturnTo(params: {
   returnTo?: string | null;
   domain?: string | null;
+  mode?: string | null;
 }): string | null {
   const explicit = safeReturnTo(params.returnTo);
   if (explicit) return explicit;
   const domain = params.domain?.trim();
-  if (!domain) return null;
-  return `${routes.newScan()}?domain=${encodeURIComponent(domain)}`;
+  if (domain) {
+    return `${routes.newScan()}?domain=${encodeURIComponent(domain)}`;
+  }
+  return params.mode === "signup" ? routes.pricing : null;
 }

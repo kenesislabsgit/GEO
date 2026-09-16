@@ -20,7 +20,12 @@ export async function generateMetadata({
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ claim?: string; returnTo?: string; domain?: string }>;
+  searchParams: Promise<{
+    claim?: string;
+    returnTo?: string;
+    domain?: string;
+    mode?: string;
+  }>;
 }) {
   // A genuinely signed-in person skips the form. This is the real session
   // check, not the cookie-presence guess the middleware makes - a stale

@@ -16,6 +16,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const router = useRouter();
   const params = useSearchParams();
   const claim = params.get("claim");
+  const mode = params.get("mode") === "signup" ? "signup" : "signin";
   // The hero's "audit my site" field arrives as its own `domain` param, not
   // baked into returnTo (a GET form drops any query string on its own
   // action) - resolveReturnTo turns that into the same destination
@@ -23,8 +24,8 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const returnTo = resolveReturnTo({
     returnTo: params.get("returnTo"),
     domain: params.get("domain"),
+    mode,
   });
-  const mode = params.get("mode") === "signup" ? "signup" : "signin";
   const authError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

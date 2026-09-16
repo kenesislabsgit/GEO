@@ -25,8 +25,10 @@ test("homepage auth controls switch modes and submit with Enter", async ({
   expect(runtimeProblems).toEqual([]);
   await page.getByLabel("Password").press("Enter");
 
-  await page.waitForURL(/\/dashboard\/scans\/new/, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: /New audit/i })).toBeVisible();
+  await page.waitForURL(/\/pricing/, { timeout: 15_000 });
+  await expect(
+    page.getByRole("heading", { name: /Start free/i }),
+  ).toBeVisible();
 });
 
 test("plan choice survives account creation and checkout fails closed without config", async ({
