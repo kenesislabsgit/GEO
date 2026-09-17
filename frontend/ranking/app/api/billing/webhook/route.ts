@@ -6,8 +6,8 @@ import {
   upsertSubscription,
 } from "@/lib/db/repository";
 import { log } from "@/lib/log";
+import { mapDodoEventStatus } from "@/lib/billing/dodo";
 import { resolvePlanFromProductId } from "@/lib/billing/entitlements";
-import type { SubscriptionStatus } from "@/types/database";
 
 // Five minutes of clock drift, matching the Standard Webhooks recommendation.
 const TIMESTAMP_TOLERANCE_SECONDS = 300;
@@ -61,24 +61,6 @@ function verifySignature(
   return false;
 }
 
-/**
- * Only event types with a known meaning may change a subscription's status.
- * The old behaviour - default any subscription/payment event to "active" - 
- * meant subscription.expired and subscription.on_hold quietly kept the plan
- * alive forever.
- */
-const EVENT_STATUS: Record<string, SubscriptionStatus> = {
-  "subscription.active": "active",
-  "subscription.renewed": "active",
-  "subscription.plan_changed": "active",
-  "subscription.on_hold": "past_due",
-  "subscription.failed": "inactive",
-  "subscription.expired": "inactive",
-  "subscription.cancelled": "canceled",
-  "payment.succeeded": "active",
-  "payment.failed": "past_due",
-};
-
 export async function POST(request: Request) {
   const rawBody = await request.text();
 
@@ -129,7 +111,7 @@ export async function POST(request: Request) {
   try {
     const data = payload.data;
     const userId = data?.metadata?.user_id;
-    const status = EVENT_STATUS[eventType];
+    const status = mapDodoEventStatus(eventType, data?.status);
 
     if (userId && data?.subscription_id && status) {
       const plan =

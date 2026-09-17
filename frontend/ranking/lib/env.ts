@@ -21,6 +21,10 @@ const REQUIRED_IN_PRODUCTION: Requirement[] = [
   { name: "DODO_PAYMENTS_WEBHOOK_KEY", why: "verifying billing webhooks" },
   { name: "DODO_FOUNDER_MONTHLY_PRODUCT_ID", why: "the Plus plan product" },
   {
+    name: "DODO_FOUNDER_YEARLY_PRODUCT_ID",
+    why: "the yearly Plus plan product",
+  },
+  {
     name: "DODO_GROWTH_MONTHLY_PRODUCT_ID",
     why: "the Growth plan product",
   },
