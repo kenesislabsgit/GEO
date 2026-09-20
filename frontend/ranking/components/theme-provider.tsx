@@ -76,16 +76,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
   const [system, setSystem] = useState<ResolvedTheme>("light");
   const themeRef = useRef(theme);
-  themeRef.current = theme;
+
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   useEffect(() => {
     const stored = readStoredTheme();
     const sys = systemTheme();
     const resolved = stored === "system" ? sys : stored;
-    setThemeState(stored);
-    setSystem(sys);
-    setResolvedTheme(resolved);
     applyTheme(resolved, false);
+    const frame = requestAnimationFrame(() => {
+      setThemeState(stored);
+      setSystem(sys);
+      setResolvedTheme(resolved);
+    });
 
     const media = window.matchMedia(THEME_MEDIA_QUERY);
     const onMedia = () => {
@@ -109,6 +114,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", onStorage);
 
     return () => {
+      cancelAnimationFrame(frame);
       media.removeEventListener("change", onMedia);
       window.removeEventListener("storage", onStorage);
     };
@@ -122,6 +128,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // Preference is still applied for this tab.
     }
     const resolved = resolveTheme(value);
+    themeRef.current = value;
     setThemeState(value);
     setResolvedTheme(resolved);
     applyTheme(resolved, true);

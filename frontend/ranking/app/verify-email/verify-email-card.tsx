@@ -10,6 +10,7 @@ import { routes } from "@/lib/routes";
 
 export function VerifyEmailCard({ email }: { email: string | null }) {
   const params = useSearchParams();
+  const returnTo = params.get("returnTo") || routes.newScan();
   const verified = params.get("verified") === "1";
   const linkError = params.get("error");
   const [resent, setResent] = useState(false);
@@ -26,7 +27,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           You&apos;re all set - run your first audit.
         </p>
         <Button asChild className="mt-6 w-full">
-          <Link href={routes.newScan()}>Start your audit</Link>
+          <Link href={returnTo}>Start your audit</Link>
         </Button>
       </div>
     );
@@ -51,7 +52,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
             await authClient
               .sendVerificationEmail({
                 email,
-                callbackURL: `${routes.verifyEmail}?verified=1`,
+                callbackURL: returnTo,
               })
               .catch(() => {});
             setResent(true);
@@ -84,7 +85,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           await authClient
             .sendVerificationEmail({
               email,
-              callbackURL: `${routes.verifyEmail}?verified=1`,
+              callbackURL: returnTo,
             })
             .catch(() => {});
           setResent(true);

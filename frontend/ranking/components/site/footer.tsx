@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/site/logo";
 import { routes } from "@/lib/routes";
+import { getSessionUser } from "@/lib/auth/session";
 
 const columns = [
   {
@@ -8,7 +9,6 @@ const columns = [
     links: [
       { href: routes.freeAuditSignup, label: "Free audit" },
       { href: routes.pricing, label: "Pricing" },
-      { href: routes.dashboard, label: "Dashboard" },
     ],
   },
   {
@@ -25,7 +25,11 @@ const columns = [
   },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const user = await getSessionUser();
+  const productLinks = user
+    ? [...columns[0].links, { href: routes.dashboard, label: "Dashboard" }]
+    : columns[0].links;
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
@@ -34,8 +38,8 @@ export function SiteFooter() {
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Measure whether AI answer engines recommend your brand before
-              your competitors do. Plus samples ChatGPT, Claude, Gemini,
-              Perplexity and Mistral. Pro adds Grok, DeepSeek and more.
+              your competitors do. Plus samples ChatGPT, Claude, Grok,
+              Llama Search and Mistral. Pro adds Gemini, Perplexity and more.
             </p>
           </div>
           <div className="flex gap-16">
@@ -45,7 +49,7 @@ export function SiteFooter() {
                   {column.title}
                 </p>
                 <ul className="mt-4 flex flex-col gap-2.5">
-                  {column.links.map((link) => (
+                  {(column.title === "Product" ? productLinks : column.links).map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}

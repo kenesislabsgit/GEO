@@ -20,7 +20,7 @@ audit. See `ARCHITECTURE.md`.
 - Better Auth (email/password + Google) — sessions in the same Postgres
 - Python `geo_audit` engine: crawl → questions → providers → scoring → export
 - Dodo Payments (hosted checkout + signed webhooks; no simulation anywhere)
-- Resend for email; Vitest + Playwright for tests
+- Brevo for primary email, with AWS SES fallback; Vitest + Playwright for tests
 
 ## Local setup
 
@@ -72,7 +72,7 @@ frontend renders stored numbers and never recomputes. See `METHODOLOGY.md`.
 ## Production notes
 
 - `lib/env.ts` makes production refuse to boot without required config
-  (database, auth, Dodo, Resend, IP salt). There are no demo fallbacks.
+  (database, auth, Dodo, Brevo, AWS SES, IP salt). There are no demo fallbacks.
 - Deploy web and worker separately; both need `DATABASE_URL`. The worker
   machine needs Python + the GEO directory. See `DEPLOYMENT.md`.
 - Operational procedures: `../../docs/RUNBOOK.md`.

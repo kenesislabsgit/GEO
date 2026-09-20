@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { authorizeAudit } from "@/lib/billing/enforce";
-import { FREE_AUDIT_PROVIDER } from "@/lib/constants";
+import { ALL_PROVIDERS, FREE_AUDIT_PROVIDER } from "@/lib/constants";
 import {
   getBrandByDomainForOwner,
   getBrandById,
@@ -16,34 +16,25 @@ import { enqueueScan } from "@/lib/scans/queue";
 import { hashIp } from "@/lib/security/hash";
 import { limitAuditStart } from "@/lib/rate-limit";
 import { normalizeDomain, UrlValidationError } from "@/lib/security/url";
-import { isEmailDeliveryConfigured } from "@/lib/email/resend";
+import { isEmailDeliveryConfigured } from "@/lib/email/delivery";
 import type { ScanInputSnapshot } from "@/types/database";
 
 export const runtime = "nodejs";
+
+const AUDIT_REQUEST_PROVIDERS = [
+  ...ALL_PROVIDERS,
+  // Kept for older clients and imported audit links. New scans use the
+  // searching OpenAI route and Bedrock Claude route from ALL_PROVIDERS.
+  "openai",
+  "claude",
+] as const;
 
 const requestSchema = z.object({
   domain: z.string().min(3),
   brandId: z.string().min(8).optional(),
   mode: z.enum(["free", "pro"]).optional(),
   assistants: z
-    .array(
-      z.enum([
-        "openai",
-        "openai_search",
-        "gemini",
-        "perplexity",
-        "bedrock_claude",
-        "bedrock_nova",
-        "bedrock_mistral",
-        "grok",
-        "deepseek",
-        "kimi",
-        "groq",
-        "minimax",
-        "sarvam",
-        "qwen",
-      ]),
-    )
+    .array(z.enum(AUDIT_REQUEST_PROVIDERS))
     .min(1)
     .optional(),
   limitPerAssistant: z.number().int().min(1).max(20).optional(),

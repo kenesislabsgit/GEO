@@ -1,12 +1,10 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Check, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { LandingHero } from "@/components/site/hero";
-import { MonitoringChart } from "@/components/site/monitoring-chart";
-import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -136,7 +134,7 @@ function AnswerCard() {
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
               Cited
             </span>
-            {["triya.ai", "witvix.com", "cobaltai.com"].map((source) => (
+            {["triya.ai", "witvix.com", "viact.ai"].map((source) => (
               <span
                 key={source}
                 className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground"
@@ -299,21 +297,21 @@ function FloatChip({
 /** Share of voice: who wins the answers in your category. */
 function ShareOfVoicePanel() {
   const rows = [
-    { name: "Avigilon", value: 46, tone: "bg-[#52a8ff]" },
-    { name: "Kenesis", value: 34, tone: "bg-[color:var(--arc-accent)]", you: true },
-    { name: "Triya", value: 12, tone: "bg-[#ff6ea9]" },
-    { name: "Everyone else", value: 8, tone: "bg-foreground/20" },
+    { name: "Avigilon", value: 48, tone: "bg-[#52a8ff]" },
+    { name: "Witvix", value: 32, tone: "bg-[color:var(--arc-accent)]" },
+    { name: "Triya", value: 20, tone: "bg-[#ff6ea9]" },
+    { name: "Kenesis", value: 0, tone: "bg-foreground/20", you: true },
   ];
   return (
     <div className="relative">
       <FloatChip className="-top-4 -right-2 sm:-right-6">
         <span aria-hidden className="size-1.5 rounded-full bg-[#3ecf7a]" />
-        Kenesis, up 6 pts
+        Example report
       </FloatChip>
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Share of voice
+          Share of voice · how often each brand is named
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
           20 questions · 5 AIs · Plus
@@ -376,7 +374,7 @@ function ActionListPanel() {
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Action centre
+          Action centre · prioritized fixes
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">3 open</p>
       </div>
@@ -426,7 +424,7 @@ function EvidencePanel() {
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Evidence
+          Example evidence
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
           Stored per answer
@@ -440,7 +438,7 @@ function EvidencePanel() {
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           &ldquo;Recommended:{" "}
           <mark className="arc-highlight-sweep rounded bg-transparent px-1 py-0.5 font-medium text-foreground">
-            Kenesis
+            Avigilon
           </mark>{" "}
           , an on-prem edge platform where everything runs on your own
           hardware, from camera to alert&hellip;&rdquo;
@@ -470,39 +468,6 @@ const PROVIDER_STRIP = ALL_PROVIDERS;
 // What a Pro audit actually reports on - real feature names, not
 // filler. Two rows moving opposite ways so they don't read as one mechanical
 // strip; each is doubled at render time so its own loop has no visible seam.
-const STAT_CHIPS_ROW_1 = [
-  `${ALL_PROVIDERS.length} providers available`,
-  "Cited sources",
-  "Share of voice",
-  "Position tracking",
-  "Competitor benchmarking",
-  "Citation gaps",
-] as const;
-const STAT_CHIPS_ROW_2 = [
-  "Full answer text",
-  "Weekly monitoring",
-  "Action centre",
-  "Email alerts",
-  "Multi-market scans",
-  "PDF & CSV export",
-] as const;
-
-/* ---------------------------------------------------- bento mini-visuals -- */
-
-// Only providers the audit engine genuinely asks, dotted around the radar.
-const RADAR_BLIPS = [
-  { id: "openai", className: "top-[8%] left-[46%]" },
-  { id: "claude", className: "top-[20%] right-[17%]" },
-  { id: "gemini", className: "top-[24%] left-[19%]" },
-  { id: "perplexity", className: "top-[47%] left-[7%]" },
-  { id: "grok", className: "top-[43%] right-[8%]" },
-  { id: "deepseek", className: "top-[68%] left-[20%]" },
-  { id: "llama", className: "top-[66%] right-[18%]" },
-  { id: "mistral", className: "top-[80%] left-[44%]" },
-  { id: "kimi", className: "top-[36%] left-[33%]" },
-  { id: "nova", className: "top-[58%] right-[36%]" },
-] as const;
-
 /* ----------------------------------------------------------------- page -- */
 
 export default async function HomePage() {
@@ -628,204 +593,6 @@ export default async function HomePage() {
           </Reveal>
           </div>
         </section>
-        {/* Bento - the evidence grid */}
-        <section className="relative bg-[color:var(--arc-mist)] dark:bg-background">
-          <SectionFrame />
-          <div className="relative mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
-            <Reveal className="max-w-2xl">
-              <p className="arc-eyebrow">The report</p>
-              <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
-                Evidence, not vibes
-              </h2>
-              <p className="mt-3 text-muted-foreground">
-                See where you appear, how often you win, and the answers and
-                sources behind every result.
-              </p>
-            </Reveal>
-
-            <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-              {/* Visibility score - stat + bars */}
-              <Reveal className="sm:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6 md:p-8 arc-card-hover">
-                <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                  Visibility score
-                </p>
-                <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                  A score that moves when you do
-                </h3>
-                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Mentions and position rolled into a comparable 0-100. The
-                  report also shows evidence quality beside the score.
-                </p>
-                <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
-                  <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
-                    62<span className="text-foreground/35">.4</span>
-                  </p>
-                  <p className="text-xs font-medium text-[color:var(--arc-green)] sm:text-sm">
-                    +6.2 this month
-                  </p>
-                </div>
-                <div className="mt-4 flex h-14 items-stretch gap-1 sm:h-20 sm:gap-1.5">
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <span
-                      key={i}
-                      className={`flex-1 rounded-full ${i < 15 ? "arc-light-up bg-[color:var(--arc-accent)]" : "bg-[color:var(--arc-accent)]/15"}`}
-                      style={delayStyle(200 + i * 18)}
-                    />
-                  ))}
-                </div>
-              </div>
-              </Reveal>
-
-              {/* Regional growth - interactive globe */}
-              <Reveal delay={100} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative flex min-h-44 flex-1 items-center justify-center sm:min-h-56" aria-hidden>
-                  <div className="arc-glow absolute inset-0" />
-                  <RegionalGlobe className="relative aspect-square w-full max-w-[220px] sm:max-w-[380px]" />
-                </div>
-                <div className="p-5 sm:p-6 md:p-8">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Regional growth · Pro
-                  </p>
-                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                    Grow across every market
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    On Pro and Growth, compare AI visibility across countries
-                    to see where your brand leads or falls behind. Plus is one
-                    market.
-                  </p>
-                </div>
-              </div>
-              </Reveal>
-
-              {/* Providers - floating pills */}
-              <Reveal delay={150} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative min-h-52 flex-1 sm:min-h-72">
-                  {/* The radar dial: rings, crosshair, and a sweeping beam. */}
-                  <div aria-hidden className="absolute inset-0 grid place-items-center">
-                    <div className="relative aspect-square w-[72%] sm:w-[86%]">
-                      <div className="absolute inset-0 rounded-full border border-border" />
-                      <div className="absolute inset-[17%] rounded-full border border-border" />
-                      <div className="absolute inset-[34%] rounded-full border border-border" />
-                      <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
-                      <div className="arc-radar-sweep absolute inset-0" />
-                      <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
-                    </div>
-                  </div>
-                  {RADAR_BLIPS.map((blip, index) => (
-                    <span
-                      key={blip.id}
-                      className={`arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm sm:size-9 ${blip.className} ${index >= 6 ? "hidden sm:grid" : ""}`}
-                      style={delayStyle(index * 550)}
-                    >
-                      <ProviderLogo provider={blip.id} className="size-3.5 sm:size-4" />
-                    </span>
-                  ))}
-                </div>
-                <div className="p-5 sm:p-6 md:p-8">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Providers
-                  </p>
-                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                    One method, every provider
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Plus compares the same buyer questions across 5 AIs. Pro
-                    picks any 10 from a catalog of {ALL_PROVIDERS.length}.
-                  </p>
-                </div>
-              </div>
-              </Reveal>
-
-              {/* Big stat card */}
-              <Reveal delay={100} className="sm:col-span-2 lg:col-span-1">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
-                <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
-                  200
-                </p>
-                <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
-                  provider answers per Pro audit - 20 questions × 10 selected providers
-                </p>
-                <div className="mt-6 flex flex-col gap-2 overflow-hidden">
-                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
-                    <div className="arc-marquee flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
-                      {[...STAT_CHIPS_ROW_1, ...STAT_CHIPS_ROW_1].map((chip, i) => (
-                        <span
-                          key={`${chip}-${i}`}
-                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
-                    <div className="arc-marquee arc-marquee--reverse flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
-                      {[...STAT_CHIPS_ROW_2, ...STAT_CHIPS_ROW_2].map((chip, i) => (
-                        <span
-                          key={`${chip}-${i}`}
-                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              </Reveal>
-
-              {/* Monitoring - trend chart */}
-              <Reveal delay={150} className="sm:col-span-2">
-              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative px-2 pt-12 sm:pt-14">
-                  <span
-                    className="arc-fade-late absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:left-[31%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
-                    style={delayStyle(900)}
-                  >
-                    <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
-                    Avg 62.4
-                  </span>
-                  <span
-                    className="arc-fade-late absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:right-auto sm:left-[69%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
-                    style={delayStyle(1100)}
-                  >
-                    <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
-                    Low 41.2
-                  </span>
-                  <span
-                    aria-hidden
-                    className="arc-fade-late absolute top-12 bottom-0 left-[31%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
-                  />
-                  <span
-                    aria-hidden
-                    className="arc-fade-late absolute top-12 bottom-0 left-[69%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
-                  />
-                  <MonitoringChart />
-                </div>
-                <div className="p-5 pt-4 sm:p-6 md:p-8 md:pt-4">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Monitoring
-                  </p>
-                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                    Catch the moves that matter
-                  </h3>
-                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                    Scheduled re-scans chart your visibility across providers and
-                    email you when it shifts.
-                  </p>
-                </div>
-              </div>
-              </Reveal>
-            </div>
-          </div>
-        </section>
-
-        <div aria-hidden className="arc-hatch h-8 border-b border-border" />
 
         {/* What you get - the report turned into moves */}
         <section className="relative bg-background">
@@ -1006,7 +773,7 @@ export default async function HomePage() {
               </h2>
               <p className="mt-3 text-muted-foreground">
                 Start with a free ChatGPT audit. Plus adds a 7-day trial,
-                five AIs, and weekly monitoring.
+                ChatGPT, Claude, Grok, Llama Search, Mistral, and weekly monitoring.
               </p>
             </Reveal>
 
@@ -1061,26 +828,26 @@ export default async function HomePage() {
         <div aria-hidden className="arc-hatch h-8 border-t border-border" />
 
         {/* Final CTA */}
-        <section className="relative bg-[color:var(--arc-ink)]">
+        <section className="relative bg-card">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--arc-accent)_35%,transparent),transparent_60%)]"
           />
           <div aria-hidden className="arc-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
-          <SectionFrame tone="dark" marks="both" />
-          <Reveal className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
-            <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+          <SectionFrame marks="both" />
+          <Reveal className="relative mx-auto max-w-6xl px-4 py-16 text-center md:px-6 md:py-20">
+            <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="arc-pulse-soft size-3" aria-hidden />
               Two minutes for the free ChatGPT report
             </p>
             <h2
-              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-white md:text-6xl"
+              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-foreground md:text-5xl"
               style={delayStyle(100)}
             >
               Find out before your competitors do.
             </h2>
             <p
-              className="arc-rise mx-auto mt-4 max-w-lg text-white/55"
+              className="arc-rise mx-auto mt-4 max-w-lg text-muted-foreground"
               style={delayStyle(200)}
             >
               Run a free AI visibility audit. No card. Confirm your email,
@@ -1093,7 +860,7 @@ export default async function HomePage() {
               <Button
                 asChild
                 size="lg"
-                className="group h-10 bg-white px-5 text-black shadow-none hover:bg-white/90"
+                className="group h-10 px-5 shadow-none"
               >
                 <Link href={routes.freeAuditSignup}>
                   Run free audit
@@ -1101,17 +868,6 @@ export default async function HomePage() {
                     data-icon="inline-end"
                     className="transition-transform duration-200 group-hover:translate-x-0.5"
                   />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-10 border-white/20 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white"
-              >
-                <Link href={routes.methodology}>
-                  Methodology
-                  <ArrowUpRight data-icon="inline-end" />
                 </Link>
               </Button>
             </div>

@@ -167,11 +167,15 @@ export function DashboardShell({
   // tick) so SSR and the first client render agree.
   useEffect(() => {
     const stored = localStorage.getItem("rbai-nav-collapsed") === "1";
-    if (stored) setCollapsed(true);
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setAnimateWidth(true));
+    let animateFrame = 0;
+    const storedFrame = requestAnimationFrame(() => {
+      if (stored) setCollapsed(true);
+      animateFrame = requestAnimationFrame(() => setAnimateWidth(true));
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(storedFrame);
+      cancelAnimationFrame(animateFrame);
+    };
   }, []);
   const toggleCollapsed = () => {
     setCollapsed((current) => {

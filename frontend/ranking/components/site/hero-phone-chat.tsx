@@ -33,16 +33,6 @@ function useTypedText(
   const [shown, setShown] = useState(instant && active ? text : "");
 
   useEffect(() => {
-    if (!active) {
-      setShown("");
-      return;
-    }
-    if (instant) {
-      setShown(text);
-      return;
-    }
-
-    setShown("");
     let count = 0;
     let timer = 0;
     const tick = () => {
@@ -52,7 +42,16 @@ function useTypedText(
         timer = window.setTimeout(tick, msPerChar);
       }
     };
-    timer = window.setTimeout(tick, msPerChar);
+    timer = window.setTimeout(() => {
+      if (!active) {
+        setShown("");
+      } else if (instant) {
+        setShown(text);
+      } else {
+        setShown("");
+        timer = window.setTimeout(tick, msPerChar);
+      }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [text, active, msPerChar, instant]);
 
@@ -103,11 +102,11 @@ export function HeroPhoneChat({
   );
 
   useEffect(() => {
-    if (instant) {
-      setPhase("hold");
-      return;
-    }
-    setPhase("question");
+    const timer = window.setTimeout(
+      () => setPhase(instant ? "hold" : "question"),
+      0,
+    );
+    return () => window.clearTimeout(timer);
   }, [prompt.question, instant]);
 
   useEffect(() => {
@@ -127,7 +126,8 @@ export function HeroPhoneChat({
 
   useEffect(() => {
     if (phase !== "answer" || !answer.done) return;
-    setPhase("hold");
+    const timer = window.setTimeout(() => setPhase("hold"), 0);
+    return () => window.clearTimeout(timer);
   }, [phase, answer.done]);
 
   useEffect(() => {

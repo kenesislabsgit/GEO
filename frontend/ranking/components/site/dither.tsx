@@ -1,6 +1,7 @@
-/* eslint-disable react/no-unknown-property */
 "use client";
 
+/* Three.js uniforms are intentionally mutable objects updated every frame. */
+/* eslint-disable react-hooks/refs */
 import { Component, forwardRef, useEffect, useRef, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, wrapEffect } from "@react-three/postprocessing";

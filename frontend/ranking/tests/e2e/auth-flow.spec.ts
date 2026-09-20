@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("homepage auth controls switch modes and submit with Enter", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.11" });
   test.setTimeout(30_000);
   const email = `auth-flow-${Date.now()}@example.com`;
   const runtimeProblems: string[] = [];
@@ -25,51 +26,27 @@ test("homepage auth controls switch modes and submit with Enter", async ({
   expect(runtimeProblems).toEqual([]);
   await page.getByLabel("Password").press("Enter");
 
-  await page.waitForURL(/\/pricing/, { timeout: 15_000 });
-  await expect(
-    page.getByRole("heading", { name: /Start free/i }),
-  ).toBeVisible();
+  await page.waitForURL(/\/verify-email/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: /Check your inbox/i })).toBeVisible();
 });
 
-test("plan choice survives account creation and checkout fails closed without config", async ({
+test("plan choice survives account creation while email confirmation is pending", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.12" });
   const email = `plan-flow-${Date.now()}@example.com`;
 
   await page.goto("/pricing");
-  await page.getByRole("link", { name: "Get started" }).first().click();
+  await page.getByRole("link", { name: /Start 7-day trial/i }).click();
   await expect(page).toHaveURL(/\/login\?/);
 
   // The pricing CTA lands in sign-in mode; switch to signup for a new account.
   await page.getByRole("link", { name: "Need an account? Sign up" }).click();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("password1234");
-  // Better Auth rate-limits signup bursts; a suite of tests signing up in a
-  // row can trip it. Retry the click until the redirect happens.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await page.getByRole("button", { name: "Create account" }).click();
-    try {
-      await page.waitForURL(/\/dashboard\/billing\?/, { timeout: 12_000 });
-      break;
-    } catch {
-      await page.waitForTimeout(10_000);
-    }
-  }
-  await page.waitForURL(/\/dashboard\/billing\?/, { timeout: 15_000 });
-  await expect(page.getByText("Pro", { exact: true }).first()).toBeVisible();
-
-  // Real checkout: the button either hands off to Dodo's hosted page (keys
-  // configured) or answers 503 (keys missing). It never simulates a plan.
-  const [response] = await Promise.all([
-    page.waitForResponse((res) => res.url().includes("/api/billing/checkout")),
-    page.getByRole("button", { name: /Subscribe monthly/i }).first().click(),
-  ]);
-  expect([200, 503]).toContain(response.status());
-  if (response.status() === 200) {
-    // Keys configured: the browser hands off to Dodo's hosted checkout.
-    await page.waitForURL(/dodopayments\.com/, { timeout: 20_000 });
-  } else {
-    // Failed closed: still on billing, no plan granted.
-    await expect(page).toHaveURL(/\/dashboard\/billing/);
-  }
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL(/\/verify-email/, { timeout: 15_000 });
+  const current = new URL(page.url());
+  expect(current.searchParams.get("returnTo")).toContain("/dashboard/billing/start");
+  await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
 });

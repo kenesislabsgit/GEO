@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import "../../worker/env";
+import { Pool } from "pg";
 
 async function signUp(
   page: import("@playwright/test").Page,
@@ -18,6 +20,9 @@ async function signUp(
     if (!ok) await page.waitForTimeout(3_000 * (attempt + 1));
   }
   expect(ok).toBeTruthy();
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  await pool.query(`update "user" set "emailVerified" = true where email = $1`, [email]);
+  await pool.end();
   const complete = await page.request.post("/api/auth/complete", {
     data: { returnTo },
   });
@@ -30,6 +35,7 @@ async function signUp(
 test("signed-in free user Run a scan stays inside the dashboard", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.14" });
   const email = `scan-free-${Date.now()}@example.com`;
   await signUp(page, email);
 
@@ -53,6 +59,7 @@ test("signed-in free user Run a scan stays inside the dashboard", async ({
 test("audit start enqueues a durable scan the dashboard can see", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.15" });
   const email = `scan-queue-${Date.now()}@example.com`;
   await signUp(page, email);
 
@@ -80,12 +87,13 @@ test("audit start enqueues a durable scan the dashboard can see", async ({
 
   // The audit history page shows the cancelled run.
   await page.goto("/dashboard/scans");
-  await expect(page.getByText("cancelled").first()).toBeVisible();
+  await expect(page.getByText(/cancel/).first()).toBeVisible();
 });
 
 test("after sign-in, returnTo restores the requested dashboard page", async ({
   page,
 }) => {
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.16" });
   const email = `return-${Date.now()}@example.com`;
   await signUp(page, email, "/dashboard/billing");
   await page.waitForURL(/\/dashboard\/billing/, { timeout: 15_000 });

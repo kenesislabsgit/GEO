@@ -13,7 +13,7 @@ import { ALL_PROVIDERS, APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
 
-const PLAN_IDS: PlanId[] = SOLD_PLAN_IDS;
+const PLAN_IDS: PlanId[] = ["free", ...SOLD_PLAN_IDS];
 
 export const metadata = {
   title: "Pricing",
@@ -27,10 +27,10 @@ type Cell =
   | { label: string; providers: readonly string[] };
 
 /** The exhaustive comparison. One row per real capability, one column per
- * PLAN_IDS entry (founder/Plus, agency/Pro - in that order). */
+ * PLAN_IDS entry (Free, Plus, Pro - in that order). */
 const COMPARISON: Array<{
   section: string;
-  rows: Array<{ label: string; cells: [Cell, Cell] }>;
+  rows: Array<{ label: string; cells: [Cell, Cell, Cell] }>;
 }> = [
   {
     section: "Audit",
@@ -38,6 +38,7 @@ const COMPARISON: Array<{
       {
         label: "Websites",
         cells: [
+          String(PLAN_CONFIG.free.features.brands),
           String(PLAN_CONFIG.founder.features.brands),
           "Custom",
         ],
@@ -45,17 +46,22 @@ const COMPARISON: Array<{
       {
         label: "Tracked buyer questions per website",
         cells: [
+          String(PLAN_CONFIG.free.features.activePrompts),
           String(PLAN_CONFIG.founder.features.activePrompts),
           "Custom",
         ],
       },
       {
         label: "Questions asked per audit run",
-        cells: ["20", "20"],
+        cells: ["5", "20", "20"],
       },
       {
         label: "AI providers compared",
         cells: [
+          {
+            label: "ChatGPT",
+            providers: PLAN_CONFIG.free.features.providers,
+          },
           {
             label: String(PLAN_CONFIG.founder.features.providers.length),
             providers: PLAN_CONFIG.founder.features.providers,
@@ -69,6 +75,7 @@ const COMPARISON: Array<{
       {
         label: "Provider checks per month",
         cells: [
+          String(PLAN_CONFIG.free.features.providerChecksPerMonth),
           `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS}`,
           "Custom",
         ],
@@ -76,6 +83,10 @@ const COMPARISON: Array<{
       {
         label: "Provider checks per full audit",
         cells: [
+          String(
+            PLAN_CONFIG.free.features.activePrompts *
+              PLAN_CONFIG.free.features.providersPerScan,
+          ),
           String(
             PLAN_CONFIG.founder.features.activePrompts *
               PLAN_CONFIG.founder.features.providersPerScan,
@@ -86,6 +97,7 @@ const COMPARISON: Array<{
       {
         label: "Competitors tracked per website",
         cells: [
+          String(PLAN_CONFIG.free.features.competitorsPerBrand),
           String(PLAN_CONFIG.founder.features.competitorsPerBrand),
           "Custom",
         ],
@@ -95,14 +107,14 @@ const COMPARISON: Array<{
   {
     section: "Evidence",
     rows: [
-      { label: "Visibility score & breakdown", cells: [true, true] },
-      { label: "Full AI answers", cells: [true, true] },
+      { label: "Visibility score & breakdown", cells: [true, true, true] },
+      { label: "Full AI answers", cells: [false, true, true] },
       {
         label: "Sources & verified web mentions",
-        cells: [true, true],
+        cells: ["Top competitor", true, true],
       },
-      { label: "Citation gaps", cells: [true, true] },
-      { label: "Score history", cells: [true, true] },
+      { label: "Citation gaps", cells: [false, true, true] },
+      { label: "Score history", cells: [false, true, true] },
     ],
   },
   {
@@ -110,15 +122,15 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Website improvement plan",
-        cells: ["Full plan", "Full plan"],
+        cells: ["First fix", "Full plan", "Full plan"],
       },
       {
         label: "Copy-paste prompt for your AI coding tool",
-        cells: [true, true],
+        cells: [false, true, true],
       },
       {
         label: "Impact tracking on completed fixes",
-        cells: [false, true],
+        cells: [false, false, true],
       },
     ],
   },
@@ -127,18 +139,18 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Scheduled re-scans",
-        cells: ["Weekly", "Daily"],
+        cells: [false, "Weekly", "Daily"],
       },
-      { label: "Score alerts by email", cells: [true, true] },
+      { label: "Score alerts by email", cells: [false, true, true] },
     ],
   },
   {
     section: "Sharing",
     rows: [
-      { label: "Shareable report link", cells: [true, true] },
-      { label: "Private reports", cells: [true, true] },
-      { label: "CSV export", cells: [false, true] },
-      { label: "PDF report", cells: [false, true] },
+      { label: "Shareable report link", cells: [true, true, true] },
+      { label: "Private reports", cells: [false, true, true] },
+      { label: "CSV export", cells: [false, false, true] },
+      { label: "PDF report", cells: [false, false, true] },
     ],
   },
 ];
@@ -214,8 +226,8 @@ export default async function PricingPage() {
           offers: {
             "@type": "AggregateOffer",
             priceCurrency: "USD",
-            lowPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
-            highPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
+            lowPrice: String(PLAN_CONFIG.free.monthlyPriceUsd),
+            highPrice: String(PLAN_CONFIG.agency.monthlyPriceUsd),
             offerCount: PLAN_IDS.length,
             offers: PLAN_IDS.map((planId) => {
               const plan = PLAN_CONFIG[planId];
@@ -248,8 +260,9 @@ export default async function PricingPage() {
           Start free. Scale when it matters.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Start with a free ChatGPT audit. Plus adds a 7-day trial, five AIs,
-          and weekly monitoring. Pro is custom.
+          Start with a free ChatGPT audit. Plus adds a 7-day trial, ChatGPT,
+          Claude, Grok, Llama Search, Mistral, and weekly monitoring. Pro starts
+          at ${PLAN_CONFIG.agency.monthlyPriceUsd} per month.
         </p>
       </div>
 

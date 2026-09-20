@@ -12,10 +12,20 @@ import { resolveReturnTo, routes } from "@/lib/routes";
 import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 
-export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+
+export function LoginForm({
+  googleEnabled = false,
+  emailVerificationEnabled = false,
+}: {
+  googleEnabled?: boolean;
+  emailVerificationEnabled?: boolean;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const claim = params.get("claim");
+  const requestedDomain = params.get("domain")?.trim() ?? "";
   const mode = params.get("mode") === "signup" ? "signup" : "signin";
   // The hero's "audit my site" field arrives as its own `domain` param, not
   // baked into returnTo (a GET form drops any query string on its own
@@ -31,6 +41,9 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const passwordLengthValid =
+    password.length >= MIN_PASSWORD_LENGTH &&
+    password.length <= MAX_PASSWORD_LENGTH;
   const modeHref = (nextMode: "signin" | "signup") =>
     routes.login({
       mode: nextMode,
@@ -52,10 +65,18 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
               email,
               password,
               name: email.split("@")[0] || email,
+              callbackURL: returnTo ?? routes.newScan(),
             })
           : await signIn.email({ email, password });
       if (attempt.error) {
         throw new Error(attempt.error.message || "Could not sign in.");
+      }
+      if (mode === "signup" && emailVerificationEnabled) {
+        const destination = returnTo ?? routes.newScan();
+        router.push(
+          `${routes.verifyEmail}?returnTo=${encodeURIComponent(destination)}`,
+        );
+        return;
       }
       const res = await fetch("/api/auth/complete", {
         method: "POST",
@@ -86,28 +107,15 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {mode === "signup"
-          ? "Create an account to save your audits. We'll email a confirm link before the first run."
+          ? requestedDomain
+            ? emailVerificationEnabled
+              ? `We'll audit ${requestedDomain} as soon as you confirm your email.`
+              : `We'll audit ${requestedDomain} as soon as you create your account.`
+            : emailVerificationEnabled
+              ? "We'll start your first audit as soon as you confirm your email."
+              : "We'll take you straight to your first audit."
           : "Sign in to your dashboard."}
       </p>
-
-      <div className="mt-5 grid grid-cols-2 rounded-xl bg-muted p-1">
-        <Link
-          href={modeHref("signin")}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            mode === "signin" ? "bg-background shadow-sm" : "text-muted-foreground"
-          }`}
-        >
-          Sign in
-        </Link>
-        <Link
-          href={modeHref("signup")}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            mode === "signup" ? "bg-background shadow-sm" : "text-muted-foreground"
-          }`}
-        >
-          Sign up
-        </Link>
-      </div>
 
       {claim ? (
         <div className="mt-4 rounded-lg border border-[color:var(--arc-accent)]/30 bg-[color:var(--arc-accent-soft)] px-3.5 py-2.5 text-sm">
@@ -165,6 +173,26 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
                 </Link>
               ) : null}
             </div>
+            {mode === "signup" ? (
+              <p
+                aria-live="polite"
+                className={`text-xs ${
+                  password.length === 0
+                    ? "text-muted-foreground"
+                    : passwordLengthValid
+                      ? "text-[color:var(--arc-green)]"
+                      : "text-destructive"
+                }`}
+              >
+                {password.length === 0
+                  ? "Use 8 to 128 characters."
+                  : password.length < MIN_PASSWORD_LENGTH
+                    ? `${MIN_PASSWORD_LENGTH - password.length} more character${MIN_PASSWORD_LENGTH - password.length === 1 ? "" : "s"} needed.`
+                    : password.length > MAX_PASSWORD_LENGTH
+                      ? "Password must be 128 characters or fewer."
+                      : "Password length is valid."}
+              </p>
+            ) : null}
             <Input
               id="password"
               name="password"
@@ -175,6 +203,8 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
               }
               value={password}
               required
+              minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : undefined}
+              maxLength={mode === "signup" ? MAX_PASSWORD_LENGTH : undefined}
               onChange={(e) => setPassword(e.target.value)}
             />
           </Field>

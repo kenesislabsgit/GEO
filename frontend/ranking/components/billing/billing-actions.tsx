@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export function BillingActions({
   hasSubscription: boolean;
   returnTo?: string | null;
 }) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -68,7 +70,7 @@ export function BillingActions({
         window.location.assign(data.url);
         return;
       }
-      window.location.assign("/dashboard/billing");
+      router.push("/dashboard/billing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
       setLoading(null);

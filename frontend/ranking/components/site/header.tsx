@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { HeaderBar } from "@/components/site/header-bar";
 import { Logo } from "@/components/site/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/site/mobile-nav";
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -40,12 +41,14 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ThemeToggle
-            className={
+            className={cn(
+              "hidden md:inline-flex",
               overlay
                 ? "text-foreground hover:bg-foreground/10 hover:text-foreground"
-                : undefined
-            }
+                : undefined,
+            )}
           />
+          <MobileNav signedIn={Boolean(user)} />
           {user ? (
             <>
               <Button

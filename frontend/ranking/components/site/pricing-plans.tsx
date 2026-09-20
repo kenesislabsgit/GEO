@@ -14,7 +14,6 @@ import {
 import {
   formatChecks,
   headlinePriceUsd,
-  GROWTH_WAITLIST_HREF,
   isSalesLockedPlan,
   PRO_CONTACT_HREF,
   publicSubscribeHref,
@@ -22,15 +21,17 @@ import {
   yearlySavingsUsd,
   type BillingInterval,
 } from "@/lib/billing/pricing";
+import { providerDisplayName } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { PricingIntervalToggle } from "@/components/site/pricing-interval-toggle";
 
 type CardFeature = { text: string; providers?: readonly string[] };
+const DISPLAY_PLAN_IDS: PlanId[] = ["free", ...SOLD_PLAN_IDS];
 
 function checksFeature(planId: PlanId): CardFeature {
   if (planId === "founder") {
     return {
-      text: `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird checks per month`,
+      text: `${PLUS_CHECKS_INCLUDED + PLUS_EARLY_BIRD_BONUS_CHECKS} checks this month, including ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird bonus checks`,
     };
   }
   const count = PLAN_CONFIG[planId].features.providerChecksPerMonth;
@@ -40,13 +41,21 @@ function checksFeature(planId: PlanId): CardFeature {
 }
 
 const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
+  free: [
+    { text: "One website and one audit per month" },
+    { text: "Five buyer questions checked with ChatGPT" },
+    { text: "Visibility score and top competitor" },
+    { text: "Your first prioritized fix" },
+  ],
   founder: [
     checksFeature("founder"),
     {
       text: `${PLAN_CONFIG.founder.features.activePrompts} buyer questions · ${PLAN_CONFIG.founder.features.activePrompts * PLAN_CONFIG.founder.features.providersPerScan} provider checks per audit`,
     },
     {
-      text: `${PLAN_CONFIG.founder.features.providers.length} AI providers compared side by side`,
+      text: PLAN_CONFIG.founder.features.providers
+        .map(providerDisplayName)
+        .join(", "),
       providers: PLAN_CONFIG.founder.features.providers,
     },
     { text: "Full answers, sources & verified mentions" },
@@ -97,7 +106,7 @@ function planCta(
   }
   return {
     href: publicSubscribeHref(planId, interval, signedIn),
-    label: "Get started",
+    label: `Start ${PLAN_CONFIG[planId].trialDays}-day trial`,
   };
 }
 
@@ -121,8 +130,13 @@ function PlanPrice({
   if (isSalesLockedPlan(planId)) {
     return (
       <>
-        <p className={headingClass}>Custom</p>
-        <p className="mt-1 text-xs text-muted-foreground">Pricing by request</p>
+        <p className={headingClass}>
+          From ${plan.monthlyPriceUsd}
+          <span className="text-sm font-normal text-muted-foreground">/mo</span>
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          For teams managing many websites
+        </p>
       </>
     );
   }
@@ -154,7 +168,7 @@ function PlanPrice({
             ) : null}
           </>
         ) : plan.trialDays > 0 ? (
-          <>{plan.trialDays}-day trial</>
+          <>{plan.trialDays}-day trial · or ${plan.yearlyPriceUsd}/year</>
         ) : (
           <>or ${plan.yearlyPriceUsd}/year</>
         )}
@@ -177,8 +191,11 @@ export function PricingPlans({
       <div className="flex justify-center">
         <PricingIntervalToggle value={interval} onChange={setInterval} />
       </div>
-      <div className="mt-8 mx-auto grid max-w-3xl gap-4 md:grid-cols-2">
-        {SOLD_PLAN_IDS.map((planId) => {
+      <p className="mt-3 text-center text-xs text-muted-foreground">
+        One provider check means one buyer question asked to one AI.
+      </p>
+      <div className="mt-8 mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
+        {DISPLAY_PLAN_IDS.map((planId) => {
           const plan = PLAN_CONFIG[planId];
           const popular = planId === "founder";
           const locked = isSalesLockedPlan(planId);
@@ -207,11 +224,7 @@ export function PricingPlans({
                   Most popular
                 </span>
               ) : null}
-              {planId === "founder" ? (
-                <span className="absolute -top-2.5 right-5 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  Early bird
-                </span>
-              ) : locked ? (
+              {locked ? (
                 <span className="absolute -top-2.5 right-5 inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Lock className="size-2.5" aria-hidden />
                   By request
@@ -264,19 +277,6 @@ export function PricingPlans({
           );
         })}
       </div>
-      <p className="mt-8 text-center text-sm leading-relaxed text-muted-foreground">
-        Need more websites than Plus before a custom Pro plan? Growth is a
-        waitlist tier — {PLAN_CONFIG.growth.features.brands} sites, the{" "}
-        {PLAN_CONFIG.growth.features.providersPerScan} most-used AIs, opening
-        in waves.{" "}
-        <Link
-          href={GROWTH_WAITLIST_HREF}
-          className="text-foreground underline underline-offset-4"
-        >
-          Join the list
-        </Link>
-        .
-      </p>
     </div>
   );
 }

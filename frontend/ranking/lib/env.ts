@@ -28,7 +28,8 @@ const REQUIRED_IN_PRODUCTION: Requirement[] = [
     name: "DODO_GROWTH_MONTHLY_PRODUCT_ID",
     why: "the Growth plan product",
   },
-  { name: "RESEND_API_KEY", why: "verification and alert email" },
+  { name: "BREVO_API_KEY", why: "primary verification and alert email" },
+  { name: "AWS_REGION", why: "backup email delivery through AWS SES" },
   { name: "EMAIL_FROM", why: "the sending address" },
 ];
 

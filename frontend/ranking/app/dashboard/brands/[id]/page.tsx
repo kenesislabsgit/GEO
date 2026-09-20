@@ -11,7 +11,7 @@ import {
   scoresForBrand,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
-import { hasFeature, PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { FREE_AUDIT_ACTION_COUNT } from "@/lib/constants";
 import { roundForDisplay } from "@/lib/scores/format";

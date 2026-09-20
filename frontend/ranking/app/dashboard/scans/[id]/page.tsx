@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { getBrandById, getScanRun } from "@/lib/db/repository";
+import { routes } from "@/lib/routes";
 import { ScanProgress } from "@/components/scan/scan-progress";
 
 export const metadata = { title: "Scan progress" };
@@ -18,6 +19,9 @@ export default async function DashboardScanProgressPage({
   if (!scan) notFound();
   const brand = await getBrandById(scan.brand_id);
   if (!brand || brand.owner_id !== user.id) notFound();
+  if (scan.status === "completed" || scan.status === "partial") {
+    redirect(routes.brand(brand.id));
+  }
 
   return (
     <div className="py-6">

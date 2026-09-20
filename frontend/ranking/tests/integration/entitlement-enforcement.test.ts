@@ -46,17 +46,19 @@ describe("audit authorization", () => {
   it("drops providers outside the plan and refuses when none remain", async () => {
     const { authorizeAudit } = await import("@/lib/billing/enforce");
     const user = await makeUser("ent-founder", "founder");
-    // llama and nova are not in the founder (Plus) plan; claude search is.
+    // Llama and ChatGPT are in Plus; Nova is outside the plan.
     const clamped = await authorizeAudit(user, {
       mode: "pro",
       assistants: ["bedrock_llama", "bedrock_nova", "openai_search"],
     });
     expect(clamped.ok).toBe(true);
-    if (clamped.ok) expect(clamped.assistants).toEqual(["openai_search"]);
+    if (clamped.ok) {
+      expect(clamped.assistants).toEqual(["bedrock_llama", "openai_search"]);
+    }
 
     const refused = await authorizeAudit(user, {
       mode: "pro",
-      assistants: ["bedrock_llama", "bedrock_nova"],
+      assistants: ["bedrock_nova"],
     });
     expect(refused.ok).toBe(false);
   });

@@ -133,5 +133,5 @@ export function resolveReturnTo(params: {
   if (domain) {
     return `${routes.newScan()}?domain=${encodeURIComponent(domain)}`;
   }
-  return params.mode === "signup" ? routes.pricing : null;
+  return null;
 }

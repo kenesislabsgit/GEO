@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ExportDeleteForms() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<"export" | "delete" | null>(null);
 
@@ -49,7 +51,8 @@ export function ExportDeleteForms() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
-      window.location.assign("/");
+      router.push("/");
+      router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Delete failed");
       setBusy(null);

@@ -123,10 +123,13 @@ export function HeroDemo() {
     if (started.current) return;
     started.current = true;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setQi(0);
-    setTyped(0);
-    setPhase("typing");
-    setResolvedCount(0);
+    const frame = requestAnimationFrame(() => {
+      setQi(0);
+      setTyped(0);
+      setPhase("typing");
+      setResolvedCount(0);
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   // Type the question, then dispatch the scan.

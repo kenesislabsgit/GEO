@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
 import { googleConfigured } from "@/lib/auth/auth";
+import { isEmailDeliveryConfigured } from "@/lib/email/delivery";
 import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
 import { getSessionUser } from "@/lib/auth/session";
 import { resolveReturnTo } from "@/lib/routes";
@@ -57,7 +58,10 @@ export default async function LoginPage({
           >
             {/* Decided on the server: the browser never learns whether the
                 keys exist, and a button that cannot work is never rendered. */}
-            <LoginForm googleEnabled={googleConfigured} />
+            <LoginForm
+              googleEnabled={googleConfigured}
+              emailVerificationEnabled={isEmailDeliveryConfigured()}
+            />
           </Suspense>
         </div>
       </div>

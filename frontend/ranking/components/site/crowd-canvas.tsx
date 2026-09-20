@@ -80,11 +80,6 @@ function takeRandom<T>(array: T[]): T | undefined {
   return removeAt(array, randomIndex(array.length));
 }
 
-function pickRandom<T>(array: readonly T[]): T | undefined {
-  if (array.length === 0) return undefined;
-  return array[randomIndex(array.length)];
-}
-
 function resetPeep(stage: StageSize, peep: Peep): WalkProps {
   const direction = Math.random() > 0.5 ? 1 : -1;
   const offsetY = SPAWN_Y_BASE - SPAWN_Y_SPREAD * gsap.parseEase("power2.in")(Math.random());
@@ -188,10 +183,6 @@ export function CrowdCanvas({
   const slowedRef = useRef(slowed);
   const onPeepsRef = useRef(onPeeps);
   const controlsRef = useRef<CrowdControls | null>(null);
-
-  pausedRef.current = paused;
-  slowedRef.current = slowed;
-  onPeepsRef.current = onPeeps;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -395,8 +386,11 @@ export function CrowdCanvas({
   }, [src, rows, cols]);
 
   useEffect(() => {
+    pausedRef.current = paused;
+    slowedRef.current = slowed;
+    onPeepsRef.current = onPeeps;
     controlsRef.current?.applyRates();
-  }, [paused, slowed]);
+  }, [paused, slowed, onPeeps]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden />;
 }

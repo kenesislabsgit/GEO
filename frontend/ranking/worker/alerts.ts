@@ -6,7 +6,7 @@ import {
   getUserEmail,
 } from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
-import { sendAlertEmail } from "@/lib/email/resend";
+import { sendAlertEmail } from "@/lib/email/delivery";
 import { log } from "@/lib/log";
 import type { Json, ScanInputSnapshot, ScanRun } from "@/types/database";
 

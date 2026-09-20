@@ -13,8 +13,8 @@ describe("resolveReturnTo", () => {
     );
   });
 
-  it("sends a signup without a saved destination to pricing", () => {
-    expect(resolveReturnTo({ mode: "signup" })).toBe(routes.pricing);
+  it("lets a new signup use the new-account audit destination", () => {
+    expect(resolveReturnTo({ mode: "signup" })).toBeNull();
   });
 
   it("keeps the existing sign-in default when no destination is present", () => {
@@ -27,6 +27,6 @@ describe("resolveReturnTo", () => {
         returnTo: "https://attacker.example/checkout",
         mode: "signup",
       }),
-    ).toBe(routes.pricing);
+    ).toBeNull();
   });
 });

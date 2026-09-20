@@ -48,6 +48,12 @@ version before it runs the build.
 - Health: `GET /api/health` (DB reachability, worker recency, queue depth).
 - Point the Dodo webhook at `https://<domain>/api/billing/webhook` and set
   `DODO_PAYMENTS_WEBHOOK_KEY` to its signing secret.
+- Verify the sending domain in Brevo and AWS SES. Set `EMAIL_FROM`,
+  `BREVO_API_KEY`, and `AWS_REGION`. Give the web runtime SES send permission
+  through its AWS role, or set `AWS_ACCESS_KEY_ID` and
+  `AWS_SECRET_ACCESS_KEY` in the host's secret store. Brevo is tried first;
+  SES is used for connection failures, rate limits, provider outages, and
+  bad Brevo credentials. Invalid message requests are not retried elsewhere.
 
 ## 3. Worker
 

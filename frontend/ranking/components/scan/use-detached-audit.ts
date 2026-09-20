@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Client side of the detached audit. Starting returns an id at once; the run
@@ -35,6 +36,7 @@ export function useDetachedAudit(options: {
   storageKey: string;
   onDone: (brandId: string) => void;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -152,7 +154,7 @@ export function useDetachedAudit(options: {
         if (data.code === "email_unverified") {
           // The audit needs a confirmed address; the page there explains and
           // offers a resend.
-          window.location.assign("/verify-email");
+          router.push("/verify-email");
           return;
         }
         if (!res.ok || !data.scanRunId) {
@@ -164,7 +166,7 @@ export function useDetachedAudit(options: {
         setError(err instanceof Error ? err.message : "Could not start audit");
       }
     },
-    [track],
+    [router, track],
   );
 
   // A reload lands here: if an audit was running for this form, keep showing
