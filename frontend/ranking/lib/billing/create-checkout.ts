@@ -116,6 +116,13 @@ export async function createCheckoutSession(input: {
   // Dodo appends subscription_id, status, and email onto this URL. Keep the
   // path query-free so those parameters reach /dashboard/billing/success.
   const returnUrl = `${resolved.appUrl}${routes.billingSuccess()}`;
+  const paymentVerificationMode =
+    process.env.DODO_PAYMENT_VERIFICATION_MODE === "true" &&
+    input.plan === "founder" &&
+    input.interval === "monthly";
+  const trialDays = paymentVerificationMode
+    ? 0
+    : PLAN_CONFIG[input.plan].trialDays;
 
   const response = await fetch(`${dodoApiBase()}/checkouts`, {
     method: "POST",
@@ -127,10 +134,10 @@ export async function createCheckoutSession(input: {
       product_cart: [{ product_id: productId, quantity: 1 }],
       customer: { email: input.user.email },
       return_url: returnUrl,
-      ...(PLAN_CONFIG[input.plan].trialDays > 0
+      ...(trialDays > 0
         ? {
             subscription_data: {
-              trial_period_days: PLAN_CONFIG[input.plan].trialDays,
+              trial_period_days: trialDays,
             },
           }
         : {}),
