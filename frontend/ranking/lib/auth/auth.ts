@@ -40,6 +40,8 @@ const trustedOrigins = [
   process.env.BETTER_AUTH_URL,
   process.env.NEXT_PUBLIC_APP_URL,
   process.env.DASHBOARD_APP_URL,
+  "https://arcanoris.in",
+  "https://www.arcanoris.in",
 ].filter((origin): origin is string => Boolean(origin));
 
 export const auth = betterAuth({
