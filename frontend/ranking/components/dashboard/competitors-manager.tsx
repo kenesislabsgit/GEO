@@ -102,6 +102,14 @@ export function CompetitorsManager({
 
   return (
     <div className="space-y-4">
+      {competitors.length > competitorLimit ? (
+        <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+          You have {competitors.length} saved competitors; this plan allows{" "}
+          {competitorLimit}. Existing entries remain visible. Remove entries to
+          get below the limit before adding another, or review your plan in
+          Billing.
+        </p>
+      ) : null}
       {!canEdit ? (
         <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
           Monthly checks are used up. Existing competitors remain available, but
@@ -153,6 +161,8 @@ export function CompetitorsManager({
                   variant="ghost"
                   disabled={busy}
                   onClick={() => setDeleteId(c.id)}
+                  aria-label={`Remove ${c.name}`}
+                  className="min-h-11 min-w-11 shrink-0"
                 >
                   <Trash2 className="size-4" />
                 </Button>

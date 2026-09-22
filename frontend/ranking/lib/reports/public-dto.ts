@@ -10,6 +10,7 @@ import { roundForDisplay } from "@/lib/scores/format";
 import { canonicalCompanyKey } from "@/lib/utils/company-name";
 import { competitorEvidence, reportSources, type ReportSource } from "@/lib/reports/evidence";
 import { parseEvidence } from "@/lib/actions/evidence";
+import { auditCoverage, type AuditCoverage } from "@/lib/audit/coverage";
 import { categoryLabel, reportSampling, reportText, type ReportSampling } from "@/lib/reports/presentation";
 
 function safeHost(url: string): string {
@@ -40,6 +41,7 @@ export type PublicReportDTO = {
     promptCount: number;
     confidence: "low" | "standard";
     sampling: ReportSampling;
+    coverage?: AuditCoverage;
   };
   score: {
     overall: number;
@@ -351,7 +353,8 @@ export function toPublicReportDTO(input: {
       methodologyVersion: input.scan.methodology_version,
       demoMode: input.scan.demo_mode,
       providerIds: input.scan.provider_ids,
-      promptCount: promptMatrix.length,
+      promptCount: auditCoverage(input.scan, input.results).questions ?? promptMatrix.length,
+      coverage: auditCoverage(input.scan, input.results),
       confidence: hasVerifiedEvidence ? "standard" : "low",
       sampling: reportSampling(input.results.map((result) => ({ ...result, question: result.tracked_prompt_id ?? String(result.question_position ?? result.id) }))),
     },

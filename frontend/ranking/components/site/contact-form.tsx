@@ -49,14 +49,17 @@ function FieldError({ message }: { message?: string }) {
 export function ContactForm({
   defaultEmail = "",
   defaultInterest = "pro",
+  defaultNeeds = "",
 }: {
   defaultEmail?: string;
   defaultInterest?: ContactInterestId;
+  defaultNeeds?: string;
 }) {
   const [form, setForm] = useState<FormState>({
     ...EMPTY,
     workEmail: defaultEmail,
     interest: defaultInterest,
+    needs: defaultNeeds,
   });
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>

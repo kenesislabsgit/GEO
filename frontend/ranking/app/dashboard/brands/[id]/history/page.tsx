@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
@@ -66,9 +68,10 @@ export default async function HistoryPage({
           <BrandExportLinks brandId={brand.id} />
           {mixedVersions ? (
             <div className="rounded-lg border border-[color:var(--arc-amber)]/40 bg-[color:var(--arc-amber)]/10 px-4 py-3 text-sm">
-              This history spans methodology versions ({versions.join(", ")}).
-              Scores are comparable within a version; treat changes across the
-              boundary as a new baseline, not a movement.
+              This history spans methodology versions ({versions.join(", ")}). A
+              version change establishes a new baseline. Even within a version,
+              compare the same questions, providers and response coverage before
+              interpreting movement.
             </div>
           ) : null}
           <div className="arc-panel p-5">
@@ -77,9 +80,10 @@ export default async function HistoryPage({
           <div className="arc-list">
             <div className="divide-y divide-border">
               {scores.map((s) => (
-                <div
+                <Link
                   key={s.id}
-                  className="flex items-center justify-between bg-card px-5 py-3 text-sm"
+                  href={`${routes.brandSection(brand.id, "prompts")}?scan=${encodeURIComponent(s.scan_run_id)}`}
+                  className="flex flex-wrap items-center justify-between gap-3 bg-card px-5 py-3 text-sm hover:bg-muted/50"
                 >
                   <span className="text-muted-foreground">
                     {new Date(s.created_at).toLocaleString()}
@@ -97,7 +101,7 @@ export default async function HistoryPage({
                       {roundForDisplay(Number(s.overall_score))}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

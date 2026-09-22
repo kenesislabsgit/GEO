@@ -14,12 +14,13 @@ export const metadata = publicPageMetadata(
 export default async function ContactPage({
   searchParams,
 }: {
-  searchParams: Promise<{ intent?: string }>;
+  searchParams: Promise<{ intent?: string; feature?: string }>;
 }) {
   const [user, params] = await Promise.all([getSessionUser(), searchParams]);
   const defaultInterest = isContactIntent(params.intent)
     ? params.intent
     : "pro";
+  const marketsInquiry = params.feature === "markets";
   return (
     <MarketingShell>
       <div className="grid items-start gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
@@ -33,6 +34,18 @@ export default async function ContactPage({
             within one business day.
           </p>
           <dl className="mt-8 space-y-6 text-sm leading-relaxed">
+            {marketsInquiry ? (
+              <div className="rounded-lg border border-border p-4">
+                <dt className="font-semibold">
+                  Your inquiry: geographic markets
+                </dt>
+                <dd className="mt-2 text-muted-foreground">
+                  Pro adds country-specific buyer questions and market
+                  comparisons. We will confirm the markets, providers and
+                  allowance included in your quote.
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="font-semibold">Account or billing support</dt>
               <dd className="mt-2 text-muted-foreground">
@@ -67,6 +80,11 @@ export default async function ContactPage({
         <ContactForm
           defaultEmail={user?.email ?? ""}
           defaultInterest={defaultInterest}
+          defaultNeeds={
+            marketsInquiry
+              ? "I would like Pro geographic market comparisons. Please explain the supported markets, providers and included audit allowance."
+              : ""
+          }
         />
       </div>
     </MarketingShell>

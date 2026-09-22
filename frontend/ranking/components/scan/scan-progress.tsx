@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { formatDistanceStrict } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,7 +23,7 @@ import type { AuditFeedEvent } from "@/components/scan/use-detached-audit";
 import { ProviderBadge } from "@/components/providers/provider-logo";
 import { routes } from "@/lib/routes";
 
-type ProgressState = {
+export type ProgressState = {
   status: string;
   step: string | null;
   progress: number;
@@ -33,11 +34,12 @@ type ProgressState = {
   providers?: string[];
   events?: AuditFeedEvent[];
   cancelRequested?: boolean;
+  queuedAt?: string | null;
+  heartbeatAt?: string | null;
 };
 
 export type ScanDestination =
-  | { type: "public" }
-  | { type: "dashboard"; brandId: string };
+  { type: "public" } | { type: "dashboard"; brandId: string };
 
 const ENDED_BADLY = new Set(["failed", "cancelled", "timed_out"]);
 
@@ -45,16 +47,19 @@ export function ScanProgress({
   scanId,
   destination = { type: "public" },
   plan = "free",
+  initialState = null,
 }: {
   scanId: string;
   destination?: ScanDestination;
   /** Chooses the stage list - pro audits have more visible stages. */
   plan?: AuditPlan;
+  initialState?: ProgressState | null;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<ProgressState | null>(null);
+  const [state, setState] = useState<ProgressState | null>(initialState);
   const [events, setEvents] = useState<AuditFeedEvent[]>([]);
   const [unreachable, setUnreachable] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const lastSeq = useRef(0);
@@ -65,18 +70,17 @@ export function ScanProgress({
 
   useEffect(() => {
     let alive = true;
-    let failures = 0;
     const tick = async () => {
+      if (alive) setCheckedAt(Date.now());
       try {
         const res = await fetch(
           `/api/scans/${scanId}/progress?after=${lastSeq.current}`,
+          { signal: AbortSignal.timeout(10000) },
         );
         if (!res.ok) {
-          failures += 1;
-          if (failures >= 5 && alive) setUnreachable(true);
+          if (alive) setUnreachable(true);
           return;
         }
-        failures = 0;
         const data = (await res.json()) as ProgressState;
         if (!alive) return;
         setUnreachable(false);
@@ -97,8 +101,7 @@ export function ScanProgress({
           }
         }
       } catch {
-        failures += 1;
-        if (failures >= 5 && alive) setUnreachable(true);
+        if (alive) setUnreachable(true);
       }
     };
     void tick();
@@ -158,7 +161,7 @@ export function ScanProgress({
       {/* Header: what's happening and how far along, at page scale. */}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-4">
-          {!failed ? (
+          {!failed && state && !queued ? (
             <ThinkingOrb
               state={orbStateForStage(stages[activeIdx]?.id)}
               size={64}
@@ -168,17 +171,27 @@ export function ScanProgress({
           ) : null}
           <div className="min-w-0">
             <p className="arc-eyebrow">
-              {failed
-                ? "Audit stopped"
-                : queued
-                  ? "Audit queued"
-                  : stopping
-                    ? "Stopping"
-                    : "Live audit"}
+              {!state
+                ? "Loading audit status"
+                : failed
+                  ? "Audit stopped"
+                  : queued
+                    ? "Audit queued"
+                    : stopping
+                      ? "Stopping"
+                      : "Live audit"}
             </p>
             <h1 className="font-heading mt-1.5 text-2xl font-semibold tracking-tight">
-              {failed ? (
-                "Scan did not complete"
+              {!state ? (
+                "Checking this audit’s status"
+              ) : failed ? (
+                state?.status === "cancelled" ? (
+                  "Audit cancelled"
+                ) : state?.status === "timed_out" ? (
+                  "Audit timed out"
+                ) : (
+                  "Audit failed"
+                )
               ) : queued ? (
                 "Waiting for the next available audit slot"
               ) : stopping ? (
@@ -190,9 +203,17 @@ export function ScanProgress({
               )}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {destination.type === "dashboard"
-                ? "You can leave this page - the audit keeps running."
-                : "Live progress from the job queue - not a simulated timer."}
+              {failed
+                ? "This audit has stopped. It will not keep running when you leave."
+                : stopping
+                  ? "Cancellation is pending. No new audit has been started."
+                  : queued
+                    ? "This audit is waiting to start; it is not running yet."
+                    : !state
+                      ? "Fetching the saved state. No new audit is being started."
+                      : destination.type === "dashboard"
+                        ? "You can leave this page - the audit keeps running."
+                        : "Live progress from the job queue - not a simulated timer."}
             </p>
           </div>
         </div>
@@ -213,12 +234,23 @@ export function ScanProgress({
       {queued ? (
         <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
           <Clock className="size-4 shrink-0" aria-hidden />
-          Your audit is in the queue and starts as soon as a worker is free.
-          This page updates by itself.
+          <div>
+            <p>
+              Waiting for a worker.{" "}
+              {state?.queuedAt
+                ? `Queued since ${new Date(state.queuedAt).toLocaleString()}${checkedAt ? ` (${formatDistanceStrict(new Date(state.queuedAt), checkedAt)} ago)` : ""}.`
+                : "Queue time was not recorded."}
+            </p>
+            <p className="mt-1 text-xs">
+              A long wait does not confirm a worker failure. Refresh the status,
+              or cancel this queued audit before trying again. Status updates
+              automatically.
+            </p>
+          </div>
         </div>
       ) : null}
 
-      {!failed && !queued ? (
+      {!failed && !queued && state ? (
         <div className="mt-5 grid items-start gap-4 lg:grid-cols-[1fr_240px]">
           {/* The audit as reasoning steps, with the live feed inside. */}
           <section className="arc-panel p-5">
@@ -335,8 +367,18 @@ export function ScanProgress({
         <Alert variant="destructive" className="mt-6">
           <AlertTitle>Connection issue</AlertTitle>
           <AlertDescription>
-            We can&apos;t reach the scan right now. We&apos;ll keep retrying
-            automatically - leave this page open.
+            <p>
+              Progress connection failed. The last saved status above may be out
+              of date; this does not confirm whether the worker has stopped. We
+              will retry automatically.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-3"
+              onClick={() => window.location.reload()}
+            >
+              Refresh status
+            </Button>
           </AlertDescription>
         </Alert>
       ) : null}

@@ -32,6 +32,7 @@ export type ScanBrandOption = {
   category: string | null;
   slug: string;
   visibility: "public" | "private";
+  activeScan?: { id: string; status: string; createdAt: string } | null;
   questionSets: Array<{
     scanId: string;
     createdAt: string;
@@ -128,6 +129,7 @@ export function NewScanForm({
   // Resume from a leftover stored run must not hide this setup page.
   // Only hide options after the user clicks Start on this visit.
   const [startedHere, setStartedHere] = useState(false);
+  const [questionsOpen, setQuestionsOpen] = useState(false);
   const {
     loading,
     error,
@@ -138,7 +140,8 @@ export function NewScanForm({
   } = useDetachedAudit({
     userId,
     storageKey: "rbai_audit_new_scan",
-    onDone: (doneBrandId) => router.push(`${routes.brand(doneBrandId)}?completed=1`),
+    onDone: (doneBrandId) =>
+      router.push(`${routes.brand(doneBrandId)}?completed=1`),
   });
 
   const brand = brands.find((b) => b.id === brandId) ?? initialBrand;
@@ -241,7 +244,7 @@ export function NewScanForm({
     });
   }
 
-  // While the audit runs, the form gives way to a full-width progress view - 
+  // While the audit runs, the form gives way to a full-width progress view -
   // the reasoning timeline was unreadable squeezed into the summary sidebar.
   if (loading && startedHere) {
     return (
@@ -271,8 +274,8 @@ export function NewScanForm({
           </Alert>
         ) : null}
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          You can leave this page - the audit keeps running and the report
-          opens when it finishes.
+          You can leave this page - the audit keeps running and the report opens
+          when it finishes.
         </p>
       </div>
     );
@@ -313,8 +316,7 @@ export function NewScanForm({
                     {option.lastScanAt ? (
                       <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="size-3" />
-                        Last scan{" "}
-                        {formatDate(option.lastScanAt)}
+                        Last scan {formatDate(option.lastScanAt)}
                       </p>
                     ) : null}
                   </div>
@@ -338,8 +340,8 @@ export function NewScanForm({
           <Alert>
             <AlertTitle>An audit is still running</AlertTitle>
             <AlertDescription>
-              You can start another after it finishes, or wait on this page.
-              The options below stay available so you can set the next run.
+              You can start another after it finishes, or wait on this page. The
+              options below stay available so you can set the next run.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -414,7 +416,8 @@ export function NewScanForm({
                   >
                     {brand.questionSets.map((set, index) => (
                       <option key={set.scanId} value={set.scanId}>
-                        {formatDate(set.createdAt)} — {set.questions.length} questions
+                        {formatDate(set.createdAt)} — {set.questions.length}{" "}
+                        questions
                         {index === 0 ? " (latest)" : ""}
                       </option>
                     ))}
@@ -423,33 +426,46 @@ export function NewScanForm({
               ) : null}
 
               {draftQuestions.length > 0 ? (
-                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                  {draftQuestions.map((prompt, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <span className="w-6 shrink-0 pt-3 text-right text-xs text-muted-foreground">
-                        {index + 1}.
-                      </span>
-                      <Textarea
-                        value={prompt}
-                        maxLength={300}
-                        rows={2}
-                        className="min-h-14 resize-y leading-relaxed"
-                        aria-label={`Question ${index + 1}`}
-                        onChange={(event) => updateQuestion(index, event.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        className="mt-1"
-                        aria-label={`Remove question ${index + 1}`}
-                        onClick={() => removeQuestion(index)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <details
+                  open={questionsOpen}
+                  onToggle={(event) =>
+                    setQuestionsOpen(event.currentTarget.open)
+                  }
+                  className="rounded-lg border border-border p-3"
+                >
+                  <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+                    Edit {draftQuestions.length} questions
+                  </summary>
+                  <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                    {draftQuestions.map((prompt, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <span className="w-6 shrink-0 pt-3 text-right text-xs text-muted-foreground">
+                          {index + 1}.
+                        </span>
+                        <Textarea
+                          value={prompt}
+                          maxLength={300}
+                          rows={2}
+                          className="min-h-14 resize-y leading-relaxed"
+                          aria-label={`Question ${index + 1}`}
+                          onChange={(event) =>
+                            updateQuestion(index, event.target.value)
+                          }
+                        />
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          className="mt-1"
+                          aria-label={`Remove question ${index + 1}`}
+                          onClick={() => removeQuestion(index)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               ) : null}
 
               {draftQuestions.length < questionsPerProvider ? (
@@ -457,27 +473,32 @@ export function NewScanForm({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => setDraftQuestions((current) => [...current, ""])}
+                  onClick={() => {
+                    setDraftQuestions((current) => [...current, ""]);
+                    setQuestionsOpen(true);
+                  }}
                 >
                   <Plus data-icon="inline-start" />
                   Add your question
                 </Button>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                {draftQuestions.filter((item) => item.trim()).length} supplied. AI
-                will write {Math.max(
+                {draftQuestions.filter((item) => item.trim()).length} supplied.
+                AI will write{" "}
+                {Math.max(
                   questionsPerProvider -
                     draftQuestions.filter((item) => item.trim()).length,
                   0,
-                )} more, for {questionsPerProvider} total.
+                )}{" "}
+                more, for {questionsPerProvider} total.
               </p>
             </div>
           ) : (
             <div className="space-y-3 px-5 py-4">
               <p className="text-sm text-muted-foreground">
-                The free audit writes {questionsPerProvider} buyer questions
-                and runs them on {providerDisplayName(FREE_AUDIT_PROVIDER)}.
-                Upgrade to pick models, reuse an earlier set, or add your own.
+                The free audit writes {questionsPerProvider} buyer questions and
+                runs them on {providerDisplayName(FREE_AUDIT_PROVIDER)}. Upgrade
+                to pick models, reuse an earlier set, or add your own.
               </p>
               {brand.questionSets[0] ? (
                 <ol className="max-h-64 list-decimal space-y-1.5 overflow-y-auto pl-5 text-sm">
@@ -556,7 +577,10 @@ export function NewScanForm({
                         key={id}
                         className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-muted-foreground/80"
                       >
-                        <ProviderLogo provider={id} className="size-4 opacity-60" />
+                        <ProviderLogo
+                          provider={id}
+                          className="size-4 opacity-60"
+                        />
                         {providerDisplayName(id)}
                         {unlockPlan ? (
                           <span className="arc-chip ml-auto">
@@ -607,7 +631,10 @@ export function NewScanForm({
                 Geographic market simulation - asking as a buyer in your home
                 market - is available on{" "}
                 <Link
-                  href={routes.billing({ plan: "agency", returnTo: routes.newScan(brandId) })}
+                  href={routes.billing({
+                    plan: "agency",
+                    returnTo: routes.newScan(brandId),
+                  })}
                   className="text-[color:var(--arc-accent)] hover:underline"
                 >
                   Pro
@@ -636,9 +663,7 @@ export function NewScanForm({
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button asChild size="sm">
-                  <Link href={routes.brand(brandId)}>
-                    View report
-                  </Link>
+                  <Link href={routes.brand(brandId)}>View report</Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link
@@ -674,6 +699,21 @@ export function NewScanForm({
       <aside className="h-fit space-y-4 lg:sticky lg:top-20">
         <div className="arc-panel p-5">
           <h2 className="text-sm font-semibold">Audit summary</h2>
+          {brand.activeScan ? (
+            <div className="mt-3 rounded-lg border border-amber-500/40 p-3 text-sm">
+              <p>
+                An audit is already{" "}
+                {brand.activeScan.status.replaceAll("_", " ")} for this website,
+                requested {formatDate(brand.activeScan.createdAt)}.
+              </p>
+              <Link
+                href={routes.scanProgress(brand.activeScan.id)}
+                className="mt-2 inline-flex min-h-11 items-center font-medium underline"
+              >
+                Open existing audit status
+              </Link>
+            </div>
+          ) : null}
           <dl className="mt-4 space-y-2.5 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Website</dt>
@@ -721,8 +761,23 @@ export function NewScanForm({
             />
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            {brand.visibility === "private" ? "This website is private. Its reports are visible only to you." : "This website is public. Report previews are shareable and may be indexed by search engines."}
-            {plan.isPaid ? <> <Link href={`${routes.brand(brand.id)}/settings`} className="underline underline-offset-4">Change visibility before scanning</Link>.</> : <> Private-report controls require Plus or Pro.</>}
+            {brand.visibility === "private"
+              ? "This website is private. Its reports are visible only to you."
+              : "This website is public. Report previews are shareable and may be indexed by search engines."}
+            {plan.isPaid ? (
+              <>
+                {" "}
+                <Link
+                  href={`${routes.brand(brand.id)}/settings#visibility`}
+                  className="underline underline-offset-4"
+                >
+                  Change visibility before scanning
+                </Link>
+                .
+              </>
+            ) : (
+              <> Private-report controls require Plus or Pro.</>
+            )}
           </p>
           {/* An empty question list is no longer a reason to block: the run
               writes its own questions. Blocking on it meant a website whose
@@ -757,8 +812,8 @@ export function NewScanForm({
             </p>
           ) : null}
           <p className="mt-3 text-xs text-muted-foreground">
-            Plan: {plan.name}. One provider answering one question equals one
-            AI check.
+            Plan: {plan.name}. One provider answering one question equals one AI
+            check.
           </p>
         </div>
         {!plan.isPaid && brand.recentlyScanned ? (
@@ -769,8 +824,8 @@ export function NewScanForm({
               {brand.lastCompletedScanAt
                 ? formatDate(brand.lastCompletedScanAt)
                 : "recently"}
-              . You can run it again - a recent read of the website is reused, and
-              each run uses your monthly AI checks.
+              . You can run it again - a recent read of the website is reused,
+              and each run uses your monthly AI checks.
             </p>
             <div className="mt-2.5 flex gap-2">
               <Button asChild size="sm" variant="outline">

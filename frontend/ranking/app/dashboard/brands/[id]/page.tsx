@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, Globe } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle2,
+  Globe,
+} from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getBrandById,
   getLatestCompletedScanForBrand,
   getPrompts,
   getQueryResults,
+  getScanQuestions,
   getRecommendationsForScan,
   scoresForBrand,
+  listScanHistoryForBrands,
 } from "@/lib/db/repository";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
@@ -20,6 +28,8 @@ import { RescanButton } from "@/components/dashboard/rescan-button";
 import { routes } from "@/lib/routes";
 import { CompetitorLLMChart } from "@/components/dashboard/competitor-llm-chart";
 import { AuditCompleteBanner } from "@/components/dashboard/audit-complete-banner";
+import { auditCoverage } from "@/lib/audit/coverage";
+import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import type { CompetitorWithLLM } from "@/components/dashboard/competitor-llm-chart";
 
 type CompetitorSignal = {
@@ -43,12 +53,14 @@ export default async function WebsiteReportSummary({
   const brand = await getBrandById(id);
   if (!brand || brand.owner_id !== user.id) notFound();
 
-  const [scores, entitlements, latestScan, trackedPrompts] = await Promise.all([
-    scoresForBrand(brand.id),
-    getAccountEntitlements(user.id),
-    getLatestCompletedScanForBrand(brand.id),
-    getPrompts(brand.id),
-  ]);
+  const [scores, entitlements, latestScan, trackedPrompts, history] =
+    await Promise.all([
+      scoresForBrand(brand.id),
+      getAccountEntitlements(user.id),
+      getLatestCompletedScanForBrand(brand.id),
+      getPrompts(brand.id),
+      listScanHistoryForBrands([brand.id]),
+    ]);
   const [results, actions] = latestScan
     ? await Promise.all([
         getQueryResults(latestScan.id),
@@ -58,11 +70,16 @@ export default async function WebsiteReportSummary({
   const latest = scores[0];
   const previous = scores[1];
   const isPaid = isPaidSubscription(entitlements);
-  const mentionCount = results.filter((result) => result.brand_mentioned).length;
-  const testedPromptIds = new Set(
-    results.map((result) => result.tracked_prompt_id).filter(Boolean),
+  const mentionCount = results.filter(
+    (result) => result.brand_mentioned,
+  ).length;
+  const coverage = latestScan
+    ? auditCoverage(latestScan, results, await getScanQuestions(latestScan.id))
+    : null;
+  const testedPromptIds = { size: coverage?.testedQuestions ?? 0 };
+  const providers = Array.from(
+    new Set(results.map((result) => result.provider)),
   );
-  const providers = Array.from(new Set(results.map((result) => result.provider)));
   const sourceUrls = new Set(
     results.flatMap((result) =>
       [
@@ -118,8 +135,14 @@ export default async function WebsiteReportSummary({
         : "Not currently recommended";
   const score = latest ? roundForDisplay(Number(latest.overall_score)) : null;
   const scoreDelta =
-    latest && previous
-      ? roundForDisplay(Number(latest.overall_score) - Number(previous.overall_score))
+    latest &&
+    previous &&
+    history.find((row) => row.id === latest.scan_run_id)?.sample_key &&
+    history.find((row) => row.id === latest.scan_run_id)?.sample_key ===
+      history.find((row) => row.id === previous.scan_run_id)?.sample_key
+      ? roundForDisplay(
+          Number(latest.overall_score) - Number(previous.overall_score),
+        )
       : null;
 
   // Market visibility lives on its own tab now; the summary only needs to
@@ -146,6 +169,13 @@ export default async function WebsiteReportSummary({
   return (
     <div className="space-y-6">
       <AuditCompleteBanner />
+      {coverage ? <AuditCoverageNotice coverage={coverage} /> : null}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Score: mentions 65%, position 30%, evidence quality 5%. Evidence quality
+        can contribute points even with zero mentions. Citations are diagnostic.
+        Compare only audits with the same questions, providers, methodology and
+        coverage; differences are not necessarily performance changes.
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -158,7 +188,9 @@ export default async function WebsiteReportSummary({
           </div>
           <p className="mt-1 font-mono text-[13px] text-muted-foreground">
             {brand.canonical_domain}
-            {latestScan ? ` · audited ${new Date(latestScan.created_at).toLocaleDateString()}` : ""}
+            {latestScan
+              ? ` · audited ${new Date(latestScan.created_at).toLocaleDateString()}`
+              : ""}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -174,11 +206,19 @@ export default async function WebsiteReportSummary({
 
       <section className="arc-panel flex flex-wrap items-center justify-between gap-5 p-5">
         <div className="flex min-w-0 items-start gap-3">
-          <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${mentionRate > 0 ? "bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)]" : "bg-[color:var(--arc-amber)]/10 text-[color:var(--arc-amber)]"}`}>
-            {mentionRate > 0 ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
+          <span
+            className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${mentionRate > 0 ? "bg-[color:var(--arc-green)]/10 text-[color:var(--arc-green)]" : "bg-[color:var(--arc-amber)]/10 text-[color:var(--arc-amber)]"}`}
+          >
+            {mentionRate > 0 ? (
+              <CheckCircle2 className="size-4" />
+            ) : (
+              <AlertTriangle className="size-4" />
+            )}
           </span>
           <div>
-            <p className="text-xs font-medium uppercase text-muted-foreground">Executive verdict</p>
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              Executive verdict
+            </p>
             <h2 className="mt-1 text-lg font-semibold">{verdict}</h2>
             {/* The audit writes this while it still has every finding in front
                 of it. The line below is a threshold on one number, so it is
@@ -222,20 +262,27 @@ export default async function WebsiteReportSummary({
             label: "Top competitor",
             value: topCompetitor?.name ?? " - ",
             delta: null,
-            detail: topCompetitor ? `${topCompetitor.mentions ?? 0} mentions` : "no competitor signals",
+            detail: topCompetitor
+              ? `${topCompetitor.mentions ?? 0} mentions`
+              : "no competitor signals",
           },
           {
             label: "Sources found",
             value: String(sourceUrls.size),
             delta: null,
-            detail: isPaid ? "citations and verified mentions" : "details on Pro",
+            detail: isPaid
+              ? "citations and verified mentions"
+              : "details on Pro",
           },
         ].map((item) => (
-          <div key={item.label} className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0">
+          <div
+            key={item.label}
+            className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0"
+          >
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               {item.label}
             </p>
-            <p className="arc-tabular mt-1.5 truncate text-2xl font-semibold tracking-tight">
+            <p className="arc-tabular mt-1.5 break-words text-2xl font-semibold tracking-tight">
               {item.value}
               {item.delta ? (
                 <span
@@ -250,11 +297,12 @@ export default async function WebsiteReportSummary({
                 </span>
               ) : null}
             </p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.detail}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {item.detail}
+            </p>
           </div>
         ))}
       </div>
-
 
       {hasMarketAnswers ? (
         <Link
@@ -262,16 +310,22 @@ export default async function WebsiteReportSummary({
           className="arc-panel flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
         >
           <span className="flex min-w-0 items-center gap-2.5 text-sm">
-            <Globe className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <Globe
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
             <span className="truncate">
               <span className="font-medium">Market visibility measured</span>
               <span className="text-muted-foreground">
                 {" "}
- - see where AI recommends you, continent by continent.
+                - see where AI recommends you, continent by continent.
               </span>
             </span>
           </span>
-          <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRight
+            className="size-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
         </Link>
       ) : null}
 
@@ -343,10 +397,20 @@ export default async function WebsiteReportSummary({
           <div>
             <p className="text-sm font-medium">Free audit complete</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Upgrade for multi-provider comparison, full competitor evidence, sources, and history.
+              Upgrade for multi-provider comparison, full competitor evidence,
+              sources, and history.
             </p>
           </div>
-          <Button asChild size="sm"><Link href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brand.id) })}>Continue with Plus</Link></Button>
+          <Button asChild size="sm">
+            <Link
+              href={routes.billing({
+                plan: "founder",
+                returnTo: routes.brandUpgrade(brand.id),
+              })}
+            >
+              Continue with Plus
+            </Link>
+          </Button>
         </div>
       ) : null}
     </div>

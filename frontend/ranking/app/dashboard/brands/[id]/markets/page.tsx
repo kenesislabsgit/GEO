@@ -158,10 +158,7 @@ export default async function MarketsPage({
           </div>
           <Button asChild size="sm">
             <Link
-              href={routes.billing({
-                plan: "agency",
-                returnTo: routes.brandSection(brand.id, "markets"),
-              })}
+              href="/contact?intent=pro&feature=markets"
             >
               Upgrade to Pro
             </Link>

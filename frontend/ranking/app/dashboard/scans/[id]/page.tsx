@@ -31,6 +31,19 @@ export default async function DashboardScanProgressPage({
         scanId={scan.id}
         destination={{ type: "dashboard", brandId: brand.id }}
         plan={scan.scan_type === "free" ? "free" : "pro"}
+        initialState={{
+          status: scan.status,
+          step: scan.step ?? null,
+          progress: scan.progress ?? 0,
+          completedQueries: scan.completed_queries,
+          totalQueries: scan.total_queries,
+          slug: brand.slug,
+          errorSummary: scan.error_summary,
+          providers: scan.provider_ids,
+          queuedAt: scan.queued_at ?? scan.created_at,
+          heartbeatAt: scan.heartbeat_at,
+          cancelRequested: Boolean(scan.cancel_requested_at),
+        }}
       />
     </div>
   );

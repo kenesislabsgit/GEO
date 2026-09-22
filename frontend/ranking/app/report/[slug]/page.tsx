@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -338,6 +339,11 @@ export default async function ReportPage({
         <SiteHeader />
       </div>
       <main className="flex-1">
+        {report.scan.coverage ? (
+          <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6">
+            <AuditCoverageNotice coverage={report.scan.coverage} />
+          </div>
+        ) : null}
         {/* Score header */}
         <section className="relative overflow-hidden border-b border-border bg-[color:var(--arc-ink)]">
           <div className="arc-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_70%_80%_at_50%_0%,black,transparent)]" />
@@ -589,9 +595,9 @@ export default async function ReportPage({
                 The competitor we looked into
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                The most-recommended company had its website found from the
-                sources the AI cited, and one relevant page read. The action
-                below is built on it.
+                This competitor was selected for website investigation; it may
+                not have the most mentions. The saved page evidence below informed
+                the suggested action.
               </p>
 
               <div className="mt-6 grid gap-6 md:grid-cols-2">

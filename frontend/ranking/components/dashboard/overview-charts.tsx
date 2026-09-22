@@ -91,7 +91,10 @@ export function TrendChart({
   if (data.length < 2) {
     return (
       <p className="py-16 text-center text-sm text-muted-foreground">
-        Run more audits to see this trend.
+        This account trend needs at least two points after every included
+        website has a saved score in the loaded history. Audits without a score
+        do not add points here. Open a website’s History to see its individual
+        audits.
       </p>
     );
   }

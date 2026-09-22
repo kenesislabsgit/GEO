@@ -341,8 +341,8 @@ export function SecuritySettings({
           <p className="text-sm font-medium">Password</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
             This account signs in with Google only, so there is no password to
-            change. Use &ldquo;Forgot password&rdquo; on the sign-in page if
-            you ever want to add one.
+            change. Use &ldquo;Forgot password&rdquo; on the sign-in page if you
+            ever want to add one.
           </p>
         </div>
       )}
@@ -363,6 +363,17 @@ export function SecuritySettings({
           ) : null}
         </div>
         <div className="divide-y divide-border">
+          {sessions.length === 0 ? (
+            <div className="space-y-3 px-5 py-4 text-sm text-muted-foreground">
+              <p>
+                Session details are unavailable. You are signed in, but the
+                session list could not be loaded.
+              </p>
+              <Button variant="outline" onClick={() => router.refresh()}>
+                Reload sessions
+              </Button>
+            </div>
+          ) : null}
           {sessions.map((s) => (
             <div
               key={s.token}

@@ -30,8 +30,8 @@ export default async function BrandsPage() {
             Websites
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {brands.length} of {plan.features.brands} on{" "}
-            {entitlements.planName} - company websites you monitor and audit.
+            {brands.length} of {plan.features.brands} on {entitlements.planName}{" "}
+            - company websites you monitor and audit.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -61,6 +61,15 @@ export default async function BrandsPage() {
         </div>
       </div>
 
+      {brands.length > plan.features.brands ? (
+        <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+          Your saved websites exceed this plan&apos;s {plan.features.brands}-website
+          limit. Existing reports remain available; adding websites is blocked.
+          Scheduled monitoring is limited to the oldest enabled websites within
+          your allowance. Review monitoring settings or contact us for a plan
+          that covers your websites.
+        </p>
+      ) : null}
       {brands.length === 0 ? (
         <div className="arc-empty p-10 text-center">
           <p className="font-medium">No websites yet</p>

@@ -223,20 +223,57 @@ export async function listScansForBrands(
 /** History needs small summary rows, not input snapshots or per-row queries. */
 export async function listScanHistoryForBrands(brandIds: string[]) {
   if (!brandIds.length) return [];
-  return q<Pick<ScanRun, "id" | "brand_id" | "created_at" | "provider_ids" | "status" | "total_queries" | "completed_queries"> & {
-    overall_score: number | null;
-    previous_score: number | null;
-  }>(
-    `with scores as (
-       select scan_run_id, overall_score,
-              lag(overall_score) over (partition by brand_id order by created_at, id) as previous_score
-       from score_snapshots where brand_id = any($1::uuid[])
+  return q<
+    Pick<
+      ScanRun,
+      | "id"
+      | "brand_id"
+      | "created_at"
+      | "provider_ids"
+      | "status"
+      | "total_queries"
+      | "completed_queries"
+      | "methodology_version"
+    > & {
+      overall_score: number | null;
+      previous_score: number | null;
+      question_count: number | null;
+      successful_checks: number;
+      failed_checks: number;
+      requested_checks: number;
+      sample_key: string | null;
+      previous_sample_key: string | null;
+    }
+  >(
+    `with coverage as (
+       select s.*,
+         coalesce(nullif(questions.n, 0), nullif(answers.questions, 0)) as question_count,
+         coalesce(answers.successful, 0)::int as successful_checks,
+         coalesce(answers.failed, 0)::int as failed_checks,
+         greatest(s.total_queries, answers.total, coalesce(nullif((s.input_snapshot->>'question_count')::int, 0), nullif(questions.n, 0), answers.questions, 0) * coalesce(nullif(jsonb_array_length(s.input_snapshot->'assistants'), 0), jsonb_array_length(s.provider_ids), 0))::int as requested_checks,
+         case when questions.n > 0 and s.status = 'completed' then
+           concat(s.methodology_version, '|', s.provider_ids::text, '|', s.country, '|', s.language, '|', questions.signature)
+         end as sample_key
+       from scan_runs s
+       left join lateral (select count(*)::int as n, md5(string_agg(prompt, '|' order by position)) as signature from scan_questions where scan_run_id = s.id) questions on true
+       left join lateral (select count(*)::int as total, count(distinct coalesce(question_position::text, tracked_prompt_id::text, id::text))::int as questions,
+         count(*) filter (where error is null and (length(trim(raw_answer)) > 0 or length(trim(answer_summary)) > 0))::int as successful,
+         count(*) filter (where error is not null)::int as failed
+         from query_results where scan_run_id = s.id) answers on true
+       where s.brand_id = any($1::uuid[])
+     ), scored as (
+       select c.id, sc.overall_score::float,
+         lag(sc.overall_score::float) over (partition by c.brand_id order by c.created_at, c.id) as previous_score,
+         lag(case when c.successful_checks = c.requested_checks then c.sample_key end) over (partition by c.brand_id order by c.created_at, c.id) as previous_sample_key
+       from coverage c join score_snapshots sc on sc.scan_run_id = c.id
      )
-     select s.id, s.brand_id, s.created_at, s.provider_ids, s.status,
-            s.total_queries, s.completed_queries,
-            scores.overall_score::float, scores.previous_score::float
-     from scan_runs s left join scores on scores.scan_run_id = s.id
-     where s.brand_id = any($1::uuid[]) order by s.created_at desc, s.id desc`,
+     select c.id, c.brand_id, c.created_at,
+       case when jsonb_array_length(c.input_snapshot->'assistants') > 0 then c.input_snapshot->'assistants' else c.provider_ids end as provider_ids,
+       c.status, c.total_queries, c.completed_queries,
+       c.methodology_version, c.question_count, c.successful_checks, c.failed_checks, c.requested_checks,
+       case when c.successful_checks = c.requested_checks then c.sample_key end as sample_key,
+       scored.overall_score, scored.previous_score, scored.previous_sample_key
+     from coverage c left join scored on scored.id = c.id order by c.created_at desc, c.id desc`,
     [brandIds],
   );
 }

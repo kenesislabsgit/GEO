@@ -34,11 +34,13 @@ export function BillingActions({
   highlightedPlan,
   highlightedInterval,
   hasSubscription,
+  currentPlan,
   returnTo = null,
 }: {
   highlightedPlan?: string;
   highlightedInterval?: BillingInterval;
   hasSubscription: boolean;
+  currentPlan?: string;
   returnTo?: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -112,9 +114,9 @@ export function BillingActions({
                     : "border-border"
                 }`}
               >
-                {highlight ? (
+                {highlight || currentPlan === planId ? (
                   <Badge className="absolute -top-2.5 left-4 rounded-full px-2.5 text-[11px]">
-                    Selected
+                    {currentPlan === planId ? "Current plan" : "Selected"}
                   </Badge>
                 ) : null}
                 {locked ? (
@@ -145,7 +147,9 @@ export function BillingActions({
                       {yearlySavingsUsd(plan) > 0
                         ? ` · save $${yearlySavingsUsd(plan)}`
                         : ""}
-                      {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
+                      {plan.trialDays > 0
+                        ? ` · ${plan.trialDays}-day trial`
+                        : ""}
                     </p>
                   </>
                 )}
@@ -172,7 +176,22 @@ export function BillingActions({
                   </div>
                 ) : null}
                 <div className="mt-4 flex flex-col gap-2">
-                  {locked ? (
+                  {currentPlan === planId ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        You already have this plan. View your actual price,
+                        switch billing frequency, or cancel in the subscription
+                        portal.
+                      </p>
+                      <Button
+                        variant="outline"
+                        disabled={loading !== null}
+                        onClick={openPortal}
+                      >
+                        Manage plan or billing frequency
+                      </Button>
+                    </>
+                  ) : locked ? (
                     <Button asChild size="sm" variant="outline">
                       <Link href={PRO_CONTACT_HREF}>Contact us</Link>
                     </Button>
@@ -180,7 +199,11 @@ export function BillingActions({
                     <>
                       <Button
                         size="sm"
-                        variant={highlightedInterval === "yearly" ? "outline" : "default"}
+                        variant={
+                          highlightedInterval === "yearly"
+                            ? "outline"
+                            : "default"
+                        }
                         disabled={loading !== null}
                         onClick={() => checkout(planId, "monthly")}
                       >
@@ -198,7 +221,11 @@ export function BillingActions({
                       </Button>
                       <Button
                         size="sm"
-                        variant={highlightedInterval === "yearly" ? "default" : "outline"}
+                        variant={
+                          highlightedInterval === "yearly"
+                            ? "default"
+                            : "outline"
+                        }
                         disabled={loading !== null}
                         onClick={() => checkout(planId, "yearly")}
                       >

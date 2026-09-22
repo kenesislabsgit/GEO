@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 
@@ -22,6 +23,8 @@ export type ExplorerAnswer = {
   mentioned: boolean;
   position: number | null;
   answer: string;
+  summary?: string | null;
+  error?: string | null;
   recommended: ExplorerRecommendation[];
   citations: ExplorerCitation[];
 };
@@ -45,13 +48,77 @@ export function AnswerExplorer({
   questions: ExplorerQuestion[];
   brandName: string;
 }) {
+  const params = useSearchParams();
+  const [search, setSearch] = useState(params.get("q") ?? "");
+  const [provider, setProvider] = useState(params.get("provider") ?? "");
+  const [outcome, setOutcome] = useState("");
+  const providers = [
+    ...new Set(
+      questions.flatMap((question) =>
+        question.answers.map((answer) => answer.provider),
+      ),
+    ),
+  ];
+  const filtered = questions
+    .map((question) => ({
+      ...question,
+      answers: question.answers.filter(
+        (answer) =>
+          `${question.question} ${answer.answer} ${answer.recommended.map((company) => company.name).join(" ")}`
+            .toLowerCase()
+            .includes(search.toLowerCase()) &&
+          (!provider || answer.provider === provider) &&
+          (!outcome ||
+            (outcome === "mentioned"
+              ? answer.mentioned && !answer.error
+              : outcome === "unavailable"
+                ? Boolean(answer.error)
+                : !answer.mentioned && !answer.error)),
+      ),
+    }))
+    .filter((question) => question.answers.length > 0);
   return (
     <div className="space-y-3">
-      {questions.map((question) => (
+      <div className="flex flex-wrap gap-2">
+        <input
+          aria-label="Search questions and answers"
+          placeholder="Search questions, answers or companies"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="h-11 min-w-0 flex-1 basis-full rounded-md sm:basis-auto border border-border bg-background px-3 text-sm"
+        />
+        <select
+          aria-label="Filter answer provider"
+          value={provider}
+          onChange={(event) => setProvider(event.target.value)}
+          className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="">All providers</option>
+          {providers.map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Filter mention outcome"
+          value={outcome}
+          onChange={(event) => setOutcome(event.target.value)}
+          className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="">All outcomes</option>
+          <option value="mentioned">Mentioned</option>
+          <option value="absent">Not mentioned</option>
+          <option value="unavailable">Unavailable</option>
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {filtered.length} of {questions.length} questions shown
+      </p>
+      {filtered.map((question) => (
         <QuestionCard
           key={question.promptId}
           question={question}
           brandName={brandName}
+          initiallyOpen={Boolean(params.get("q"))}
         />
       ))}
     </div>
@@ -61,11 +128,13 @@ export function AnswerExplorer({
 function QuestionCard({
   question,
   brandName,
+  initiallyOpen = false,
 }: {
   question: ExplorerQuestion;
   brandName: string;
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
 
   return (
     <div className="arc-panel">
@@ -76,7 +145,9 @@ function QuestionCard({
         className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
       >
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium leading-snug">{question.question}</p>
+          <p className="text-sm font-medium leading-snug">
+            {question.question}
+          </p>
           {question.promptType ? (
             <p className="mt-1 text-xs capitalize text-muted-foreground">
               {question.promptType.replaceAll("_", " ")}
@@ -106,7 +177,9 @@ function QuestionCard({
                 >
                   {answer.mentioned
                     ? `Mentioned${answer.position ? ` #${answer.position}` : ""}`
-                    : "Absent"}
+                    : answer.error
+                      ? "Unavailable"
+                      : "Not mentioned"}
                 </span>
               </span>
             ))}
@@ -121,7 +194,11 @@ function QuestionCard({
       {open ? (
         <div className="divide-y divide-border border-t border-border">
           {question.answers.map((answer) => (
-            <AnswerBlock key={answer.id} answer={answer} brandName={brandName} />
+            <AnswerBlock
+              key={answer.id}
+              answer={answer}
+              brandName={brandName}
+            />
           ))}
         </div>
       ) : null}
@@ -137,9 +214,33 @@ function AnswerBlock({
   brandName: string;
 }) {
   const brandKey = brandName.trim().toLowerCase();
+  let prose = answer.answer;
+  let structured = false;
+  try {
+    const parsed = JSON.parse(
+      answer.answer.replace(/^```(?:json)?\s*|\s*```$/g, ""),
+    );
+    if (parsed && typeof parsed === "object") {
+      structured = true;
+      prose =
+        [
+          parsed.answer,
+          parsed.answer_text,
+          parsed.response,
+          parsed.summary,
+          answer.summary,
+        ].find((value) => typeof value === "string" && value.trim()) ??
+        "The provider returned structured recommendations. See the extracted companies and citations below.";
+    }
+  } catch {
+    /* Plain-text answers are already readable. */
+  }
 
   return (
-    <div className="grid gap-5 px-5 py-5 lg:grid-cols-[1fr_240px]">
+    <div
+      id={`answer-${answer.id}`}
+      className="grid min-w-0 gap-5 px-5 py-5 [overflow-wrap:anywhere] lg:grid-cols-[minmax(0,1fr)_240px]"
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-full border border-border bg-background">
@@ -153,12 +254,26 @@ function AnswerBlock({
           >
             {answer.mentioned
               ? `Mentions ${brandName}${answer.position ? ` at #${answer.position}` : ""}`
-              : `Does not mention ${brandName}`}
+              : answer.error
+                ? "Response unavailable"
+                : `Does not mention ${brandName}`}
           </span>
         </div>
-        <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-          {highlightBrand(answer.answer, brandName)}
+        <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
+          {answer.error
+            ? `No usable response: ${answer.error}`
+            : highlightBrand(prose, brandName)}
         </div>
+        {structured ? (
+          <details className="mt-4 min-w-0 text-xs text-muted-foreground">
+            <summary className="min-h-11 cursor-pointer py-3">
+              View raw provider response
+            </summary>
+            <pre className="max-h-80 max-w-full overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-3 [overflow-wrap:anywhere]">
+              {answer.answer}
+            </pre>
+          </details>
+        ) : null}
       </div>
 
       <div className="space-y-5">
@@ -167,8 +282,7 @@ function AnswerBlock({
           {answer.recommended.length ? (
             <ol className="mt-2 space-y-1.5">
               {answer.recommended.map((company, index) => {
-                const isBrand =
-                  company.name.trim().toLowerCase() === brandKey;
+                const isBrand = company.name.trim().toLowerCase() === brandKey;
                 return (
                   <li
                     key={`${company.name}-${index}`}
@@ -203,7 +317,10 @@ function AnswerBlock({
                   rel="noreferrer"
                   className="flex items-start gap-1.5 text-xs text-[color:var(--arc-accent)] hover:underline"
                 >
-                  <ExternalLink aria-hidden className="mt-0.5 size-3 shrink-0" />
+                  <ExternalLink
+                    aria-hidden
+                    className="mt-0.5 size-3 shrink-0"
+                  />
                   <span className="break-all">{citation.label}</span>
                 </a>
               ))}

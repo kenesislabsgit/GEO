@@ -66,12 +66,16 @@ export default async function BillingPage({
           </div>
           {subscription?.current_period_end ? (
             <p className="mt-2 text-sm text-muted-foreground">
-              Current period ends{" "}
+              {subscription.cancel_at_period_end
+                ? "Access ends "
+                : "Current billing period ends "}
               {new Date(subscription.current_period_end).toLocaleDateString()}
             </p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              No active subscription - you&apos;re on the free tier.
+              {subscription
+                ? "Billing period details are unavailable. Open Manage subscription for your current invoice and renewal details."
+                : "No active subscription. You are on the Free plan."}
             </p>
           )}
         </div>
@@ -95,6 +99,23 @@ export default async function BillingPage({
         </div>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Check allowance resets on{" "}
+        {new Date(
+          Date.UTC(
+            new Date().getUTCFullYear(),
+            new Date().getUTCMonth() + 1,
+            1,
+          ),
+        ).toLocaleDateString("en", { timeZone: "UTC" })}{" "}
+        at 00:00 UTC, independently of subscription renewal.{" "}
+        {entitlements.plan === "founder"
+          ? "Your current plan configuration includes 500 checks plus the 200-check early-bird bonus in each monthly allowance."
+          : ""}{" "}
+        Your exact billing cadence and next charge are shown in Manage
+        subscription; existing subscription prices may differ from current
+        offers below.
+      </p>
       <BillingActions
         highlightedPlan={params.plan}
         highlightedInterval={
@@ -103,6 +124,12 @@ export default async function BillingPage({
             : undefined
         }
         hasSubscription={Boolean(subscription)}
+        currentPlan={
+          subscription &&
+          ["active", "trialing", "past_due"].includes(subscription.status)
+            ? subscription.plan
+            : undefined
+        }
         returnTo={params.returnTo ?? null}
       />
     </div>

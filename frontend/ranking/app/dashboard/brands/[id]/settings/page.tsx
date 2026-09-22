@@ -6,6 +6,7 @@ import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { BrandMonitoringForm } from "@/components/dashboard/brand-monitoring-form";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
+import { ReportVisibilityToggle } from "@/components/dashboard/report-visibility-toggle";
 
 export const metadata = { title: "Website settings" };
 
@@ -34,6 +35,21 @@ export default async function BrandSettingsPage({
         description="Monitoring schedule, market, and alert preferences for this website. Changes apply from the next scheduled audit."
         isPaid={isPaid}
       />
+      <section id="visibility" className="arc-panel scroll-mt-24 space-y-3 p-6">
+        <h2 className="text-sm font-semibold">
+          Report visibility: {brand.visibility}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {brand.visibility === "private"
+            ? "Only you can access this website’s reports."
+            : "Anyone with the link can read report previews. Search engines may index them."}
+        </p>
+        <ReportVisibilityToggle
+          brandId={brand.id}
+          visibility={brand.visibility}
+          canMakePrivate={isPaid}
+        />
+      </section>
       <BrandMonitoringForm
         key={brand.id}
         brandId={brand.id}

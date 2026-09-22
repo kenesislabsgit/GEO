@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   ChevronsLeft,
@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 /**
  * Dashboard chrome: one collapsible sidebar and a full-width content area.
  * Open rows show icon + label; closed rows show the icon only. Below lg the
- * sidebar gives way to a compact top bar with scrollable tabs.
+ * sidebar gives way to a compact top bar with a grouped menu.
  */
 
 type NavItem = {
@@ -87,7 +87,12 @@ function buildNav(
     {
       label: null,
       items: [
-        { href: routes.dashboard, label: "Dashboard", icon: LayoutDashboard, exact: true },
+        {
+          href: routes.dashboard,
+          label: "Dashboard",
+          icon: LayoutDashboard,
+          exact: true,
+        },
         { href: routes.brands, label: "Websites", icon: Globe, exact: true },
       ],
     },
@@ -151,12 +156,34 @@ export function DashboardShell({
   brands?: ShellBrand[];
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [rememberedBrand, setRememberedBrand] = useState<string | null>(null);
   // The analysis group follows the website being viewed; anywhere else it
   // shows the account's most recent website so the sections are always one
   // click away.
   const pathBrandId = pathname.match(/^\/dashboard\/brands\/([^/]+)/)?.[1];
   const activeBrand =
-    brands.find((brand) => brand.id === pathBrandId) ?? brands[0] ?? null;
+    brands.find((brand) => brand.id === pathBrandId) ??
+    brands.find((brand) => brand.id === rememberedBrand) ??
+    brands[0] ??
+    null;
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      try {
+        const selected =
+          pathBrandId && brands.some((brand) => brand.id === pathBrandId)
+            ? pathBrandId
+            : sessionStorage.getItem("arcanoris-selected-website");
+        if (selected) {
+          setRememberedBrand(selected);
+          sessionStorage.setItem("arcanoris-selected-website", selected);
+        }
+      } catch {
+        /* Selection still follows the URL if storage is unavailable. */
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pathBrandId, brands]);
   const groups = buildNav(isAdmin, activeBrand);
   const [collapsed, setCollapsed] = useState(false);
   // Width animation stays off until the stored choice is applied, so a
@@ -215,7 +242,7 @@ export function DashboardShell({
               <button
                 type="submit"
                 title="Sign out"
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <LogOut className="size-3.5" />
                 <span className="sr-only">Sign out</span>
@@ -223,29 +250,52 @@ export function DashboardShell({
             </form>
           </div>
         </div>
-        <nav className="arc-scrollbar-none flex gap-1 overflow-x-auto border-t border-border px-2">
-          {groups
-            .flatMap((group) => group.items)
-            .map((item) => {
-              const active = isActive(pathname, item);
-              return (
-                <NavLink
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] transition-colors",
-                    active
-                      ? "border-foreground font-medium text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {item.label}
-                  {item.href === routes.alerts ? alertBadge : null}
-                </NavLink>
-              );
-            })}
-        </nav>
+        <details className="border-t border-border">
+          <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-medium">
+            Dashboard menu ·{" "}
+            {groups
+              .flatMap((group) => group.items)
+              .find((item) => isActive(pathname, item))?.label ?? "Navigation"}
+          </summary>
+          <nav
+            aria-label="Mobile dashboard"
+            className="max-h-[65svh] space-y-4 overflow-y-auto px-4 pb-4"
+          >
+            {groups.map((group, index) => (
+              <div key={group.label ?? index}>
+                {group.label ? (
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                    {group.label}
+                  </p>
+                ) : null}
+                <div className="grid grid-cols-2 gap-1">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      href={item.href}
+                      onClick={(event) =>
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open")
+                      }
+                      aria-current={
+                        isActive(pathname, item) ? "page" : undefined
+                      }
+                      className={cn(
+                        "flex min-h-11 items-center rounded-md px-2 text-sm",
+                        isActive(pathname, item)
+                          ? "bg-muted font-medium"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </details>
       </header>
 
       <div className="flex flex-1">
@@ -282,7 +332,10 @@ export function DashboardShell({
 
               <nav className="arc-scrollbar-none flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
                 {groups.map((group, index) => (
-                  <div key={group.label ?? index} className="flex flex-col gap-1">
+                  <div
+                    key={group.label ?? index}
+                    className="flex flex-col gap-1"
+                  >
                     {index > 0 ? (
                       collapsed ? (
                         <div
@@ -332,9 +385,7 @@ export function DashboardShell({
                           <span
                             className={cn(
                               "min-w-0 truncate whitespace-nowrap pr-4 transition-opacity duration-200 ease-out motion-reduce:transition-none",
-                              collapsed
-                                ? "opacity-0"
-                                : "opacity-100 delay-100",
+                              collapsed ? "opacity-0" : "opacity-100 delay-100",
                             )}
                           >
                             {item.label}
@@ -445,6 +496,26 @@ export function DashboardShell({
             included, which flashes chrome that never actually changed. */}
         <main className="min-w-0 flex-1 [view-transition-name:dash-main]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
+            {brands.length > 1 ? (
+              <label className="mb-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                Website context
+                <select
+                  aria-label="Website context"
+                  value={activeBrand?.id ?? ""}
+                  onChange={(event) => {
+                    setRememberedBrand(event.target.value);
+                    router.push(routes.brand(event.target.value));
+                  }}
+                  className="h-11 max-w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  {brands.map((brand) => (
+                    <option value={brand.id} key={brand.id}>
+                      {websiteLabel(brand)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {children}
           </div>
         </main>
