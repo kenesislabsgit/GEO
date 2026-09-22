@@ -149,26 +149,6 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         </div>
       ) : null}
 
-      {mode === "signup" ? (
-        <div className="mt-5 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
-          <input
-            id="signup-terms"
-            type="checkbox"
-            form="login-form"
-            required
-            checked={termsAccepted}
-            onChange={(event) => setTermsAccepted(event.target.checked)}
-            className="mt-0.5 size-4 shrink-0 accent-foreground"
-          />
-          <div>
-            <label htmlFor="signup-terms">
-              I agree to the <Link href={routes.terms} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Terms and Conditions</Link>.
-            </label>
-            <span className="block mt-1">Read our <Link href={routes.privacy} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Privacy Policy</Link>.</span>
-          </div>
-        </div>
-      ) : null}
-
       {/* Above the email fields on purpose: most people who have a Google
           account will use it, and putting it under the form makes them fill
           in a password first and find the shortcut afterwards. */}
@@ -237,26 +217,47 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
               <AlertDescription>{error || authError}</AlertDescription>
             </Alert>
           ) : null}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || needsAgreement}
-          >
-            {loading ? (
-              <>
-                <Loader2 data-icon="inline-start" className="animate-spin" />
-                Working...
-              </>
-            ) : mode === "signup" ? (
-              "Create account"
-            ) : (
-              "Sign in"
-            )}
-          </Button>
+          <div className="space-y-3">
+            {mode === "signup" ? (
+              <div className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+                <input
+                  id="signup-terms"
+                  type="checkbox"
+                  required
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 cursor-pointer accent-foreground"
+                />
+                <label htmlFor="signup-terms" className="cursor-pointer">
+                  I agree to the <Link href={routes.terms} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap underline underline-offset-4 hover:text-foreground">Terms and Conditions</Link>.
+                </label>
+              </div>
+            ) : null}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || needsAgreement}
+            >
+              {loading ? (
+                <>
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                  Working...
+                </>
+              ) : mode === "signup" ? (
+                "Create account"
+              ) : (
+                "Sign in"
+              )}
+            </Button>
+          </div>
         </FieldGroup>
       </form>
 
       <p className="mt-5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
+        {mode === "signup" ? <>
+          <Link href={routes.privacy} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Privacy Policy</Link>
+          <span aria-hidden className="mx-2">·</span>
+        </> : null}
         <Link href="/" className="hover:text-foreground">
           Back to home
         </Link>
