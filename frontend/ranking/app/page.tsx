@@ -30,11 +30,11 @@ const faqs = [
   },
   {
     q: "Can results change between runs?",
-    a: "Yes. AI answers are non-deterministic. Every report stores methodology version, timestamp, models, and sample size so results stay comparable in context.",
+    a: "Yes. AI answers are non-deterministic. Every audit stores its methodology version, timestamp, models, and sample size so results stay comparable in context.",
   },
   {
     q: "Do free scans require an account?",
-    a: "Yes - a free account, no card. If you sign up with email, confirm the inbox before the audit starts. Google sign-in skips that step. Your report is saved to the dashboard.",
+    a: "Yes - a free account, no card. If you sign up with email, confirm the inbox before the audit starts. Google sign-in skips that step. Your results are saved to the dashboard.",
   },
   {
     q: "Do you guarantee ranking improvements?",
@@ -306,7 +306,7 @@ function ShareOfVoicePanel() {
     <div className="relative">
       <FloatChip className="-top-4 -right-2 sm:-right-6">
         <span aria-hidden className="size-1.5 rounded-full bg-[#3ecf7a]" />
-        Example report
+        Example audit
       </FloatChip>
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
@@ -501,7 +501,7 @@ export default async function HomePage() {
               url: SITE_URL,
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
-              description: `${APP_TAGLINE} Sampled AI visibility reports across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
+              description: `${APP_TAGLINE} Sampled AI visibility audits across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
               offers: {
                 "@type": "Offer",
                 price: "0",
@@ -683,7 +683,7 @@ export default async function HomePage() {
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
                     Scheduled scans flag meaningful changes, while shareable
-                    reports keep the underlying answers one click away.
+                    audits keep the underlying answers one click away.
                   </p>
                   <ul className="mt-6 space-y-3.5">
                     <CheckItem delay={200}>
@@ -838,7 +838,7 @@ export default async function HomePage() {
           <Reveal className="relative mx-auto max-w-6xl px-4 py-16 text-center md:px-6 md:py-20">
             <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="arc-pulse-soft size-3" aria-hidden />
-              Two minutes for the free ChatGPT report
+              Two minutes for the free ChatGPT audit
             </p>
             <h2
               className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-foreground md:text-5xl"
@@ -851,7 +851,7 @@ export default async function HomePage() {
               style={delayStyle(200)}
             >
               Run a free AI visibility audit. No card. Confirm your email,
-              then a shareable ChatGPT report in about two minutes.
+              then saved ChatGPT results in about two minutes.
             </p>
             <div
               className="arc-rise mt-9 flex flex-wrap items-center justify-center gap-3"

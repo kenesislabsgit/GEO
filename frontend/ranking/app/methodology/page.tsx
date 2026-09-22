@@ -71,7 +71,7 @@ export default function MethodologyPage() {
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
           Arcanoris measures whether AI answer engines recommend a brand
-          when buyers ask commercial questions. Every report embeds the
+          when buyers ask commercial questions. Every audit records the
           methodology version, timestamp, models, and sample size used.
         </p>
       </section>
@@ -153,9 +153,9 @@ export default function MethodologyPage() {
         <ul className="mt-4 space-y-3">
           {[
             "AI answers are non-deterministic; scores can vary between runs even with identical inputs.",
-            "We never fabricate provider results. If a provider API fails after retries, the scan completes as partial and the failure is disclosed on the report.",
+            "We never fabricate provider results. If a provider API fails after retries, the audit completes as partial and the failure is disclosed in its results.",
             "Recommendations are directional guidance tied to observed answers, website evidence, grounded citations when available, and separately verified web mentions. They are not ranking guarantees.",
-            "Provider APIs may use different model snapshots than consumer products; each report records the exact models sampled.",
+            "Provider APIs may use different model snapshots than consumer products; each audit records the exact models sampled.",
           ].map((item) => (
             <li
               key={item}

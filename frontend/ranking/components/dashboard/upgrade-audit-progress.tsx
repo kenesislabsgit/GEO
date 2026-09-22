@@ -48,7 +48,7 @@ export function UpgradeAuditProgress({
   return (
     <div className="mx-auto max-w-2xl">
       <div className="arc-panel p-6">
-        <h1 className="font-heading text-2xl font-semibold">Completing your Plus report</h1>
+        <h1 className="font-heading text-2xl font-semibold">Completing your Plus audit</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Reusing the existing website crawl and free results, then collecting the additional provider, competitor, source, and improvement evidence.
         </p>
@@ -76,7 +76,7 @@ export function UpgradeAuditProgress({
         )}
         {error ? (
           <Alert variant="destructive" className="mt-5">
-            <AlertTitle>Could not complete the report</AlertTitle>
+            <AlertTitle>Could not complete the audit</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}

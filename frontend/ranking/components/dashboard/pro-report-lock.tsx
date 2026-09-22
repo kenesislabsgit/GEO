@@ -28,7 +28,7 @@ export function ProReportLock({
             returnTo: routes.brandUpgrade(brandId),
           })}
         >
-          Unlock the full report
+          Unlock the full audit
           <ArrowUpRight data-icon="inline-end" />
         </Link>
       </Button>

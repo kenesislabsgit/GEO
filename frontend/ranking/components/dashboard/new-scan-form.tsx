@@ -270,7 +270,7 @@ export function NewScanForm({
           </Alert>
         ) : null}
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          You can leave this page - the audit keeps running and the report
+          You can leave this page - the audit keeps running and the results
           opens when it finishes.
         </p>
       </div>
@@ -599,7 +599,7 @@ export function NewScanForm({
             <AlertTitle>This website was scanned recently</AlertTitle>
             <AlertDescription>
               <p>
-                You can view the existing report or upgrade for ongoing
+                You can view the existing audit or upgrade for ongoing
                 monitoring.
                 {recentBlock.lastScanAt
                   ? ` Last scanned ${formatDate(recentBlock.lastScanAt)}.`
@@ -608,7 +608,7 @@ export function NewScanForm({
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button asChild size="sm">
                   <Link href={routes.brand(brandId)}>
-                    View report
+                    View audit
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
@@ -741,7 +741,7 @@ export function NewScanForm({
             </p>
             <div className="mt-2.5 flex gap-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={routes.brand(brand.id)}>View report</Link>
+                <Link href={routes.brand(brand.id)}>View audit</Link>
               </Button>
               <Button asChild size="sm">
                 <Link href={routes.billing({ plan: "founder" })}>Upgrade</Link>

@@ -176,7 +176,7 @@ export default async function ScansPage() {
                           href={routes.publicReport(brand.slug, scan.id)}
                           className="text-[color:var(--arc-accent)] hover:underline"
                         >
-                          Report
+                          Results
                         </Link>
                       ) : scan.status === "queued" ||
                         scan.status === "running" ? (

@@ -6,7 +6,6 @@ import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { listBrandsForOwner } from "@/lib/db/repository";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { routes } from "@/lib/routes";
 
 export const metadata = { title: "Websites" };
@@ -86,12 +85,7 @@ export default async function BrandsPage() {
                     {brand.canonical_domain}
                   </p>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className="shrink-0 rounded-full text-[11px] capitalize"
-                >
-                  {brand.visibility}
-                </Badge>
+                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
               </Link>
             ))}
           </div>

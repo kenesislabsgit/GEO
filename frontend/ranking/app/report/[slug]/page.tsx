@@ -12,10 +12,6 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShareControls } from "@/components/report/share-controls";
-import { PrintReportButton } from "@/components/report/print-report-button";
-import { getAccountEntitlements } from "@/lib/billing/account";
-import { hasFeature } from "@/lib/billing/entitlements";
 import { ScoreRing } from "@/components/report/score-ring";
 import { ScoreBreakdown } from "@/components/dashboard/score-breakdown";
 import {
@@ -142,10 +138,10 @@ export async function generateMetadata({
     scanId: selectedScanId(query.scan),
   });
   if (!report) {
-    return { title: "Report not found", robots: { index: false } };
+    return { title: "Audit not found", robots: { index: false } };
   }
   return {
-    title: `${report.brand.name} AI Visibility Report`,
+    title: `${report.brand.name} AI Visibility Audit`,
     description: `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`,
     alternates: { canonical: routes.publicReport(slug) },
     openGraph: {
@@ -181,7 +177,7 @@ export default async function ReportPage({
         <SiteHeader />
         <main className="mx-auto max-w-2xl flex-1 px-4 py-24 text-center">
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Report unavailable
+            Audit unavailable
           </h1>
           <p className="mt-3 text-muted-foreground">
             No completed public audit was found for this website yet.
@@ -205,11 +201,6 @@ export default async function ReportPage({
   }
 
   const mentionedCount = report.promptMatrix.filter((r) => r.mentioned).length;
-  const canPrintPdf =
-    isOwner && user
-      ? hasFeature((await getAccountEntitlements(user.id)).plan, "pdfCsvExport")
-      : false;
-
   // Structured data only for genuinely public reports, mirroring
   // generateMetadata's own indexing rule above - a private report stays
   // invisible to crawlers even when its owner is the one rendering this page.
@@ -230,7 +221,7 @@ export default async function ReportPage({
                   {
                     "@type": "ListItem",
                     position: 2,
-                    name: `${report.brand.name} Report`,
+                    name: `${report.brand.name} Audit`,
                     item: reportUrl,
                   },
                 ],
@@ -238,7 +229,7 @@ export default async function ReportPage({
               {
                 "@type": "Dataset",
                 "@id": `${reportUrl}#dataset`,
-                name: `${report.brand.name} AI Visibility Report`,
+                name: `${report.brand.name} AI Visibility Audit`,
                 description: `AI visibility measurement for ${report.brand.name}: overall score ${report.score.overall}, mention rate ${report.score.mentionRate}%, sampled across ${report.scan.providerIds.length} AI provider${report.scan.providerIds.length === 1 ? "" : "s"}.`,
                 url: reportUrl,
                 dateCreated: report.scan.createdAt,
@@ -300,8 +291,8 @@ export default async function ReportPage({
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-[color:var(--arc-accent)] text-white hover:bg-[color:var(--arc-accent)]">
                 {brand.visibility === "private"
-                  ? "Private report"
-                  : "Public report"}
+                  ? "Private audit"
+                  : "Audit results"}
               </Badge>
               {report.scan.demoMode ? (
                 <Badge
@@ -380,12 +371,6 @@ export default async function ReportPage({
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-3 print:hidden">
-              <ShareControls
-                slug={report.brand.slug}
-                brandName={report.brand.name}
-                score={report.score.overall}
-              />
-              {canPrintPdf ? <PrintReportButton /> : null}
             </div>
           </div>
         </section>
@@ -685,19 +670,19 @@ export default async function ReportPage({
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 md:flex-row md:items-center md:justify-between md:px-6">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                {isOwner ? "Public report preview" : "Is this your company?"}
+                {isOwner ? "Audit preview" : "Is this your company?"}
               </h2>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                 {isOwner
                   ? "This is the shareable preview. Your complete provider answers, competitors, sources, improvements, and history remain in the dashboard."
-                  : "Claim this report to own it, control visibility, and track changes in your dashboard."}
+                  : "Claim this audit to track future changes in your dashboard."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               {isOwner ? (
                 <Button asChild>
                   <Link href={routes.brand(brand.id)}>
-                    Open full report
+                    Open full audit
                     <ArrowRight data-icon="inline-end" />
                   </Link>
                 </Button>

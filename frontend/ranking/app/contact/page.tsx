@@ -30,7 +30,7 @@ const PRO_FEATURES = [
   },
   {
     icon: FileText,
-    text: "Daily monitoring, CSV exports, and PDF reports you can send to a client",
+    text: "Daily monitoring and CSV exports you can use with clients",
   },
   {
     icon: ShieldCheck,
@@ -49,7 +49,7 @@ const GROWTH_FEATURES = [
   },
   {
     icon: FileText,
-    text: "CSV exports, PDF reports, and impact tracking on completed fixes",
+    text: "CSV exports and impact tracking on completed fixes",
   },
 ];
 

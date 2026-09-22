@@ -106,7 +106,7 @@ export function LandingHero() {
         </h1>
 
         <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-lg text-sm text-pretty text-foreground/65 sm:text-base md:text-lg">
-          The free report checks ChatGPT. Plus compares ChatGPT, Claude, Grok,
+          The free audit checks ChatGPT. Plus compares ChatGPT, Claude, Grok,
           Llama Search, and Mistral so you see who outranks you and what to fix.
         </p>
 

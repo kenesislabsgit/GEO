@@ -62,7 +62,7 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
     { text: "Citation gaps - where rivals are cited, you aren't" },
     { text: "Complete action plan + copy-paste AI prompt" },
     { text: "Weekly monitoring, score alerts, history" },
-    { text: "Private or public report link" },
+    { text: "Complete saved audit history" },
   ],
   growth: [
     { text: "Everything in Plus" },
@@ -75,7 +75,7 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
       text: `${PLAN_CONFIG.growth.features.brands} websites, ${PLAN_CONFIG.growth.features.activePrompts} tracked questions`,
     },
     { text: "Daily monitoring that rotates through your questions" },
-    { text: "CSV exports + PDF reports" },
+    { text: "CSV exports" },
     { text: "Impact tracking on completed fixes" },
   ],
   agency: [
@@ -86,7 +86,7 @@ const CARD_FEATURES: Partial<Record<PlanId, CardFeature[]>> = {
       providers: PLAN_CONFIG.agency.features.providers,
     },
     { text: "Daily monitoring that rotates through your questions" },
-    { text: "CSV exports + PDF reports" },
+    { text: "CSV exports" },
     { text: "Impact tracking on completed fixes" },
     { text: "Priority support - talk to us before you buy" },
   ],

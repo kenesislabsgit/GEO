@@ -11,15 +11,15 @@ export const metadata = {
 const sections = [
   {
     title: "What we store",
-    body: "Account, brand, scan, and billing metadata required to deliver the product. Raw AI answers and citations are stored to power your reports and history.",
+    body: "Account, brand, scan, and billing metadata required to deliver the product. Raw AI answers and citations are stored to power your audit results and history.",
   },
   {
     title: "How data is protected",
-    body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Public reports expose only explicitly public fields; private reports reveal nothing on any surface, including preview images.",
+    body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Private audit results reveal nothing on public surfaces, including preview images.",
   },
   {
     title: "How long we keep things",
-    body: "Report data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
+    body: "Audit data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
   },
   {
     title: "Your controls",

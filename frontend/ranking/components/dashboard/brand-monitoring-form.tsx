@@ -146,7 +146,7 @@ export function BrandMonitoringForm({
     return (
       <div className="arc-panel p-6 text-sm text-muted-foreground">
         Scheduled monitoring and alerts are part of the paid plans. Your saved
-        report stays available on the free plan.
+        audit history stays available on the free plan.
       </div>
     );
   }

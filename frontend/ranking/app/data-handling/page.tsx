@@ -15,11 +15,11 @@ const sections = [
   },
   {
     title: "Public scans",
-    body: "Free audits need an account. We read publicly available website information. Older public reports can be claimed by a verified owner.",
+    body: "Free audits need an account. We read publicly available website information. Older audits can be claimed by a verified owner.",
   },
   {
     title: "Premium data",
-    body: "Paid scan results, full answers, competitor intelligence, and exports are scoped to your account. Private and secret-link reports are never indexed or exposed in public APIs.",
+    body: "Paid audit results, full answers, competitor intelligence, and exports are scoped to your account. Private results are never indexed or exposed in public APIs.",
   },
   {
     title: "Provider relationships",

@@ -94,7 +94,7 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "The three numbers a real score is built from" },
       {
         type: "p",
-        text: "Once you're sampling instead of spot-checking, the results collapse into a small set of numbers worth knowing by name, because every serious GEO report is some version of these three:",
+        text: "Once you're sampling instead of spot-checking, the results collapse into a small set of numbers worth knowing by name, because every serious GEO audit is some version of these three:",
       },
       {
         type: "list",
@@ -379,10 +379,10 @@ export const blogPosts: BlogPost[] = [
         type: "p",
         text: "That log is the whole dataset. Mention rate, position, and cited-source frequency are all just aggregations over those rows - the discipline is entirely in running it the same way every time, not in the analysis.",
       },
-      { type: "h2", text: "What a good report looks like" },
+      { type: "h2", text: "What good audit results look like" },
       {
         type: "p",
-        text: "Provider-labelled mention rates with sample sizes, position when mentioned, the cited sources ranked by frequency, competitor rates from the same runs, and a methodology version plus timestamp on all of it. This is the shape we built Arcanoris's reports around - but the principles hold whether you use a tool or a spreadsheet and an API key.",
+        text: "Provider-labelled mention rates with sample sizes, position when mentioned, the cited sources ranked by frequency, competitor rates from the same runs, and a methodology version plus timestamp on all of it. This is the shape we built Arcanoris's audit results around - but the principles hold whether you use a tool or a spreadsheet and an API key.",
       },
       {
         type: "table",

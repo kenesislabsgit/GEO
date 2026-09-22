@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   if (body.slug) {
     const brand = await getBrandBySlug(body.slug);
     if (!brand) {
-      return NextResponse.json({ error: "Report not found." }, { status: 404 });
+      return NextResponse.json({ error: "Audit not found." }, { status: 404 });
     }
     domain = brand.canonical_domain;
     brandId = brand.owner_id === null ? brand.id : null;
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   }
   if (!domain) {
     return NextResponse.json(
-      { error: "Provide a report or a domain." },
+      { error: "Provide an audit or a domain." },
       { status: 400 },
     );
   }

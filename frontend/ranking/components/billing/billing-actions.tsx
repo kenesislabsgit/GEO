@@ -29,7 +29,7 @@ const PLUS_HIGHLIGHTS = [
   "See complete answers, citations, mentions, and competitor evidence",
   "Get a prioritized website improvement plan backed by sources",
   "Monitor visibility weekly and receive change alerts",
-  "Keep your audit history and share private or public reports",
+  "Keep your full audit history",
 ] as const;
 
 export function BillingActions({

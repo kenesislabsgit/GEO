@@ -214,7 +214,7 @@ export default async function BlogPostPage({ params }: Props) {
           See where you stand in AI answers
         </p>
         <p className="relative mt-2 max-w-md text-sm text-muted-foreground">
-          Run a free audit and get a provider-labelled report on whether
+          Run a free audit and get provider-labelled results showing whether
           ChatGPT-style answers recommend your brand.
         </p>
         <Button asChild size="sm" className="relative mt-4">

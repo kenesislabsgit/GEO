@@ -5,7 +5,7 @@ import { MarketingShell } from "@/components/site/marketing-shell";
 import { ClaimVerificationCard } from "./claim-verification-card";
 import { routes } from "@/lib/routes";
 
-export const metadata = { title: "Claim this report" };
+export const metadata = { title: "Claim this audit" };
 
 /**
  * Claiming a company report now means proving control of its domain. This
@@ -30,12 +30,12 @@ export default async function ClaimPage({
 
   return (
     <MarketingShell narrow>
-      <p className="arc-eyebrow">Claim report</p>
+      <p className="arc-eyebrow">Claim audit</p>
       <h1 className="font-heading mt-3 text-3xl font-semibold tracking-tight">
         Prove you control {brand.canonical_domain}
       </h1>
       <p className="mt-4 max-w-xl text-muted-foreground">
-        Anyone can read a public report; owning it takes proof. Publish the
+        This audit can be claimed only after proving control of the domain. Publish the
         verification token below on your domain, then check. The token stays
         valid for 48 hours.
       </p>

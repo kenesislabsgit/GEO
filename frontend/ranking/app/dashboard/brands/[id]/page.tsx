@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, Globe } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Globe } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getBrandById,
@@ -35,7 +35,7 @@ type CompetitorSignal = {
   verified_mentions?: unknown[];
 };
 
-export default async function WebsiteReportSummary({
+export default async function WebsiteAuditSummary({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -156,7 +156,7 @@ export default async function WebsiteReportSummary({
               {brand.name}
             </h1>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {isPaid ? `${PLAN_CONFIG[entitlements.plan].name} report` : "Free report"}
+              {isPaid ? `${PLAN_CONFIG[entitlements.plan].name} audit` : "Free audit"}
             </Badge>
           </div>
           <p className="mt-1 font-mono text-[13px] text-muted-foreground">
@@ -165,12 +165,6 @@ export default async function WebsiteReportSummary({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href={routes.publicReport(brand.slug)} target="_blank">
-              {brand.visibility === "private" ? "Report" : "Public report"}
-              <ArrowUpRight data-icon="inline-end" />
-            </Link>
-          </Button>
           <RescanButton brandId={brand.id} />
         </div>
       </div>
