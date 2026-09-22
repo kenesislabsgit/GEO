@@ -55,9 +55,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let website: string;
+  let website = "";
   try {
-    website = normalizeDomain(inquiry.website);
+    if (inquiry.website) website = normalizeDomain(inquiry.website);
   } catch (error) {
     if (error instanceof UrlValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   const sent = await sendAlertEmail({
     to: process.env.CONTACT_TO_EMAIL?.trim() || SUPPORT_EMAIL,
     replyTo: inquiry.workEmail,
-    subject: `${labelForInterest(inquiry.interest)}: ${inquiry.companyName}`,
+    subject: `${labelForInterest(inquiry.interest)}: ${inquiry.companyName || inquiry.firstName || "Customer request"}`,
     body,
   });
 

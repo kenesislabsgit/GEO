@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalUrl,
+  companyMentionKey,
   dedupeByUrl,
   sourceLabel,
 } from "@/lib/audit/source-links";
 
 describe("source links", () => {
+  it("deduplicates repeated evidence without dropping other companies on the same page", () => {
+    const own = { url: "https://example.com/comparison", company_name: "Our Brand" };
+    const repeated = { url: "https://www.example.com/comparison/?utm_source=chat", company_name: " our brand " };
+    const competitor = { ...own, company_name: "Competitor" };
+    expect(companyMentionKey(own)).toBe(companyMentionKey(repeated));
+    expect(companyMentionKey(own)).not.toBe(companyMentionKey(competitor));
+  });
   it("keeps two pages on one site apart", () => {
     // Both were labelled "kenesis.ai" and read as the same page.
     expect(canonicalUrl("https://kenesis.ai/products")).not.toBe(

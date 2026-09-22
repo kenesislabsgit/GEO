@@ -39,6 +39,11 @@ export function canonicalUrl(raw: string): string {
   }
 }
 
+/** One page may mention several companies; preserve each relationship. */
+export function companyMentionKey(mention: { url: string; company_name?: string | null }): string {
+  return JSON.stringify([(mention.company_name?.trim() || "Other").toLowerCase(), canonicalUrl(mention.url)]);
+}
+
 /**
  * What to print for a link. A title when the page gave one, otherwise the
  * address including its path - never the bare domain, which would make every

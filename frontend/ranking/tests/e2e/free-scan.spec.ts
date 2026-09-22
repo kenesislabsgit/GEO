@@ -9,11 +9,12 @@ test("free audit CTA goes to signup and requires email confirmation", async ({
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: /When buyers ask AI/i,
+      name: /When buyers ask AI, do they recommend your brand/i,
     }),
   ).toBeVisible();
+  // The hero CTA is the signup journey — never a scroll to a pricing grid.
   await page
-    .getByRole("button", { name: /Run free audit/i })
+    .getByRole("link", { name: "Run free audit", exact: true })
     .first()
     .click();
 

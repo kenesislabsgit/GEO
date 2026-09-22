@@ -1,22 +1,16 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
 import { googleConfigured } from "@/lib/auth/auth";
 import { isEmailDeliveryConfigured } from "@/lib/email/delivery";
-import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
-import { getSessionUser } from "@/lib/auth/session";
+import { canonicalDashboardRedirect, verificationRedirect } from "@/lib/auth/redirects";
+import { getOnboardingUser } from "@/lib/auth/session";
 import { resolveReturnTo } from "@/lib/routes";
 import { LoginForm } from "./login-form";
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: Promise<{ mode?: string }>;
-}): Promise<Metadata> {
-  const params = await searchParams;
-  return { title: params.mode === "signup" ? "Create account" : "Sign in" };
-}
+export const metadata = {
+  title: "Sign in",
+};
 
 export default async function LoginPage({
   searchParams,
@@ -31,9 +25,15 @@ export default async function LoginPage({
   // A genuinely signed-in person skips the form. This is the real session
   // check, not the cookie-presence guess the middleware makes - a stale
   // cookie lands on the form and can simply sign in again.
-  const user = await getSessionUser();
+  const user = await getOnboardingUser();
   if (user) {
     const params = await searchParams;
+    if (!user.emailVerified) {
+      const destination = params.claim
+        ? `/claim/${encodeURIComponent(params.claim)}`
+        : resolveReturnTo(params);
+      redirect(verificationRedirect(destination));
+    }
     if (params.claim) redirect(`/claim/${encodeURIComponent(params.claim)}`);
     redirect(canonicalDashboardRedirect(resolveReturnTo(params) ?? "/dashboard"));
   }

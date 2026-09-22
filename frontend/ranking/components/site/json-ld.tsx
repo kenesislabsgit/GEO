@@ -2,13 +2,7 @@
  * Renders schema.org structured data. `<` is escaped so page content can
  * never break out of the script tag (XSS via JSON.stringify).
  */
-export function JsonLd({
-  data,
-  id = "json-ld",
-}: {
-  data: Record<string, unknown>;
-  id?: string;
-}) {
+export function JsonLd({ data, id }: { data: Record<string, unknown>; id?: string }) {
   return (
     <script
       id={id}

@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { normalizeDomain } from "@/lib/security/url";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
+import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { PLAN_CONFIG, defaultScanProviders } from "@/lib/billing/entitlements";
 import {
   getLatestScanForBrand,
-  getPrompts,
   listQuestionSetsForBrands,
   listBrandsForOwner,
   listScansForBrands,
@@ -40,20 +42,28 @@ export default async function NewScanPage({
     listBrandsForOwner(user.id),
   ]);
   const plan = PLAN_CONFIG[entitlements.plan];
-  const isPaid =
-    entitlements.plan !== "free" &&
-    (entitlements.status === "active" || entitlements.status === "trialing");
+  if (params.domain?.trim() && brands.length > 0) {
+    let domain = params.domain.trim();
+    try { domain = normalizeDomain(domain); } catch { /* The add form shows validation errors. */ }
+    const existing = brands.find((brand) => brand.canonical_domain === domain);
+    redirect(existing
+      ? routes.newScan(existing.id)
+      : `${routes.addWebsite}?domain=${encodeURIComponent(params.domain)}`);
+  }
+  const isPaid = isPaidSubscription(entitlements);
   const brandLimitReached =
     brands.length >= plan.features.brands && plan.features.brands > 0;
 
   const scans = await listScansForBrands(brands.map((b) => b.id));
-  const questionSets = isPaid
-    ? await listQuestionSetsForBrands(brands.map((b) => b.id))
-    : [];
+  let questionSets: Awaited<ReturnType<typeof listQuestionSetsForBrands>> = [];
+  try {
+    questionSets = await listQuestionSetsForBrands(brands.map((b) => b.id));
+  } catch (error) {
+    console.error("Could not load earlier audit questions", error);
+  }
 
   const brandOptions: ScanBrandOption[] = await Promise.all(
     brands.map(async (brand) => {
-      const prompts = await getPrompts(brand.id);
       const lastScan = scans.find((s) => s.brand_id === brand.id);
       // Informational only: shows when this website was last audited by
       // this account. It no longer blocks a repeat audit.
@@ -66,13 +76,7 @@ export default async function NewScanPage({
         domain: brand.canonical_domain,
         category: brand.category,
         slug: brand.slug,
-        prompts: prompts.map((p) => ({
-          id: p.id,
-          prompt: p.prompt,
-          type: p.prompt_type,
-          country: p.country,
-          language: p.language,
-        })),
+        visibility: brand.visibility,
         questionSets: questionSets
           .filter((set) => set.brandId === brand.id)
           .map((set) => ({
@@ -113,6 +117,7 @@ export default async function NewScanPage({
 
       {brands.length === 0 ? (
         <AddBrandScanForm
+          userId={user.id}
           isPaid={isPaid}
           brandLimitReached={false}
           providers={
@@ -123,6 +128,7 @@ export default async function NewScanPage({
       ) : (
         <>
           <NewScanForm
+            userId={user.id}
             brands={brandOptions}
             preselectedBrandId={params.brand ?? null}
             plan={{

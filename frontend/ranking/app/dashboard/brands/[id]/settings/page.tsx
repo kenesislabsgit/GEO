@@ -35,6 +35,7 @@ export default async function BrandSettingsPage({
         isPaid={isPaid}
       />
       <BrandMonitoringForm
+        key={brand.id}
         brandId={brand.id}
         isPaid={isPaid}
         canEdit={canEdit}

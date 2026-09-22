@@ -18,6 +18,9 @@ export const SCAN_HEARTBEAT_TIMEOUT_SECONDS = Number(
   process.env.SCAN_HEARTBEAT_TIMEOUT_SECONDS ?? "180",
 );
 
+/** A queued row nobody claimed after this long is dead, not "still starting". */
+const STALE_QUEUED_MS = 15 * 60 * 1000;
+
 /** Estimated provider checks for a scan: one question to one provider. */
 export function estimatedChecks(snapshot: ScanInputSnapshot): number {
   return snapshot.assistants.length * snapshot.limit_per_assistant;
@@ -102,7 +105,27 @@ export async function enqueueScan(
        order by created_at desc limit 1`,
       [input.brand.id],
     );
-    if (active) return { ok: true, scan: active, alreadyRunning: true };
+    if (active) {
+      const staleQueued =
+        active.status === "queued"
+          ? await one<{ id: string }>(
+              `update scan_runs set
+                 status = 'cancelled', step = 'cancelled',
+                 cancel_requested_at = timezone('utc', now()),
+                 cancelled_at = timezone('utc', now()),
+                 completed_at = timezone('utc', now()),
+                 error_summary = 'Cancelled because the audit sat in queue too long.',
+                 failure_reason = 'stale_queue'
+               where id = $1 and status = 'queued'
+                 and queued_at < timezone('utc', now()) - ($2 * interval '1 millisecond')
+               returning id`,
+              [active.id, STALE_QUEUED_MS],
+            )
+          : null;
+      if (!staleQueued) {
+        return { ok: true, scan: active, alreadyRunning: true };
+      }
+    }
 
     const reserve = estimatedChecks(input.snapshot);
     if (input.initiatedBy) {

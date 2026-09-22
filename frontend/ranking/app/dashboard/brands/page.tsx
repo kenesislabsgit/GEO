@@ -6,7 +6,6 @@ import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
 import { listBrandsForOwner } from "@/lib/db/repository";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { routes } from "@/lib/routes";
 
 export const metadata = { title: "Websites" };
@@ -86,12 +85,7 @@ export default async function BrandsPage() {
                     {brand.canonical_domain}
                   </p>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className="shrink-0 rounded-full text-[11px] capitalize"
-                >
-                  {brand.visibility}
-                </Badge>
+                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
               </Link>
             ))}
           </div>
@@ -100,14 +94,14 @@ export default async function BrandsPage() {
 
       {!isPaid && atLimit ? (
         <p className="text-sm text-muted-foreground">
-          The Free plan tracks one website. Plus does too.{" "}
+          The Free plan tracks one website.{" "}
           <Link
-            href={routes.pricing}
+            href={routes.billing()}
             className="font-medium text-[color:var(--arc-accent)] hover:underline"
           >
-            See Growth and Pro
+            Upgrade
           </Link>{" "}
-          for more sites.
+          to monitor up to {PLAN_CONFIG.agency.features.brands} with Pro.
         </p>
       ) : null}
     </div>

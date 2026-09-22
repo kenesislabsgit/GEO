@@ -35,8 +35,16 @@ export async function POST(request: NextRequest) {
   }
 
   // Stop the money first: running audits and the live subscription.
-  await cancelActiveScansForUser(user.id).catch(() => {});
-  await cancelDodoSubscriptions(user.id);
+  try {
+    await cancelDodoSubscriptions(user.id);
+    await cancelActiveScansForUser(user.id);
+  } catch (error) {
+    log.warn("account_deletion_deferred", { userId: user.id, error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json(
+      { error: "Could not safely stop your subscription or audits. Your account has been kept; please try again." },
+      { status: 502 },
+    );
+  }
 
   await withTransaction(async () => {
     // Brands cascade to prompts, competitors, monitoring, scans, answers,
@@ -76,7 +84,6 @@ export async function POST(request: NextRequest) {
 /** Cancel live Dodo subscriptions so billing stops with the account. */
 async function cancelDodoSubscriptions(userId: string): Promise<void> {
   const key = process.env.DODO_PAYMENTS_API_KEY;
-  if (!key) return;
   const rows = await q<{ provider_subscription_id: string }>(
     `select provider_subscription_id from subscriptions
      where user_id = $1 and provider = 'dodo'
@@ -84,12 +91,14 @@ async function cancelDodoSubscriptions(userId: string): Promise<void> {
        and status in ('active', 'trialing', 'past_due', 'paused')`,
     [userId],
   );
+  if (rows.length && !key) throw new Error("Subscription cancellation is unavailable.");
   for (const row of rows) {
     try {
       const response = await fetch(
         `${dodoApiBase()}/subscriptions/${encodeURIComponent(row.provider_subscription_id)}`,
         {
           method: "PATCH",
+          signal: AbortSignal.timeout(15_000),
           headers: {
             Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
@@ -102,12 +111,14 @@ async function cancelDodoSubscriptions(userId: string): Promise<void> {
           subscriptionId: row.provider_subscription_id,
           status: response.status,
         });
+        throw new Error(`Subscription cancellation failed (${response.status}).`);
       }
     } catch (error) {
       log.warn("dodo_cancel_failed", {
         subscriptionId: row.provider_subscription_id,
         error: error instanceof Error ? error.message : String(error),
       });
+      throw error;
     }
   }
 }

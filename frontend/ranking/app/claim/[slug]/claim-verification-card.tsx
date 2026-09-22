@@ -60,7 +60,7 @@ export function ClaimVerificationCard({
       });
       const data = (await res.json()) as { redirect?: string; error?: string };
       if (!res.ok) throw new Error(data.error || "Verification failed");
-      toast.success("Domain verified - the report is yours.");
+      toast.success("Domain verified - the audit is yours.");
       router.push(data.redirect ?? "/dashboard");
     } catch (error) {
       setCheckError(

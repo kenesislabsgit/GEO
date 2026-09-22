@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSessionUser, isAdminEmail } from "@/lib/auth/session";
-import { REQUEST_PATH_HEADER } from "@/lib/auth/redirects";
+import { getOnboardingUser, isAdminEmail } from "@/lib/auth/session";
+import { REQUEST_PATH_HEADER, verificationRedirect } from "@/lib/auth/redirects";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import {
   countUnreadAlerts,
@@ -19,12 +19,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getSessionUser();
+  const user = await getOnboardingUser();
   if (!user) {
     const returnTo = safeReturnTo(
       (await headers()).get(REQUEST_PATH_HEADER),
     );
     redirect(returnTo ? routes.login({ returnTo }) : routes.login());
+  }
+  if (!user.emailVerified) {
+    redirect(verificationRedirect((await headers()).get(REQUEST_PATH_HEADER)));
   }
   const [account, unreadAlerts, brands] = await Promise.all([
     getAccountEntitlements(user.id),

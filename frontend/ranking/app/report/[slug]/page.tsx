@@ -12,12 +12,9 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShareControls } from "@/components/report/share-controls";
-import { PrintReportButton } from "@/components/report/print-report-button";
-import { getAccountEntitlements } from "@/lib/billing/account";
-import { hasFeature } from "@/lib/billing/entitlements";
+import { SourceEvidence } from "@/components/report/source-evidence";
 import { ScoreRing } from "@/components/report/score-ring";
-import { ScoreBreakdown } from "@/components/dashboard/score-breakdown";
+import { MethodologyPanel } from "@/components/report/methodology-panel";
 import {
   getBrandBySlug,
   getLatestScanForBrand,
@@ -32,6 +29,10 @@ import { toPublicReportDTO, type PublicReportDTO } from "@/lib/reports/public-dt
 import { APP_NAME, providerDisplayName } from "@/lib/constants";
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
+import {
+  loadSampleReport,
+  SAMPLE_REPORT_SLUG,
+} from "@/lib/reports/sample-report";
 import { SITE_URL } from "@/lib/site";
 import type { QueryResult, TrackedPrompt } from "@/types/database";
 
@@ -138,19 +139,29 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const query = await searchParams;
-  const report = await loadReport(slug, {
-    scanId: selectedScanId(query.scan),
-  });
+  const report =
+    slug === SAMPLE_REPORT_SLUG
+      ? loadSampleReport()
+      : await loadReport(slug, {
+          scanId: selectedScanId(query.scan),
+        });
   if (!report) {
-    return { title: "Report not found", robots: { index: false } };
+    return {
+      title: "Audit not found",
+      description: "This audit is unavailable.",
+      robots: { index: false },
+      openGraph: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
+      twitter: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
+    };
   }
   return {
-    title: `${report.brand.name} AI Visibility Report`,
+    title: `${report.brand.name} AI Visibility Audit`,
     description: `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`,
     alternates: { canonical: routes.publicReport(slug) },
     openGraph: {
       title: `${report.brand.name} · Score ${report.score.overall}`,
       description: `Mention rate ${report.score.mentionRate}% · ${APP_NAME}`,
+      images: [{ url: routes.publicReportImage(slug, report.scan.id), width: 1200, height: 630 }],
     },
   };
 }
@@ -164,16 +175,19 @@ export default async function ReportPage({
 }) {
   const { slug } = await params;
   const query = await searchParams;
-  const brand = await getBrandBySlug(slug);
-  if (!brand) notFound();
-  const user = await getSessionUser();
-  const isOwner = user?.id === brand.owner_id;
-  if (brand.visibility === "private" && !isOwner) notFound();
+  const isSample = slug === SAMPLE_REPORT_SLUG;
+  const brand = isSample ? null : await getBrandBySlug(slug);
+  if (!isSample && !brand) notFound();
+  const user = isSample ? null : await getSessionUser();
+  const isOwner = Boolean(user && brand && user.id === brand.owner_id);
+  if (brand && brand.visibility === "private" && !isOwner) notFound();
 
-  const report = await loadReport(slug, {
-    allowPrivate: isOwner,
-    scanId: selectedScanId(query.scan),
-  });
+  const report = isSample
+    ? loadSampleReport()
+    : await loadReport(slug, {
+        allowPrivate: isOwner,
+        scanId: selectedScanId(query.scan),
+      });
 
   if (!report) {
     return (
@@ -181,7 +195,7 @@ export default async function ReportPage({
         <SiteHeader />
         <main className="mx-auto max-w-2xl flex-1 px-4 py-24 text-center">
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Report unavailable
+            Audit unavailable
           </h1>
           <p className="mt-3 text-muted-foreground">
             No completed public audit was found for this website yet.
@@ -194,7 +208,7 @@ export default async function ReportPage({
                   : routes.freeAuditSignup
               }
             >
-              Run free audit
+              Run a free audit
               <ArrowRight data-icon="inline-end" />
             </Link>
           </Button>
@@ -205,11 +219,6 @@ export default async function ReportPage({
   }
 
   const mentionedCount = report.promptMatrix.filter((r) => r.mentioned).length;
-  const canPrintPdf =
-    isOwner && user
-      ? hasFeature((await getAccountEntitlements(user.id)).plan, "pdfCsvExport")
-      : false;
-
   // Structured data only for genuinely public reports, mirroring
   // generateMetadata's own indexing rule above - a private report stays
   // invisible to crawlers even when its owner is the one rendering this page.
@@ -217,9 +226,8 @@ export default async function ReportPage({
 
   return (
     <>
-      {brand.visibility === "public" ? (
+      {isSample || brand?.visibility === "public" ? (
         <JsonLd
-          id="json-ld-report"
           data={{
             "@context": "https://schema.org",
             "@graph": [
@@ -230,7 +238,7 @@ export default async function ReportPage({
                   {
                     "@type": "ListItem",
                     position: 2,
-                    name: `${report.brand.name} Report`,
+                    name: `${report.brand.name} Audit`,
                     item: reportUrl,
                   },
                 ],
@@ -238,7 +246,7 @@ export default async function ReportPage({
               {
                 "@type": "Dataset",
                 "@id": `${reportUrl}#dataset`,
-                name: `${report.brand.name} AI Visibility Report`,
+                name: `${report.brand.name} AI Visibility Audit`,
                 description: `AI visibility measurement for ${report.brand.name}: overall score ${report.score.overall}, mention rate ${report.score.mentionRate}%, sampled across ${report.scan.providerIds.length} AI provider${report.scan.providerIds.length === 1 ? "" : "s"}.`,
                 url: reportUrl,
                 dateCreated: report.scan.createdAt,
@@ -279,7 +287,7 @@ export default async function ReportPage({
                           "@type": "Answer",
                           text: row.mentioned
                             ? `Yes - ${report.brand.name} was recommended${row.position ? ` (position ${ordinal(row.position)})` : ""} when asked "${row.prompt}".`
-                            : `No - ${report.brand.name} was not mentioned when asked "${row.prompt}".${row.beatenBy.length ? ` ${row.beatenBy.join(", ")} were recommended instead.` : ""}`,
+                            : `No - ${report.brand.name} was not mentioned when asked "${row.prompt}".${row.beatenBy.length ? ` ${row.beatenBy.join(", ")} ${row.beatenBy.length === 1 ? "was" : "were"} recommended instead.` : ""}`,
                         },
                       })),
                     },
@@ -299,9 +307,11 @@ export default async function ReportPage({
           <div className="relative mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-[color:var(--arc-accent)] text-white hover:bg-[color:var(--arc-accent)]">
-                {brand.visibility === "private"
-                  ? "Private report"
-                  : "Public report"}
+                {isSample
+                  ? "Sample audit"
+                  : brand?.visibility === "private"
+                    ? "Private audit"
+                    : "Audit results"}
               </Badge>
               {report.scan.demoMode ? (
                 <Badge
@@ -327,14 +337,14 @@ export default async function ReportPage({
 
             <div className="mt-8 flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
-                <h1 className="font-heading truncate text-3xl font-semibold tracking-tight text-white md:text-5xl">
+                <h1 className="break-words text-3xl font-semibold tracking-tight text-white md:text-5xl">
                   {report.brand.name}
                 </h1>
                 <p className="mt-2 font-mono text-sm text-white/50">
                   {report.brand.domain}
                   {report.brand.category ? ` · ${report.brand.category}` : ""}
                 </p>
-                <div className="mt-8 grid grid-cols-3 gap-8">
+                <div className="mt-8 grid grid-cols-2 gap-6 md:grid-cols-3 md:gap-8">
                   <div>
                     <p className="text-[11px] font-medium tracking-wide text-white/50 uppercase">
                       Mention rate
@@ -351,42 +361,25 @@ export default async function ReportPage({
                       {report.score.averagePosition ?? " - "}
                     </p>
                   </div>
-                  <div>
+                  <div className="col-span-2 min-w-0 md:col-span-1">
                     <p className="text-[11px] font-medium tracking-wide text-white/50 uppercase">
                       Top competitor
                     </p>
-                    <p className="mt-1 truncate text-2xl font-semibold text-white capitalize md:text-3xl">
+                    <p className="mt-1 break-words text-2xl font-semibold text-white capitalize md:text-3xl">
                       {report.topCompetitor?.name ?? "None"}
                     </p>
                   </div>
                 </div>
-                <ScoreBreakdown
-                  tone="onDark"
-                  snapshot={{
-                    mention_score: report.score.mentionScore,
-                    position_score: report.score.positionScore,
-                    breakdown:
-                      report.score.evidenceQuality == null
-                        ? null
-                        : {
-                            data_confidence_score: report.score.evidenceQuality,
-                          },
-                  }}
-                />
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 md:max-w-64">
                 <ScoreRing score={report.score.overall} />
+                <p className="mt-4 max-w-sm text-xs leading-relaxed text-white/70">
+                  {report.score.mentionRate === 0 ? "No brand mentions were found. Any score points come from evidence completeness, not recommendations of this brand. " : ""}
+                  Score weights: mentions 65%, position 30%, evidence completeness up to 5 points. Citations are diagnostic and add no points.
+                </p>
               </div>
             </div>
 
-            <div className="mt-10 flex flex-wrap items-center gap-3 print:hidden">
-              <ShareControls
-                slug={report.brand.slug}
-                brandName={report.brand.name}
-                score={report.score.overall}
-              />
-              {canPrintPdf ? <PrintReportButton /> : null}
-            </div>
           </div>
         </section>
 
@@ -417,6 +410,14 @@ export default async function ReportPage({
                     <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                       {row.promptType}
                     </p>
+                    {row.namedAs ? (
+                      <p className="mt-2 text-[13px] text-muted-foreground">
+                        Named as{" "}
+                        <span className="font-medium text-foreground">
+                          {row.namedAs}
+                        </span>
+                      </p>
+                    ) : null}
                     {row.beatenBy.length > 0 ? (
                       <p className="mt-2 text-[13px] text-muted-foreground">
                         {row.mentioned ? "Ahead of you: " : "Recommended instead: "}
@@ -454,8 +455,8 @@ export default async function ReportPage({
                 Companies the AI recommended
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Each name carries the source the model actually used. Names
-                without one are shown as unverified.
+                Open a name to visit its source, or inspect its saved answer
+                and evidence below. AI citations and fetched page passages are labelled separately.
               </p>
             </div>
             {report.competitorPreview.length > 0 ? (
@@ -463,15 +464,20 @@ export default async function ReportPage({
                 {report.competitorPreview.map((competitor, index) => (
                   <div
                     key={competitor.name}
-                    className="flex items-center justify-between gap-4 py-4"
+                    className="min-w-0 py-4"
+                    data-competitor={competitor.name}
                   >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="font-mono text-xs text-muted-foreground">
                         #{index + 1}
                       </span>
-                      <p className="truncate text-sm font-semibold">
-                        {competitor.name}
-                      </p>
+                      {competitor.evidence.sourceUrl ? (
+                        <a href={competitor.evidence.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--arc-accent)] hover:underline">
+                          {competitor.name}
+                          <ExternalLink className="size-3 shrink-0" aria-hidden />
+                        </a>
+                      ) : <p className="text-sm font-semibold">{competitor.name}</p>}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-muted-foreground">
@@ -481,12 +487,43 @@ export default async function ReportPage({
                           ? ` · avg ${competitor.averagePosition}`
                           : ""}
                       </span>
-                      <Badge variant="secondary" className="rounded-full">
-                        {competitor.evidenceStatus === "verified"
-                          ? "Source verified"
-                          : "AI answer only"}
-                      </Badge>
                     </div>
+                    </div>
+                    <details className="mt-3" id={`competitor-evidence-${index}`}>
+                      <summary className="w-fit cursor-pointer rounded-md text-xs font-medium text-[color:var(--arc-accent)] focus-visible:outline-2 focus-visible:outline-ring">
+                        {competitor.evidenceStatus === "verified" ? "Source verified" : competitor.evidenceStatus === "cited" ? "AI-cited source" : "AI answer only"}
+                        {" · View evidence"}
+                      </summary>
+                      <div className="mt-4 space-y-5 rounded-lg border border-border bg-background p-4">
+                        {competitor.evidence.answers.map((answer, answerIndex) => (
+                          <div key={answerIndex} className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {answer.provider ? providerDisplayName(answer.provider) : "AI"} answer saved in this audit
+                            </p>
+                            {answer.question ? <p className="text-sm font-medium">{answer.question}</p> : null}
+                            <blockquote className="border-l-2 border-border pl-3 text-sm leading-relaxed">{answer.excerpt}</blockquote>
+                            {answer.sourceUrls.length ? (
+                              <ul className="space-y-2 text-xs">
+                                {answer.sourceUrls.map((url) => (
+                                  <li key={url}>
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-[color:var(--arc-accent)] underline underline-offset-4">{url}</a>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : <p className="text-xs text-muted-foreground">No source URL was saved for this answer.</p>}
+                          </div>
+                        ))}
+                        {competitor.evidence.pages.length ? (
+                          <div className="space-y-4 border-t border-border pt-4">
+                            <p className="text-xs font-medium text-muted-foreground">Website evidence saved during the audit. Live pages may have changed.</p>
+                            {competitor.evidence.pages.map((source, sourceIndex) => (
+                              <SourceEvidence key={sourceIndex} source={source} id={`competitor-${index}-source-${sourceIndex}`} />
+                            ))}
+                          </div>
+                        ) : <p className="text-xs text-muted-foreground">No website passage was saved; the links above are citations from the AI answer.</p>}
+                        {!competitor.evidence.answers.length && !competitor.evidence.pages.length ? <p className="text-sm text-muted-foreground">No inspectable evidence was saved for this competitor.</p> : null}
+                      </div>
+                    </details>
                   </div>
                 ))}
               </div>
@@ -592,6 +629,17 @@ export default async function ReportPage({
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   {report.recommendation.explanation}
                 </p>
+                <div className="mt-6 border-t border-border pt-5">
+                  <h4 className="text-sm font-semibold">Supporting passages</h4>
+                  <p className="mt-1 text-xs text-muted-foreground">Saved during this audit. Open the original page or jump to the quoted passage.</p>
+                  {report.recommendation.sources.length ? (
+                    <div className="mt-4 space-y-6">
+                      {report.recommendation.sources.map((source, index) => (
+                        <SourceEvidence key={index} source={source} id={`recommendation-source-${index}`} />
+                      ))}
+                    </div>
+                  ) : <p className="mt-3 text-sm text-muted-foreground">No supporting source passages were saved for this recommendation.</p>}
+                </div>
               </div>
             ) : (
               <p className="mt-6 text-sm text-muted-foreground">
@@ -620,7 +668,7 @@ export default async function ReportPage({
                   cited across these answers.{" "}
                   {report.sourceSummary.mentioningBrand === 0
                     ? `None of them mentions ${report.brand.name}.`
-                    : `${report.sourceSummary.mentioningBrand} of them mentions ${report.brand.name}.`}
+                    : `${report.sourceSummary.mentioningBrand} of them ${report.sourceSummary.mentioningBrand === 1 ? "mentions" : "mention"} ${report.brand.name}.`}
                 </>
               ) : (
                 "This model returned no sources for these answers."
@@ -671,7 +719,7 @@ export default async function ReportPage({
                   {report.sourceSummary.total > report.sourceSummary.shown ? (
                     <div className="bg-muted/40 px-5 py-3 text-sm text-muted-foreground">
                       {report.sourceSummary.total - report.sourceSummary.shown}{" "}
-                      more sources in the full audit
+                      more {report.sourceSummary.total - report.sourceSummary.shown === 1 ? "source" : "sources"} in the full audit. {isSample ? <>This public example shows a preview; full source access is included with Plus and Pro for your own website. <Link href={routes.pricing} className="font-medium underline underline-offset-4">Compare plans for full evidence</Link>.</> : isOwner && brand ? <><Link href={routes.brandSection(brand.id, "citations")} className="font-medium underline underline-offset-4">Open all sources in your dashboard</Link>. Full evidence requires Plus or Pro.</> : <>Full evidence is available to the website owner on Plus or Pro. <Link href={routes.claim(report.brand.slug)} className="font-medium underline underline-offset-4">Claim this website to access its evidence</Link>.</>}
                     </div>
                   ) : null}
                 </div>
@@ -680,24 +728,39 @@ export default async function ReportPage({
           </div>
         </section>
 
+        <MethodologyPanel scan={report.scan} />
+
         {/* Claim + upgrade CTA */}
         <section className="border-t border-border">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 md:flex-row md:items-center md:justify-between md:px-6">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                {isOwner ? "Public report preview" : "Is this your company?"}
+                {isSample
+                  ? "A real audit, not a mockup"
+                  : isOwner
+                    ? "Audit preview"
+                    : "Is this your company?"}
               </h2>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-                {isOwner
-                  ? "This is the shareable preview. Your complete provider answers, competitors, sources, improvements, and history remain in the dashboard."
-                  : "Claim this report to own it, control visibility, and track changes in your dashboard."}
+                {isSample
+                  ? `This is a completed ChatGPT audit of ${report.brand.domain}. The score, the questions, and the sources are from that run.`
+                  : isOwner
+                    ? "Your complete provider answers, competitors, sources, improvements, and history are saved in the dashboard."
+                    : "Claim this audit to attach it to your account and track future changes."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              {isOwner ? (
+              {isSample ? (
+                <Button asChild>
+                  <Link href={routes.freeAuditSignup}>
+                    Run this on your site
+                    <ArrowRight data-icon="inline-end" />
+                  </Link>
+                </Button>
+              ) : isOwner && brand ? (
                 <Button asChild>
                   <Link href={routes.brand(brand.id)}>
-                    Open full report
+                    Open full audit
                     <ArrowRight data-icon="inline-end" />
                   </Link>
                 </Button>

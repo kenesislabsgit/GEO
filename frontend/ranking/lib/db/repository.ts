@@ -211,10 +211,32 @@ export async function upsertBrandProfileCache(
 
 export async function listScansForBrands(
   brandIds: string[],
+  limit?: number,
 ): Promise<ScanRun[]> {
   if (brandIds.length === 0) return [];
   return q<ScanRun>(
-    `select * from scan_runs where brand_id = any($1::uuid[]) order by created_at desc`,
+    `select * from scan_runs where brand_id = any($1::uuid[]) order by created_at desc limit $2`,
+    [brandIds, limit ?? null],
+  );
+}
+
+/** History needs small summary rows, not input snapshots or per-row queries. */
+export async function listScanHistoryForBrands(brandIds: string[]) {
+  if (!brandIds.length) return [];
+  return q<Pick<ScanRun, "id" | "brand_id" | "created_at" | "provider_ids" | "status" | "total_queries" | "completed_queries"> & {
+    overall_score: number | null;
+    previous_score: number | null;
+  }>(
+    `with scores as (
+       select scan_run_id, overall_score,
+              lag(overall_score) over (partition by brand_id order by created_at, id) as previous_score
+       from score_snapshots where brand_id = any($1::uuid[])
+     )
+     select s.id, s.brand_id, s.created_at, s.provider_ids, s.status,
+            s.total_queries, s.completed_queries,
+            scores.overall_score::float, scores.previous_score::float
+     from scan_runs s left join scores on scores.scan_run_id = s.id
+     where s.brand_id = any($1::uuid[]) order by s.created_at desc, s.id desc`,
     [brandIds],
   );
 }
@@ -860,10 +882,10 @@ export async function listMonitorableBrandCandidates(): Promise<
   return results;
 }
 
-export async function scoresForBrand(brandId: string) {
+export async function scoresForBrand(brandId: string, limit?: number) {
   return q<ScoreSnapshot>(
-    `select * from score_snapshots where brand_id = $1 order by created_at desc`,
-    [brandId],
+    `select * from score_snapshots where brand_id = $1 order by created_at desc limit $2`,
+    [brandId, limit ?? null],
   );
 }
 
@@ -999,6 +1021,8 @@ export async function accountOverviewSeries(ownerId: string): Promise<{
     mentioned: number;
   }>;
   snapshots: Array<{
+    brand_id: string;
+    is_baseline: boolean;
     created_at: string;
     overall_score: number;
     mention_rate: number;
@@ -1030,18 +1054,30 @@ export async function accountOverviewSeries(ownerId: string): Promise<{
     [ownerId],
   );
   const snapshots = await q<{
+    brand_id: string;
+    is_baseline: boolean;
     created_at: string;
     overall_score: number;
     mention_rate: number;
   }>(
-    `select sc.created_at::text as created_at,
-            sc.overall_score::float as overall_score,
-            sc.mention_rate::float as mention_rate
-     from score_snapshots sc
-     join brands b on b.id = sc.brand_id
-     where b.owner_id = $1
-     order by sc.created_at
-     limit 90`,
+    `with recent as (
+       select sc.* from score_snapshots sc
+       join brands b on b.id = sc.brand_id
+       where b.owner_id = $1
+       order by sc.created_at desc, sc.id desc limit 90
+     ), baseline as (
+       select distinct on (sc.brand_id) sc.* from score_snapshots sc
+       join brands b on b.id = sc.brand_id
+       where b.owner_id = $1 and sc.created_at <= (select min(created_at) from recent)
+         and not exists (select 1 from recent where recent.id = sc.id)
+       order by sc.brand_id, sc.created_at desc, sc.id desc
+     )
+     select brand_id, created_at::text, overall_score::float, mention_rate::float, is_baseline
+     from (
+       select brand_id, created_at, overall_score, mention_rate, false as is_baseline from recent
+       union all
+       select brand_id, created_at, overall_score, mention_rate, true as is_baseline from baseline
+     ) snapshots order by created_at, is_baseline desc`,
     [ownerId],
   );
   return { scans, snapshots };

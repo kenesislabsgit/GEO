@@ -17,14 +17,29 @@ export function isSelfServePlan(planId: PlanId): boolean {
   return SOLD_PLAN_IDS.includes(planId) && !isSalesLockedPlan(planId);
 }
 
-/** Public Plus CTA: login if needed, then straight into Dodo checkout. */
+/** New visitors create an account with their selection preserved. */
 export function publicSubscribeHref(
   planId: PlanId,
   interval: BillingInterval,
   signedIn: boolean,
 ): string {
   const start = routes.checkoutStart({ plan: planId, interval });
-  return signedIn ? start : routes.login({ returnTo: start });
+  return signedIn ? start : routes.login({ returnTo: start, mode: "signup" });
+}
+
+export function selectedTrial(returnTo: string | null) {
+  if (!returnTo?.startsWith("/dashboard/billing/start?")) return null;
+  const params = new URLSearchParams(returnTo.split("?")[1]);
+  if (params.get("plan") !== "founder") return null;
+  const interval = params.get("interval");
+  return interval === "monthly" || interval === "yearly" ? { plan: PLAN_CONFIG.founder, interval } as const : null;
+}
+
+export function trialCommitment(interval: BillingInterval): string {
+  const plan = PLAN_CONFIG.founder;
+  const price = interval === "yearly" ? plan.yearlyPriceUsd : plan.monthlyPriceUsd;
+  const period = interval === "yearly" ? "year" : "month";
+  return `Payment method required. $0 for ${plan.trialDays} days, then $${price}/${period} plus applicable tax, billed automatically every ${period}. Cancel in Billing before your ${plan.trialDays}-day trial ends to avoid the first charge.`;
 }
 
 export function yearlySavingsUsd(plan: PlanConfig): number {

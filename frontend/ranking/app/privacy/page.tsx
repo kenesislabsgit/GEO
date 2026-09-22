@@ -1,25 +1,30 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import { MarketingShell } from "@/components/site/marketing-shell";
-import { routes } from "@/lib/routes";
+import { PolicyMeta } from "@/components/site/policy-meta";
+import { DataRecipients } from "@/components/site/data-recipients";
 
-export const metadata = {
-  title: "Privacy",
-  description:
-    "What Arcanoris stores, how it's protected, how long it's kept, and the export and deletion controls available from Settings.",
-  alternates: { canonical: routes.privacy },
-};
+export const metadata = publicPageMetadata(
+  "Privacy",
+  "What Arcanoris stores, how it's protected, how long it's kept, and the export and deletion controls available from Settings.",
+  "/privacy",
+);
 
 const sections = [
   {
     title: "What we store",
-    body: "Account, brand, scan, and billing metadata required to deliver the product. Raw AI answers and citations are stored to power your reports and history.",
+    body: "Account, brand, scan, and billing metadata required to deliver the product. Raw AI answers and citations are stored to power your audit results and history.",
   },
   {
     title: "How data is protected",
-    body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Public reports expose only explicitly public fields; private reports reveal nothing on any surface, including preview images.",
+    body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Private audit results reveal nothing on public surfaces, including preview images.",
+  },
+  {
+    title: "Audit visibility",
+    body: "Audit details and complete results are scoped to the owning account. Public pages expose only the information explicitly intended for public viewing.",
   },
   {
     title: "How long we keep things",
-    body: "Report data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
+    body: "Audit data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
   },
   {
     title: "Your controls",
@@ -33,6 +38,7 @@ export default function PrivacyPage() {
       <h1 className="font-heading text-4xl font-semibold tracking-tight">
         Privacy
       </h1>
+      <PolicyMeta />
       <div className="mt-8 space-y-8">
         {sections.map((section) => (
           <section key={section.title}>
@@ -45,6 +51,7 @@ export default function PrivacyPage() {
           </section>
         ))}
       </div>
+      <DataRecipients />
     </MarketingShell>
   );
 }

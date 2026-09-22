@@ -277,7 +277,7 @@ export function usePolarController({
           return {
             name,
             label: config[name]?.label ?? name,
-            value: typeof raw === "number" ? raw : 0,
+            value: typeof raw === "number" ? raw : Number.NaN,
             seed: seedOf(name),
             dimmed: emphasis !== null && emphasis !== name,
           }

@@ -6,8 +6,11 @@ import type {
   ScoreSnapshot,
   TrackedPrompt,
 } from "@/types/database";
-import { roundForDisplay, scoreBreakdownParts } from "@/lib/scores/format";
+import { roundForDisplay } from "@/lib/scores/format";
 import { canonicalCompanyKey } from "@/lib/utils/company-name";
+import { competitorEvidence, reportSources, type ReportSource } from "@/lib/reports/evidence";
+import { parseEvidence } from "@/lib/actions/evidence";
+import { categoryLabel, reportSampling, reportText, type ReportSampling } from "@/lib/reports/presentation";
 
 function safeHost(url: string): string {
   try {
@@ -36,15 +39,13 @@ export type PublicReportDTO = {
     providerIds: string[];
     promptCount: number;
     confidence: "low" | "standard";
+    sampling: ReportSampling;
   };
   score: {
     overall: number;
     mentionRate: number;
     averagePosition: number | null;
     shareOfVoice: number;
-    mentionScore: number | null;
-    positionScore: number | null;
-    evidenceQuality: number | null;
   };
   promptMatrix: Array<{
     prompt: string;
@@ -54,13 +55,16 @@ export type PublicReportDTO = {
     position: number | null;
     /** Companies recommended ahead of the brand, in order. */
     beatenBy: string[];
+    /** Product name when the answer said "Stripe Connect" rather than "Stripe". */
+    namedAs?: string | null;
   }>;
   topCompetitor: { name: string; mentions: number } | null;
   competitorPreview: Array<{
     name: string;
     mentions: number;
     averagePosition: number | null;
-    evidenceStatus: "verified" | "answer_only_unverified";
+    evidenceStatus: "verified" | "cited" | "answer_only_unverified";
+    evidence: ReturnType<typeof competitorEvidence>;
   }>;
   /** The single competitor whose website was actually read. */
   investigatedCompetitor: {
@@ -94,6 +98,7 @@ export type PublicReportDTO = {
     explanation: string;
     reason: string | null;
     priority: number;
+    sources: ReportSource[];
   } | null;
   premiumTeasers: {
     citationGaps: number;
@@ -159,7 +164,7 @@ export function toPublicReportDTO(input: {
 
       return {
         prompt: prompt.prompt,
-        promptType: prompt.prompt_type,
+        promptType: categoryLabel(prompt.prompt_type),
         mentioned,
         position,
         beatenBy,
@@ -193,18 +198,19 @@ export function toPublicReportDTO(input: {
   const topCompetitor = competitors[0]
     ? { name: competitors[0].name, mentions: competitors[0].mentions }
     : null;
-  const competitorPreview = competitors.slice(0, 5).map((competitor) => ({
+  const competitorPreview = competitors.slice(0, 5).map((competitor) => {
+    const evidence = competitorEvidence(competitor);
+    return {
     name: competitor.name,
     mentions: competitor.mentions,
     averagePosition:
       typeof competitor.average_rank === "number"
         ? roundForDisplay(competitor.average_rank)
         : null,
-    evidenceStatus:
-      competitor.evidence_status === "answer_only_unverified"
-        ? ("answer_only_unverified" as const)
-        : ("verified" as const),
-  }));
+    evidenceStatus: evidence.evidenceStatus,
+    evidence,
+    };
+  });
 
   // The free audit reads one competitor's website. That is the competitor whose
   // pages we can quote, and the one the recommended action is built on.
@@ -329,14 +335,12 @@ export function toPublicReportDTO(input: {
       ? firstRecEvidence.summary
       : null;
 
-  const parts = scoreBreakdownParts(input.score ?? {});
-
   return {
     brand: {
       name: input.brand.name,
       slug: input.brand.slug,
       domain: input.brand.canonical_domain,
-      category: input.brand.category,
+      category: input.brand.category ? categoryLabel(input.brand.category) : null,
       description: input.brand.description,
     },
     scan: {
@@ -349,6 +353,7 @@ export function toPublicReportDTO(input: {
       providerIds: input.scan.provider_ids,
       promptCount: promptMatrix.length,
       confidence: hasVerifiedEvidence ? "standard" : "low",
+      sampling: reportSampling(input.results.map((result) => ({ ...result, question: result.tracked_prompt_id ?? String(result.question_position ?? result.id) }))),
     },
     score: {
       overall: roundForDisplay(Number(input.score?.overall_score ?? 0)),
@@ -361,9 +366,6 @@ export function toPublicReportDTO(input: {
       shareOfVoice: roundForDisplay(
         Number(input.score?.share_of_voice ?? 0) * 100,
       ),
-      mentionScore: parts.mention,
-      positionScore: parts.position,
-      evidenceQuality: parts.evidence,
     },
     promptMatrix,
     topCompetitor,
@@ -393,10 +395,11 @@ export function toPublicReportDTO(input: {
       : null,
     recommendation: firstRec
       ? {
-          title: firstRec.title,
-          explanation: firstRec.explanation,
-          reason: recommendationReason,
+          title: reportText(firstRec.title),
+          explanation: reportText(firstRec.explanation),
+          reason: recommendationReason ? reportText(recommendationReason) : null,
           priority: firstRec.priority,
+          sources: reportSources(parseEvidence(firstRec.evidence).sources),
         }
       : null,
     premiumTeasers: {

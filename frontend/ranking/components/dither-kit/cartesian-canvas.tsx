@@ -11,6 +11,7 @@ import {
   resample,
 } from "./dither-paint"
 import { rgb } from "./palette"
+import { runVisibleFrames } from "@/lib/visible-animation"
 
 type Star = { key: string; xi: number; depth: number; phase: number }
 type Surface = { top: number[]; floor: number[] }
@@ -102,7 +103,6 @@ function startCartesianLoop({
     })
   }
 
-  let raf = 0
   let tick = 0
   let last = 0
   let animStart = 0
@@ -115,7 +115,6 @@ function startCartesianLoop({
   let lastSelected: string | null | undefined = Symbol() as never
 
   const draw = (now: number) => {
-    raf = requestAnimationFrame(draw)
     const s = state.current
     if (!s.ready) return
     // Keep the bloom layer in sync with the crisp canvas while it's active.
@@ -282,8 +281,7 @@ function startCartesianLoop({
     }
   }
 
-  raf = requestAnimationFrame(draw)
-  return () => cancelAnimationFrame(raf)
+  return runVisibleFrames(canvas, draw)
 }
 
 /**

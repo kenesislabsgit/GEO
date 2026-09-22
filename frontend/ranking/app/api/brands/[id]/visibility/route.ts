@@ -36,7 +36,7 @@ export async function POST(
     !hasFeature(entitlements.plan, "publicPrivateReports")
   ) {
     return NextResponse.json(
-      { error: "Private reports require a paid plan." },
+      { error: "Private audits require a paid plan." },
       { status: 402 },
     );
   }

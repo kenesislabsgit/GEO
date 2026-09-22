@@ -1,4 +1,9 @@
-import { safeReturnTo } from "@/lib/routes";
+import { routes, safeReturnTo } from "@/lib/routes";
+
+export function verificationRedirect(returnTo?: string | null) {
+  const destination = safeReturnTo(returnTo) ?? routes.newScan();
+  return `${routes.verifyEmail}?returnTo=${encodeURIComponent(destination)}`;
+}
 
 /** Set by the dashboard proxy so a logged-out visit can return here after login. */
 export const REQUEST_PATH_HEADER = "x-arcanoris-path";

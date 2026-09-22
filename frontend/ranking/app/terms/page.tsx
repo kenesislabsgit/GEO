@@ -1,12 +1,12 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import { MarketingShell } from "@/components/site/marketing-shell";
-import { routes } from "@/lib/routes";
+import { PolicyMeta } from "@/components/site/policy-meta";
 
-export const metadata = {
-  title: "Terms",
-  description:
-    "Arcanoris's terms of service: what the AI visibility measurement service covers, why it carries no ranking guarantees, and how billing works.",
-  alternates: { canonical: routes.terms },
-};
+export const metadata = publicPageMetadata(
+  "Terms",
+  "Arcanoris's terms of service: what the AI visibility measurement service covers, why it carries no ranking guarantees, and how billing works.",
+  "/terms",
+);
 
 const sections = [
   {
@@ -19,7 +19,7 @@ const sections = [
   },
   {
     title: "Billing",
-    body: "Paid plans are billed through Dodo Payments and can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans, including the 7-day Plus trial. Unused monthly AI checks are not refundable.",
+    body: "Paid plans are billed through Dodo Payments and can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans, including trials.",
   },
 ];
 
@@ -29,6 +29,7 @@ export default function TermsPage() {
       <h1 className="font-heading text-4xl font-semibold tracking-tight">
         Terms
       </h1>
+      <PolicyMeta />
       <div className="mt-8 space-y-8">
         {sections.map((section) => (
           <section key={section.title}>

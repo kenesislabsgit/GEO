@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuditProgress } from "@/components/scan/audit-progress";
 import { useDetachedAudit } from "@/components/scan/use-detached-audit";
+import { auditStorageKey, readAuditRun } from "@/lib/scans/client-storage";
 import {
   FREE_AUDIT_QUESTION_COUNT,
   PRO_AUDIT_QUESTION_COUNT,
@@ -19,11 +20,13 @@ import type { ProviderId } from "@/types/database";
 const STORAGE_KEY = "rbai_audit_add_brand";
 
 export function AddBrandScanForm({
+  userId,
   isPaid,
   brandLimitReached,
   providers,
   initialDomain,
 }: {
+  userId: string;
   isPaid: boolean;
   brandLimitReached: boolean;
   providers: ProviderId[];
@@ -33,7 +36,9 @@ export function AddBrandScanForm({
   const router = useRouter();
   const [domain, setDomain] = useState(initialDomain ?? "");
   const { loading, error, progress, step, events, start } = useDetachedAudit({
+    userId,
     storageKey: STORAGE_KEY,
+    onEmailUnverified: () => router.push(routes.verifyEmail),
     onDone: (brandId) => router.push(`${routes.brand(brandId)}?completed=1`),
   });
 
@@ -56,13 +61,16 @@ export function AddBrandScanForm({
   const autoStarted = useRef(false);
   useEffect(() => {
     if (autoStarted.current) return;
-    autoStarted.current = true;
     if (brandLimitReached || loading || !initialDomain?.trim()) return;
     // A stale run from an earlier visit takes priority - the hook's own
     // mount effect already resumes it, so starting a second one here would
     // race it into two concurrent audits.
-    if (localStorage.getItem(STORAGE_KEY)) return;
-    void startAudit();
+    if (readAuditRun(auditStorageKey(STORAGE_KEY, userId))) return;
+    const timer = setTimeout(() => {
+      autoStarted.current = true;
+      void startAudit();
+    }, 0);
+    return () => clearTimeout(timer);
     // Mount-only: startAudit reads `domain`, which useState already seeded
     // from initialDomain, so this reflects the value this effect cares about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,7 +84,7 @@ export function AddBrandScanForm({
           Upgrade your plan to monitor another website.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button asChild size="sm"><Link href={routes.pricing}>See plans</Link></Button>
+          <Button asChild size="sm"><Link href={routes.billing({ plan: "agency" })}>Upgrade</Link></Button>
           <Button asChild size="sm" variant="outline"><Link href={routes.brands}>View websites</Link></Button>
         </div>
       </div>

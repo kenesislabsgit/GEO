@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/site/logo";
-import { getSessionUser } from "@/lib/auth/session";
-import { q } from "@/lib/db/pg";
+import { getOnboardingUser } from "@/lib/auth/session";
+import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
 import { routes, safeReturnTo } from "@/lib/routes";
 import { VerifyEmailCard } from "./verify-email-card";
 
@@ -13,18 +13,10 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: Promise<{ returnTo?: string }>;
 }) {
-  const user = await getSessionUser();
-  if (user) {
-    const profile = (
-      await q<{ emailVerified: boolean }>(
-        `select "emailVerified" from "user" where id = $1`,
-        [user.id],
-      )
-    )[0];
-    if (profile?.emailVerified) {
-      const params = await searchParams;
-      redirect(safeReturnTo(params.returnTo) ?? routes.newScan());
-    }
+  const user = await getOnboardingUser();
+  if (user?.emailVerified) {
+    const params = await searchParams;
+    redirect(canonicalDashboardRedirect(safeReturnTo(params.returnTo) ?? routes.newScan()));
   }
   return (
     <main className="arc-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">

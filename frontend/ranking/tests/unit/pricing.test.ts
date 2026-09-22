@@ -60,6 +60,7 @@ describe("pricing helpers", () => {
     expect(publicSubscribeHref("founder", "monthly", true)).toBe(start);
     expect(publicSubscribeHref("founder", "yearly", false)).toBe(
       routes.login({
+        mode: "signup",
         returnTo: routes.checkoutStart({ plan: "founder", interval: "yearly" }),
       }),
     );

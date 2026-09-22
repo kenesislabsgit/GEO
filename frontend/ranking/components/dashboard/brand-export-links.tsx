@@ -20,7 +20,7 @@ export async function BrandExportLinks({ brandId }: { brandId: string }) {
   if (!PLAN_CONFIG[entitlements.plan].features.pdfCsvExport) {
     return (
       <p className="text-sm text-muted-foreground">
-        CSV exports are available on Pro and Growth.
+        CSV exports are available on the Pro plan.
       </p>
     );
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
-import { canonicalDashboardRedirect } from "@/lib/auth/redirects";
+import { getOnboardingUser } from "@/lib/auth/session";
+import { canonicalDashboardRedirect, verificationRedirect } from "@/lib/auth/redirects";
 import { listBrandsForOwner } from "@/lib/db/repository";
 import { routes, safeReturnTo } from "@/lib/routes";
 
@@ -12,9 +12,15 @@ export const runtime = "nodejs";
 
 async function resolveRedirect(input: {
   userId: string;
+  emailVerified: boolean;
   claim: string | null;
   returnTo: string | null;
 }): Promise<string> {
+  if (!input.emailVerified) {
+    const destination = input.claim && /^[a-z0-9-]{1,80}$/.test(input.claim)
+      ? `/claim/${input.claim}` : input.returnTo;
+    return verificationRedirect(destination);
+  }
   if (input.claim && /^[a-z0-9-]{1,80}$/.test(input.claim)) {
     return `/claim/${input.claim}`;
   }
@@ -28,16 +34,9 @@ async function resolveRedirect(input: {
   return canonicalDashboardRedirect(routes.dashboard);
 }
 
-async function sessionUserId(request: Request): Promise<string | null> {
-  const session = await auth.api
-    .getSession({ headers: request.headers })
-    .catch(() => null);
-  return session?.user?.id ?? null;
-}
-
 export async function POST(request: Request) {
-  const userId = await sessionUserId(request);
-  if (!userId) {
+  const user = await getOnboardingUser(request.headers);
+  if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
   const body = (await request.json().catch(() => ({}))) as {
@@ -45,7 +44,8 @@ export async function POST(request: Request) {
     returnTo?: unknown;
   };
   const redirect = await resolveRedirect({
-    userId,
+    userId: user.id,
+    emailVerified: user.emailVerified,
     claim: typeof body.claim === "string" ? body.claim : null,
     returnTo: typeof body.returnTo === "string" ? body.returnTo : null,
   });
@@ -53,13 +53,14 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const userId = await sessionUserId(request);
-  if (!userId) {
+  const user = await getOnboardingUser(request.headers);
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url), 303);
   }
   const url = new URL(request.url);
   const redirect = await resolveRedirect({
-    userId,
+    userId: user.id,
+    emailVerified: user.emailVerified,
     claim: url.searchParams.get("claim"),
     returnTo: url.searchParams.get("returnTo"),
   });

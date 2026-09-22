@@ -54,8 +54,8 @@ against actual usage on completion). A retry replays the scan's stored
 
 The worker owns scheduling (no external cron service): every 5 minutes it
 checks `brand_monitoring` (frequency, local day/hour, timezone, providers,
-locale), rotates deterministically through the brand's tracked questions so
-a month of runs fits the plan's check allowance, and enqueues through the
+locale), repeats the five questions selected in monitoring settings for
+comparable runs, checks the plan's remaining allowance, and enqueues through the
 same path as a manual audit. After every finished scan the worker diffs
 score, competitors, and cited sources against the previous snapshot and
 raises deduplicated alerts (emailed only after the provider confirms).

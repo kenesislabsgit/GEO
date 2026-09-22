@@ -145,13 +145,8 @@ const COMPARISON: Array<{
     ],
   },
   {
-    section: "Sharing",
-    rows: [
-      { label: "Shareable report link", cells: [true, true, true] },
-      { label: "Private reports", cells: [false, true, true] },
-      { label: "CSV export", cells: [false, false, true] },
-      { label: "PDF report", cells: [false, false, true] },
-    ],
+    section: "Exports",
+    rows: [{ label: "CSV export", cells: [false, false, true] }],
   },
 ];
 
@@ -178,7 +173,7 @@ const FAQS = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Manage or cancel from the billing portal in one click. You can export your account as JSON from Settings while it exists. CSV and PDF report files are Pro (and Growth).",
+    a: "Yes. Manage or cancel from the billing portal in one click. You can export your account as JSON from Settings while it exists. CSV exports are available on Pro and Growth.",
   },
   {
     q: "How does the 7-day Plus trial work?",
