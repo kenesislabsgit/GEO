@@ -1,12 +1,13 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import { MarketingShell } from "@/components/site/marketing-shell";
-import { routes } from "@/lib/routes";
+import { PolicyMeta } from "@/components/site/policy-meta";
+import { DataRecipients } from "@/components/site/data-recipients";
 
-export const metadata = {
-  title: "Data handling",
-  description:
-    "What Arcanoris collects from AI provider scans, how public and premium scan data are scoped, and its retention and deletion rules.",
-  alternates: { canonical: routes.dataHandling },
-};
+export const metadata = publicPageMetadata(
+  "Data handling",
+  "What Arcanoris collects from AI provider scans, how public and premium scan data are scoped, and its retention and deletion rules.",
+  "/data-handling",
+);
 
 const sections = [
   {
@@ -41,6 +42,7 @@ export default function DataHandlingPage() {
       <h1 className="font-heading text-4xl font-semibold tracking-tight">
         Data handling
       </h1>
+      <PolicyMeta />
       <div className="mt-8 space-y-8">
         {sections.map((section) => (
           <section key={section.title}>
@@ -53,6 +55,7 @@ export default function DataHandlingPage() {
           </section>
         ))}
       </div>
+      <DataRecipients />
     </MarketingShell>
   );
 }

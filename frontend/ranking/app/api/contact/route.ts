@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { contactInquirySchema, labelForCompanySize, labelForInterest } from "@/lib/contact/schema";
+import {
+  contactInquirySchema,
+  labelForCompanySize,
+  labelForInterest,
+} from "@/lib/contact/schema";
 import { sendContactEmail } from "@/lib/email/smtp";
 import { SUPPORT_EMAIL } from "@/lib/constants";
 import { limitAction } from "@/lib/rate-limit";
@@ -33,7 +37,8 @@ export async function POST(request: Request) {
 
   const parsed = contactInquirySchema.safeParse(json);
   if (!parsed.success) {
-    const first = parsed.error.issues[0]?.message ?? "Check the form and try again.";
+    const first =
+      parsed.error.issues[0]?.message ?? "Check the form and try again.";
     return NextResponse.json({ error: first }, { status: 400 });
   }
 
@@ -55,9 +60,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let website: string;
+  let website = "";
   try {
-    website = normalizeDomain(inquiry.website);
+    if (inquiry.website) website = normalizeDomain(inquiry.website);
   } catch (error) {
     if (error instanceof UrlValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -80,14 +85,17 @@ export async function POST(request: Request) {
   const sent = await sendContactEmail({
     to: SUPPORT_EMAIL,
     replyTo: inquiry.workEmail,
-    subject: `${labelForInterest(inquiry.interest)}: ${inquiry.companyName}`,
+    subject: `${labelForInterest(inquiry.interest)}: ${inquiry.companyName || inquiry.firstName || "Customer request"}`,
     body,
   });
 
   if (!sent.ok) {
     log.error("contact_email_failed", { error: sent.error ?? "unknown" });
     return NextResponse.json(
-      { error: "We could not send that just now. Email us directly and we will reply." },
+      {
+        error:
+          "We could not send that just now. Email us directly and we will reply.",
+      },
       { status: 502 },
     );
   }

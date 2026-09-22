@@ -17,6 +17,7 @@ import {
   COMPANY_SIZES,
   CONTACT_INTERESTS,
   contactInquirySchema,
+  isSalesInquiry,
   type ContactInquiry,
   type CompanySizeId,
   type ContactInterestId,
@@ -57,14 +58,18 @@ export function ContactForm({
     workEmail: defaultEmail,
     interest: defaultInterest,
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormState, string>>
+  >({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const sales = isSalesInquiry(form.interest);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
+    if (key === "interest") setErrors({});
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -113,8 +118,9 @@ export function ContactForm({
           We got it.
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Thanks. We typically reply within one business day. If it is urgent,
-          email{" "}
+          The Arcanoris {sales ? "sales" : "support"} team will reply to{" "}
+          {form.workEmail}. We aim to respond within one business day. If you
+          need to add details, email{" "}
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
             className="text-foreground underline underline-offset-4"
@@ -133,124 +139,10 @@ export function ContactForm({
       className="relative rounded-2xl border border-border bg-card p-6 shadow-[0_24px_64px_-32px_rgba(0,0,0,0.35)] md:p-8"
       noValidate
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="companySize">
-            Company size <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={form.companySize}
-            onValueChange={(value) => setField("companySize", value as CompanySizeId)}
-          >
-            <SelectTrigger
-              id="companySize"
-              className="mt-1.5 h-9 w-full rounded-xl"
-              aria-invalid={Boolean(errors.companySize)}
-            >
-              <SelectValue placeholder="Please select" />
-            </SelectTrigger>
-            <SelectContent>
-              {COMPANY_SIZES.map((size) => (
-                <SelectItem key={size.id} value={size.id}>
-                  {size.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldError message={errors.companySize} />
-        </div>
-        <div>
-          <Label htmlFor="companyName">
-            Company name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="companyName"
-            className="mt-1.5"
-            autoComplete="organization"
-            value={form.companyName}
-            onChange={(event) => setField("companyName", event.target.value)}
-            aria-invalid={Boolean(errors.companyName)}
-          />
-          <FieldError message={errors.companyName} />
-        </div>
-        <div>
-          <Label htmlFor="firstName">
-            First name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="firstName"
-            className="mt-1.5"
-            autoComplete="given-name"
-            value={form.firstName}
-            onChange={(event) => setField("firstName", event.target.value)}
-            aria-invalid={Boolean(errors.firstName)}
-          />
-          <FieldError message={errors.firstName} />
-        </div>
-        <div>
-          <Label htmlFor="lastName">
-            Last name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="lastName"
-            className="mt-1.5"
-            autoComplete="family-name"
-            value={form.lastName}
-            onChange={(event) => setField("lastName", event.target.value)}
-            aria-invalid={Boolean(errors.lastName)}
-          />
-          <FieldError message={errors.lastName} />
-        </div>
-        <div>
-          <Label htmlFor="workEmail">
-            Work email <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="workEmail"
-            type="email"
-            className="mt-1.5"
-            autoComplete="email"
-            value={form.workEmail}
-            onChange={(event) => setField("workEmail", event.target.value)}
-            aria-invalid={Boolean(errors.workEmail)}
-          />
-          <FieldError message={errors.workEmail} />
-        </div>
-        <div>
-          <Label htmlFor="phone">Phone number</Label>
-          <Input
-            id="phone"
-            type="tel"
-            className="mt-1.5"
-            autoComplete="tel"
-            value={form.phone}
-            onChange={(event) => setField("phone", event.target.value)}
-            aria-invalid={Boolean(errors.phone)}
-          />
-          <FieldError message={errors.phone} />
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <Label htmlFor="website">
-          Company website <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="website"
-          className="mt-1.5"
-          inputMode="url"
-          autoComplete="url"
-          placeholder="yourcompany.com"
-          value={form.website}
-          onChange={(event) => setField("website", event.target.value)}
-          aria-invalid={Boolean(errors.website)}
-        />
-        <FieldError message={errors.website} />
-      </div>
-
       <div className="mt-4">
         <Label htmlFor="interest">
-          What are you interested in? <span className="text-destructive">*</span>
+          What are you interested in?{" "}
+          <span className="text-destructive">*</span>
         </Label>
         <Select
           value={form.interest}
@@ -276,9 +168,139 @@ export function ContactForm({
         <FieldError message={errors.interest} />
       </div>
 
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div hidden={!sales}>
+          <Label htmlFor="companySize">
+            Company size <span className="text-destructive">*</span>
+          </Label>
+          <Select
+            value={form.companySize}
+            onValueChange={(value) =>
+              setField("companySize", value as CompanySizeId)
+            }
+          >
+            <SelectTrigger
+              id="companySize"
+              className="mt-1.5 h-9 w-full rounded-xl"
+              aria-invalid={Boolean(errors.companySize)}
+            >
+              <SelectValue placeholder="Please select" />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANY_SIZES.map((size) => (
+                <SelectItem key={size.id} value={size.id}>
+                  {size.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldError message={errors.companySize} />
+        </div>
+        <div hidden={!sales}>
+          <Label htmlFor="companyName">
+            Company name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="companyName"
+            className="mt-1.5"
+            autoComplete="organization"
+            value={form.companyName}
+            onChange={(event) => setField("companyName", event.target.value)}
+            aria-invalid={Boolean(errors.companyName)}
+          />
+          <FieldError message={errors.companyName} />
+        </div>
+        <div>
+          <Label htmlFor="firstName">
+            {sales ? (
+              <>
+                First name <span className="text-destructive">*</span>
+              </>
+            ) : (
+              "Name (optional)"
+            )}
+          </Label>
+          <Input
+            id="firstName"
+            className="mt-1.5"
+            autoComplete="given-name"
+            value={form.firstName}
+            onChange={(event) => setField("firstName", event.target.value)}
+            aria-invalid={Boolean(errors.firstName)}
+          />
+          <FieldError message={errors.firstName} />
+        </div>
+        <div hidden={!sales}>
+          <Label htmlFor="lastName">
+            Last name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="lastName"
+            className="mt-1.5"
+            autoComplete="family-name"
+            value={form.lastName}
+            onChange={(event) => setField("lastName", event.target.value)}
+            aria-invalid={Boolean(errors.lastName)}
+          />
+          <FieldError message={errors.lastName} />
+        </div>
+        <div>
+          <Label htmlFor="workEmail">
+            {sales ? "Work email" : "Account email"}{" "}
+            <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="workEmail"
+            type="email"
+            className="mt-1.5"
+            autoComplete="email"
+            value={form.workEmail}
+            onChange={(event) => setField("workEmail", event.target.value)}
+            aria-invalid={Boolean(errors.workEmail)}
+          />
+          <FieldError message={errors.workEmail} />
+        </div>
+        <div hidden={!sales}>
+          <Label htmlFor="phone">Phone number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            className="mt-1.5"
+            autoComplete="tel"
+            value={form.phone}
+            onChange={(event) => setField("phone", event.target.value)}
+            aria-invalid={Boolean(errors.phone)}
+          />
+          <FieldError message={errors.phone} />
+        </div>
+      </div>
+
+      <div className="mt-4" hidden={!sales}>
+        <Label htmlFor="website">
+          Company website <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="website"
+          className="mt-1.5"
+          inputMode="url"
+          autoComplete="url"
+          placeholder="yourcompany.com"
+          value={form.website}
+          onChange={(event) => setField("website", event.target.value)}
+          aria-invalid={Boolean(errors.website)}
+        />
+        <FieldError message={errors.website} />
+      </div>
+
       <div className="mt-4">
         <Label htmlFor="needs">
-          What do you need help measuring or fixing?
+          {sales ? (
+            "What do you need help measuring or fixing?"
+          ) : (
+            <>
+              How can we help? <span className="text-destructive">*</span>
+            </>
+          )}
         </Label>
         <Textarea
           id="needs"
@@ -290,7 +312,10 @@ export function ContactForm({
         <FieldError message={errors.needs} />
       </div>
 
-      <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden>
+      <div
+        className="absolute -left-[9999px] h-0 w-0 overflow-hidden"
+        aria-hidden
+      >
         <Label htmlFor="hp">Company</Label>
         <Input
           id="hp"
@@ -313,10 +338,19 @@ export function ContactForm({
             <Loader2 data-icon="inline-start" className="animate-spin" />
             Sending…
           </>
+        ) : sales ? (
+          "Send sales inquiry"
         ) : (
-          "Submit"
+          "Send support request"
         )}
       </Button>
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        The Arcanoris {sales ? "sales" : "support"} team replies by email,
+        usually within one business day.{" "}
+        {sales
+          ? "We will review your requirements and suggest the next step."
+          : "We will review the issue and may ask for details needed to resolve it. Do not send passwords or full card details."}
+      </p>
       <p className="mt-4 text-center text-xs text-muted-foreground">
         For other inquiries, email{" "}
         <a

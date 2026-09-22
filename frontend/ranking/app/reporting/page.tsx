@@ -1,3 +1,4 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProductCrossNav } from "@/components/site/product-cross-nav";
@@ -5,12 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 
-export const metadata = {
-  title: "Reporting & alerts",
-  description:
-    "How Arcanoris schedules re-scans, emails visibility alerts, shares reports, and exports CSV or PDF on Pro.",
-  alternates: { canonical: routes.reporting },
-};
+export const metadata = publicPageMetadata(
+  "Reporting & alerts",
+  "How Arcanoris schedules re-scans, emails visibility alerts, shares reports, and exports CSV or PDF on Pro.",
+  "/reporting",
+);
 
 const frequencies = [
   {

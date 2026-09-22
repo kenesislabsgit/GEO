@@ -150,16 +150,50 @@ export async function generateMetadata({
           scanId: selectedScanId(query.scan),
         });
   if (!report) {
-    return { title: "Report not found", robots: { index: false } };
+    return {
+      title: "Report not found",
+      description: "This report is unavailable.",
+      robots: { index: false },
+      openGraph: {
+        title: "Report unavailable",
+        description: "This report is unavailable.",
+        images: [],
+      },
+      twitter: {
+        title: "Report unavailable",
+        description: "This report is unavailable.",
+        images: [],
+      },
+    };
   }
+  const title = `${report.brand.name} AI Visibility Report`;
+  const description = `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`;
+  const reportPath = routes.publicReport(
+    slug,
+    selectedScanId(query.scan) ?? undefined,
+  );
+  const image = {
+    url: routes.publicReportImage(slug, report.scan.id),
+    width: 1200,
+    height: 630,
+    alt: `${report.brand.name} · Score ${report.score.overall}`,
+  };
   return {
-    title: `${report.brand.name} AI Visibility Report`,
-    description: `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`,
+    title,
+    description,
     alternates: { canonical: routes.publicReport(slug) },
     openGraph: {
-      title: `${report.brand.name} · Score ${report.score.overall}`,
-      description: `Mention rate ${report.score.mentionRate}% · ${APP_NAME}`,
-      images: [{ url: routes.publicReportImage(slug, report.scan.id), width: 1200, height: 630 }],
+      title,
+      description,
+      type: "website",
+      url: reportPath,
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
     },
   };
 }

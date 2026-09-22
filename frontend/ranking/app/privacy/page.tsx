@@ -1,12 +1,13 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import { MarketingShell } from "@/components/site/marketing-shell";
-import { routes } from "@/lib/routes";
+import { PolicyMeta } from "@/components/site/policy-meta";
+import { DataRecipients } from "@/components/site/data-recipients";
 
-export const metadata = {
-  title: "Privacy",
-  description:
-    "What Arcanoris stores, how it's protected, how long it's kept, and the export and deletion controls available from Settings.",
-  alternates: { canonical: routes.privacy },
-};
+export const metadata = publicPageMetadata(
+  "Privacy",
+  "What Arcanoris stores, how it's protected, how long it's kept, and the export and deletion controls available from Settings.",
+  "/privacy",
+);
 
 const sections = [
   {
@@ -37,6 +38,7 @@ export default function PrivacyPage() {
       <h1 className="font-heading text-4xl font-semibold tracking-tight">
         Privacy
       </h1>
+      <PolicyMeta />
       <div className="mt-8 space-y-8">
         {sections.map((section) => (
           <section key={section.title}>
@@ -49,6 +51,7 @@ export default function PrivacyPage() {
           </section>
         ))}
       </div>
+      <DataRecipients />
     </MarketingShell>
   );
 }

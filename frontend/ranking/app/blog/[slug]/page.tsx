@@ -5,10 +5,17 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
-import { BLOG_CATEGORIES, blogPosts, getPost, type PostBlock } from "@/lib/blog";
+import {
+  BLOG_CATEGORIES,
+  blogPosts,
+  getPost,
+  type PostBlock,
+} from "@/lib/blog";
 import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import { ArticleText } from "@/components/site/article-text";
+import { publicPageMetadata } from "@/lib/public-metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -20,11 +27,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = getPost(slug);
   if (!post) return {};
+  const shared = publicPageMetadata(
+    post.title,
+    post.description,
+    routes.blogPost(post.slug),
+  );
   return {
-    title: post.title,
-    description: post.description,
-    alternates: { canonical: routes.blogPost(post.slug) },
+    ...shared,
     openGraph: {
+      ...shared.openGraph,
       title: post.title,
       description: post.description,
       type: "article",
@@ -53,12 +64,18 @@ function Block({ block }: { block: PostBlock }) {
         </h2>
       );
     case "p":
-      return <p className="mt-5 leading-relaxed">{block.text}</p>;
+      return (
+        <p className="mt-5 leading-relaxed">
+          <ArticleText text={block.text} />
+        </p>
+      );
     case "list":
       return (
         <ul className="mt-5 flex list-disc flex-col gap-2.5 pl-5 leading-relaxed">
           {block.items.map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item}>
+              <ArticleText text={item} />
+            </li>
           ))}
         </ul>
       );
@@ -99,7 +116,10 @@ function Block({ block }: { block: PostBlock }) {
             </thead>
             <tbody>
               {block.rows.map((row, i) => (
-                <tr key={i} className={i > 0 ? "border-t border-border" : undefined}>
+                <tr
+                  key={i}
+                  className={i > 0 ? "border-t border-border" : undefined}
+                >
                   {row.map((cell, j) => (
                     <td key={j} className="px-4 py-3 leading-relaxed">
                       {cell}
@@ -115,7 +135,10 @@ function Block({ block }: { block: PostBlock }) {
       return (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {block.items.map((item) => (
-            <div key={item.label} className="rounded-lg border border-border p-4">
+            <div
+              key={item.label}
+              className="rounded-lg border border-border p-4"
+            >
               <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight">
                 {item.value}
               </p>
@@ -149,8 +172,16 @@ export default async function BlogPostPage({ params }: Props) {
               datePublished: post.published,
               dateModified: post.updated,
               url: `${SITE_URL}${routes.blogPost(post.slug)}`,
-              author: { "@type": "Organization", name: APP_NAME, url: SITE_URL },
-              publisher: { "@type": "Organization", name: APP_NAME, url: SITE_URL },
+              author: {
+                "@type": "Organization",
+                name: `${APP_NAME} editorial team`,
+                url: `${SITE_URL}/editorial-policy`,
+              },
+              publisher: {
+                "@type": "Organization",
+                name: APP_NAME,
+                url: SITE_URL,
+              },
               mainEntityOfPage: {
                 "@type": "WebPage",
                 "@id": `${SITE_URL}${routes.blogPost(post.slug)}`,
@@ -159,7 +190,12 @@ export default async function BlogPostPage({ params }: Props) {
             {
               "@type": "BreadcrumbList",
               itemListElement: [
-                { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Home",
+                  item: SITE_URL,
+                },
                 {
                   "@type": "ListItem",
                   position: 2,
@@ -198,6 +234,26 @@ export default async function BlogPostPage({ params }: Props) {
         <h1 className="font-heading mt-3 text-3xl font-semibold tracking-tight text-balance md:text-4xl">
           {post.title}
         </h1>
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+          By{" "}
+          <Link
+            href="/editorial-policy"
+            rel="author"
+            className="underline underline-offset-4"
+          >
+            Arcanoris editorial team
+          </Link>
+          {" · "}Updated{" "}
+          <time dateTime={post.updated}>{formatDate(post.updated)}</time>.{" "}
+          Technical references checked against the sources linked below.{" "}
+          <Link
+            href="/contact?intent=other"
+            className="underline underline-offset-4"
+          >
+            Send a correction
+          </Link>
+          .
+        </p>
         <div className="mt-4 text-[15px] text-foreground/90">
           {post.blocks.map((block, i) => (
             <Block key={i} block={block} />

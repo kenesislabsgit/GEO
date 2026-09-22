@@ -1,3 +1,4 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProductCrossNav } from "@/components/site/product-cross-nav";
@@ -10,12 +11,11 @@ import {
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { routes } from "@/lib/routes";
 
-export const metadata = {
-  title: "Getting started",
-  description:
-    "How to run a first Arcanoris AI visibility audit in the browser. No SDK, no customer API keys, no installer.",
-  alternates: { canonical: routes.gettingStarted },
-};
+export const metadata = publicPageMetadata(
+  "Getting started",
+  "How to run a first Arcanoris AI visibility audit in the browser. No SDK, no customer API keys, no installer.",
+  "/getting-started",
+);
 
 const steps = [
   {

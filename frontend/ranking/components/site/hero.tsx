@@ -95,8 +95,7 @@ export function LandingHero() {
             <HeroAiStack />
           </span>
           <span className="mt-1 inline-block whitespace-nowrap text-foreground/50">
-            do they recommend your{" "}
-            <HeroWordFlip />
+            do they recommend your <HeroWordFlip />
           </span>
         </h1>
 
@@ -132,12 +131,14 @@ export function LandingHero() {
             <ArrowRight className="size-4" aria-hidden />
           </RainbowButton>
         </form>
+        <Link
+          href={routes.sampleReport}
+          className="relative mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border border-foreground/20 bg-background px-4 text-sm font-medium hover:bg-muted"
+        >
+          View a sample report <ArrowRight className="size-4" aria-hidden />
+        </Link>
         <p className="arc-fade-up arc-fade-up-delay-3 mt-4 text-xs text-foreground/45">
           Free account · no card · ~2 min on ChatGPT
-          {" · "}
-          <Link href={routes.sampleReport} className="underline-offset-4 hover:underline">
-            See a real report
-          </Link>
         </p>
       </div>
       <div

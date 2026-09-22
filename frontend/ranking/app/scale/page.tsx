@@ -1,3 +1,4 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProductCrossNav } from "@/components/site/product-cross-nav";
@@ -14,12 +15,11 @@ import { routes } from "@/lib/routes";
  * the worker module. */
 const SCAN_HEARTBEAT_TIMEOUT_SECONDS = 180;
 
-export const metadata = {
-  title: "Scale & reliability",
-  description:
-    "How Arcanoris queues high-volume AI visibility checks, retries provider failures, and enforces monthly plan limits.",
-  alternates: { canonical: routes.scale },
-};
+export const metadata = publicPageMetadata(
+  "Scale & reliability",
+  "How Arcanoris queues high-volume AI visibility checks, retries provider failures, and enforces monthly plan limits.",
+  "/scale",
+);
 
 const capacities = [
   {

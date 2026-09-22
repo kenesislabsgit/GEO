@@ -17,16 +17,16 @@ const PRIVATE = ["/dashboard", "/admin", "/api/", "/login"];
 
 /**
  * AI crawlers are listed explicitly and allowed on purpose: the product is
- * about being visible in AI answers, so blocking these bots would be
- * self-defeating. They get the same private-area rules as everyone else.
+ * this site's current crawl policy. Training and search access are separate
+ * choices. Each listed agent gets the same private-area restrictions.
  */
 const AI_CRAWLERS = [
   "GPTBot",
   "OAI-SearchBot",
   "ChatGPT-User",
   "ClaudeBot",
-  "Claude-Web",
-  "anthropic-ai",
+  "Claude-SearchBot",
+  "Claude-User",
   "PerplexityBot",
   "Google-Extended",
   "meta-externalagent",

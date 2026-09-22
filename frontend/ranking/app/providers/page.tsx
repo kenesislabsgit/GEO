@@ -1,3 +1,4 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProductCrossNav } from "@/components/site/product-cross-nav";
@@ -13,12 +14,11 @@ import {
 import { routes } from "@/lib/routes";
 import type { ProviderId } from "@/types/database";
 
-export const metadata = {
-  title: "Provider coverage",
-  description:
-    "Every AI provider Arcanoris can query, how each call is made, and which Free, Plus, and Pro plans include it.",
-  alternates: { canonical: routes.providers },
-};
+export const metadata = publicPageMetadata(
+  "Provider coverage",
+  "Every AI provider Arcanoris can query, how each call is made, and which Free, Plus, and Pro plans include it.",
+  "/providers",
+);
 
 type ProviderNote = {
   query: string;
