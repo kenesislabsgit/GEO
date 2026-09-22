@@ -31,13 +31,7 @@ export type ScanBrandOption = {
   domain: string;
   category: string | null;
   slug: string;
-  prompts: Array<{
-    id: string;
-    prompt: string;
-    type: string;
-    country: string;
-    language: string;
-  }>;
+  visibility: "public" | "private";
   questionSets: Array<{
     scanId: string;
     createdAt: string;
@@ -93,10 +87,12 @@ const GEO_MARKETS = [
 ] as const;
 
 export function NewScanForm({
+  userId,
   brands,
   preselectedBrandId,
   plan,
 }: {
+  userId: string;
   brands: ScanBrandOption[];
   preselectedBrandId: string | null;
   plan: PlanInfo;
@@ -140,6 +136,7 @@ export function NewScanForm({
     events: scanEvents,
     start,
   } = useDetachedAudit({
+    userId,
     storageKey: "rbai_audit_new_scan",
     onDone: (doneBrandId) => router.push(`${routes.brand(doneBrandId)}?completed=1`),
   });
@@ -299,6 +296,7 @@ export function NewScanForm({
                   key={option.id}
                   type="button"
                   onClick={() => selectBrand(option.id)}
+                  aria-pressed={selected}
                   className={cn(
                     "flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors",
                     selected ? "bg-muted/60" : "hover:bg-muted/40",
@@ -362,6 +360,7 @@ export function NewScanForm({
                 <div className="grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
+                    aria-pressed={questionMode === "previous"}
                     onClick={() =>
                       choosePreviousQuestions(
                         sourceScanRunId ?? brand.questionSets[0]!.scanId,
@@ -382,6 +381,7 @@ export function NewScanForm({
                   <button
                     type="button"
                     onClick={chooseNewQuestions}
+                    aria-pressed={questionMode === "new"}
                     className={cn(
                       "rounded-lg border px-3.5 py-3 text-left text-sm",
                       questionMode === "new"
@@ -516,6 +516,7 @@ export function NewScanForm({
                       type="button"
                       disabled={!plan.isPaid}
                       onClick={() => toggleProvider(id)}
+                      aria-pressed={active}
                       className={cn(
                         "flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors",
                         active
@@ -719,6 +720,10 @@ export function NewScanForm({
               }}
             />
           </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            {brand.visibility === "private" ? "This website is private. Its reports are visible only to you." : "This website is public. Report previews are shareable and may be indexed by search engines."}
+            {plan.isPaid ? <> <Link href={`${routes.brand(brand.id)}/settings`} className="underline underline-offset-4">Change visibility before scanning</Link>.</> : <> Private-report controls require Plus or Pro.</>}
+          </p>
           {/* An empty question list is no longer a reason to block: the run
               writes its own questions. Blocking on it meant a website whose
               first audit died could never be audited again from this page. */}

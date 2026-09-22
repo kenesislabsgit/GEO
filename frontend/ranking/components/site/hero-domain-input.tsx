@@ -59,8 +59,9 @@ export function HeroDomainInput() {
         }
         event.preventDefault();
         const next = stripUrlProtocolForInput(pasted);
+        const input = event.currentTarget;
         setValue(next);
-        requestAnimationFrame(() => collapseCaret(event.currentTarget));
+        requestAnimationFrame(() => collapseCaret(input));
       }}
       inputMode="url"
       autoComplete="url"

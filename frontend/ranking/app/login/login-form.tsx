@@ -11,6 +11,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { resolveReturnTo, routes } from "@/lib/routes";
 import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
+import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
+import { VisibilityNotice } from "@/components/report/visibility-notice";
+
+function SignupPolicies() {
+  return <p className="mt-2 text-xs leading-relaxed text-muted-foreground">By creating an account, including with Google, you agree to the <Link href={routes.terms} className="underline underline-offset-4">Terms</Link>. Read our <Link href={routes.privacy} className="underline underline-offset-4">Privacy Policy</Link> before continuing.</p>;
+}
+
+/** The address the hero already showed, kept as text so a bad paste cannot become a link. */
+function typedAuditUrl(raw: string): string {
+  const host = raw
+    .trim()
+    .replace(/^(https?:\/\/)+/i, "")
+    .replace(/\/+$/, "");
+  return host ? `https://${host}` : "";
+}
 
 export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const router = useRouter();
@@ -20,11 +35,14 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   // baked into returnTo (a GET form drops any query string on its own
   // action) - resolveReturnTo turns that into the same destination
   // /login's server-side already-signed-in redirect would land on.
+  const typedDomain = params.get("domain")?.trim() ?? "";
+  const auditUrl = typedAuditUrl(typedDomain);
   const returnTo = resolveReturnTo({
     returnTo: params.get("returnTo"),
-    domain: params.get("domain"),
+    domain: typedDomain,
   });
-  const mode = params.get("mode") === "signup" ? "signup" : "signin";
+  const trial = selectedTrial(returnTo);
+  const mode = params.get("mode") === "signup" || (trial && params.get("mode") !== "signin") ? "signup" : "signin";
   const authError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +53,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       mode: nextMode,
       ...(claim ? { claim } : {}),
       ...(returnTo ? { returnTo } : {}),
+      ...(typedDomain ? { domain: typedDomain } : {}),
     });
 
   async function submit() {
@@ -51,6 +70,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
               email,
               password,
               name: email.split("@")[0] || email,
+              callbackURL: `${routes.verifyEmail}?verified=1&returnTo=${encodeURIComponent(returnTo ?? routes.newScan())}`,
             })
           : await signIn.email({ email, password });
       if (attempt.error) {
@@ -80,14 +100,31 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
 
   return (
     <div>
+      {auditUrl ? (
+        <div className="mb-5">
+          <p className="break-all font-mono text-sm font-medium">{auditUrl}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You&apos;re about to audit this site.
+          </p>
+        </div>
+      ) : null}
       <h1 className="font-heading text-xl font-semibold tracking-tight">
         {mode === "signup" ? "Create your account" : "Welcome back"}
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {mode === "signup"
-          ? "Create an account to save your audits."
+        {trial ? "Create an account or sign in to continue to your selected trial." : mode === "signup"
+          ? auditUrl
+            ? "We'll run this site as soon as you sign up."
+            : "Create an account to save your audits."
           : "Sign in to your dashboard."}
       </p>
+
+      {trial ? <section aria-label="Selected trial" className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+        <h2 className="text-sm font-semibold">Plus · {trial.interval === "yearly" ? "Yearly" : "Monthly"} · {trial.plan.trialDays}-day trial</h2>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{trialCommitment(trial.interval)}</p>
+        <p className="mt-2 text-xs text-muted-foreground">Your trial starts after checkout, not when you create this account.</p>
+      </section> : null}
+      <VisibilityNotice />
 
       <div className="mt-5 grid grid-cols-2 rounded-xl bg-muted p-1">
         <Link
@@ -122,6 +159,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       {googleEnabled ? (
         <div className="mt-6">
           <GoogleButton claim={claim} returnTo={returnTo} />
+          {mode === "signup" ? <SignupPolicies /> : null}
           <div className="mt-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs text-muted-foreground">or</span>
@@ -201,18 +239,9 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           </Button>
         </FieldGroup>
       </form>
+      {mode === "signup" ? <SignupPolicies /> : null}
 
-      <div className="mt-5 border-t border-border pt-4 text-center">
-        <Link
-          href={modeHref(mode === "signup" ? "signin" : "signup")}
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {mode === "signup"
-            ? "Already have an account? Sign in"
-            : "Need an account? Sign up"}
-        </Link>
-      </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">
+      <p className="mt-5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
           Back to home
         </Link>

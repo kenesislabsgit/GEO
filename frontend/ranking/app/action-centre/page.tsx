@@ -127,9 +127,6 @@ export default function ActionCentrePage() {
           <Button asChild size="sm">
             <Link href={routes.freeAuditSignup}>See a first fix on your site</Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={routes.methodology}>How the score is built</Link>
-          </Button>
         </div>
         <div className="mt-14">
           <ProductCrossNav current={routes.actionCentre} />

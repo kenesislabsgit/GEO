@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
-import { routes } from "@/lib/routes";
+import { routes, safeReturnTo } from "@/lib/routes";
 
 export function VerifyEmailCard({ email }: { email: string | null }) {
   const params = useSearchParams();
@@ -14,6 +15,28 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
   const linkError = params.get("error");
   const [resent, setResent] = useState(false);
   const [sending, setSending] = useState(false);
+  const returnTo = safeReturnTo(params.get("returnTo")) ?? routes.newScan();
+  const callbackURL = `${routes.verifyEmail}?verified=1&returnTo=${encodeURIComponent(returnTo)}`;
+
+  useEffect(() => {
+    if (!resent) return;
+    const timer = setTimeout(() => setResent(false), 60_000);
+    return () => clearTimeout(timer);
+  }, [resent]);
+
+  async function resend() {
+    if (!email || sending) return;
+    setSending(true);
+    try {
+      const result = await authClient.sendVerificationEmail({ email, callbackURL });
+      if (result.error) throw new Error(result.error.message || "Could not send confirmation email.");
+      setResent(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send confirmation email. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   if (verified) {
     return (
@@ -26,7 +49,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           You&apos;re all set - run your first audit.
         </p>
         <Button asChild className="mt-6 w-full">
-          <Link href={routes.newScan()}>Start your audit</Link>
+          <Link href={returnTo}>Start your audit</Link>
         </Button>
       </div>
     );
@@ -45,18 +68,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           email={email}
           resent={resent}
           sending={sending}
-          onSend={async () => {
-            if (!email) return;
-            setSending(true);
-            await authClient
-              .sendVerificationEmail({
-                email,
-                callbackURL: `${routes.verifyEmail}?verified=1`,
-              })
-              .catch(() => {});
-            setResent(true);
-            setSending(false);
-          }}
+          onSend={resend}
         />
       </div>
     );
@@ -78,18 +90,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
         email={email}
         resent={resent}
         sending={sending}
-        onSend={async () => {
-          if (!email) return;
-          setSending(true);
-          await authClient
-            .sendVerificationEmail({
-              email,
-              callbackURL: `${routes.verifyEmail}?verified=1`,
-            })
-            .catch(() => {});
-          setResent(true);
-          setSending(false);
-        }}
+        onSend={resend}
       />
       <p className="mt-4 text-xs text-muted-foreground">
         Wrong address?{" "}

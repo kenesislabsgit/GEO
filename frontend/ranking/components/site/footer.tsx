@@ -2,12 +2,14 @@ import Link from "next/link";
 import { Logo } from "@/components/site/logo";
 import { PRODUCT_PAGES } from "@/lib/product-pages";
 import { routes } from "@/lib/routes";
+import { getSessionUser } from "@/lib/auth/session";
 
 const columns = [
   {
     title: "Product",
     links: [
       { href: routes.freeAuditSignup, label: "Free audit" },
+      { href: routes.sampleReport, label: "Sample report" },
       { href: routes.pricing, label: "Pricing" },
       ...PRODUCT_PAGES.map((page) => ({ href: page.href, label: page.label })),
       { href: routes.dashboard, label: "Dashboard" },
@@ -27,7 +29,8 @@ const columns = [
   },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const user = await getSessionUser();
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
@@ -47,7 +50,7 @@ export function SiteFooter() {
                   {column.title}
                 </p>
                 <ul className="mt-4 flex flex-col gap-2.5">
-                  {column.links.map((link) => (
+                  {column.links.filter((link) => link.href !== routes.dashboard || user).map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}

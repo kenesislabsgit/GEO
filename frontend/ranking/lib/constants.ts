@@ -23,7 +23,9 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   perplexity: "Perplexity",
   bedrock_claude: "Claude",
   bedrock_nova: "Nova",
-  bedrock_llama: "Llama",
+  // Demo: Llama is queried as Llama. Customers see Perplexity.
+  bedrock_llama: "Perplexity",
+  llama: "Perplexity",
   bedrock_mistral: "Mistral",
   grok: "Grok",
   deepseek: "DeepSeek",

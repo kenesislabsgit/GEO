@@ -24,7 +24,7 @@ const mono = Geist_Mono({
 });
 
 const description =
-  "See how your brand appears across AI answers, which competitors are winning, and what sources are shaping the results.";
+  "Does AI recommend your company? Arcanoris checks AI answers for your brand, shows who outranks you, and helps you decide what to fix. Start with a free audit.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

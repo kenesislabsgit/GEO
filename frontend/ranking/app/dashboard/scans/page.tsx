@@ -2,10 +2,8 @@ import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import {
-  getScoreForScan,
   listBrandsForOwner,
-  listScansForBrands,
-  scoresForBrand,
+  listScanHistoryForBrands,
 } from "@/lib/db/repository";
 import { routes } from "@/lib/routes";
 import { providerDisplayName } from "@/lib/constants";
@@ -35,35 +33,14 @@ export default async function ScansPage() {
 
   const brands = await listBrandsForOwner(user.id);
   const brandMap = new Map(brands.map((b) => [b.id, b]));
-  const scans = await listScansForBrands(brands.map((b) => b.id));
-
-  // Score + delta per scan (scores ordered newest-first per brand)
-  const scoresByBrand = new Map<
-    string,
-    Awaited<ReturnType<typeof scoresForBrand>>
-  >();
-  for (const brand of brands) {
-    scoresByBrand.set(brand.id, await scoresForBrand(brand.id));
-  }
-
-  const rows = await Promise.all(
-    scans.map(async (scan) => {
-      const score = await getScoreForScan(scan.id);
-      const brandScores = scoresByBrand.get(scan.brand_id) ?? [];
-      const idx = score
-        ? brandScores.findIndex((s) => s.scan_run_id === scan.id)
-        : -1;
-      const previous = idx >= 0 ? brandScores[idx + 1] : undefined;
-      const current = score ? roundForDisplay(Number(score.overall_score)) : null;
-      const delta =
-        current !== null && previous
-          ? Math.round(
-              (current - roundForDisplay(Number(previous.overall_score))) * 10,
-            ) / 10
-          : null;
-      return { scan, score: current, delta };
-    }),
-  );
+  const scans = await listScanHistoryForBrands(brands.map((b) => b.id));
+  const rows = scans.map((scan) => ({
+    scan,
+    score: scan.overall_score === null ? null : roundForDisplay(scan.overall_score),
+    delta: scan.overall_score !== null && scan.previous_score !== null
+      ? roundForDisplay(scan.overall_score - scan.previous_score)
+      : null,
+  }));
 
   return (
     <div className="space-y-6">

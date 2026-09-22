@@ -31,6 +31,7 @@ export default async function UpgradeAuditPage({
 
   return (
     <UpgradeAuditProgress
+      userId={user.id}
       brandId={brand.id}
       domain={brand.canonical_domain}
       providers={defaultScanProviders(entitlements.plan)}

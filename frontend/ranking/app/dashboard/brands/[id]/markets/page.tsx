@@ -86,7 +86,7 @@ export default async function MarketsPage({
         (100 * globalResults.filter((r) => r.brand_mentioned).length) /
           globalResults.length,
       )
-    : 0;
+    : null;
 
   // Per-country rollup across every provider's answers.
   const byCountry = new Map<
@@ -125,7 +125,7 @@ export default async function MarketsPage({
     const mentioned = rows.reduce((sum, entry) => sum + entry.mentioned, 0);
     return {
       continent,
-      rate: total ? Math.round((100 * mentioned) / total) : 0,
+      rate: total ? Math.round((100 * mentioned) / total) : null,
     };
   });
 
@@ -216,7 +216,7 @@ export default async function MarketsPage({
             <div className="lg:pl-5">
               <p className="arc-eyebrow">Global mention rate</p>
               <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
-                {globalRate}%
+                {globalRate === null ? "Not tested" : `${globalRate}%`}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 non-located questions, for comparison

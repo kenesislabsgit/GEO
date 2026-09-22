@@ -11,10 +11,12 @@ import { routes } from "@/lib/routes";
 import type { ProviderId } from "@/types/database";
 
 export function UpgradeAuditProgress({
+  userId,
   brandId,
   domain,
   providers,
 }: {
+  userId: string;
   brandId: string;
   domain: string;
   providers: ProviderId[];
@@ -24,6 +26,7 @@ export function UpgradeAuditProgress({
   // the same run back up, and the server refuses to start a second run for
   // the same website while one is going - so a refresh cannot double-pay.
   const { loading, error, progress, step, events, start } = useDetachedAudit({
+    userId,
     storageKey: `rbai_audit_upgrade_${brandId}`,
     onDone: (doneBrandId) => {
       router.replace(`${routes.brand(doneBrandId)}?completed=1`);

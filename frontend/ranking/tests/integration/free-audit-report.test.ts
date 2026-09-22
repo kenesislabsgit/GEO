@@ -81,9 +81,12 @@ describe("free report page data", () => {
     expect(report.competitorPreview.length).toBeGreaterThan(0);
     for (const competitor of report.competitorPreview) {
       expect(competitor.name).toBeTruthy();
-      expect(["verified", "answer_only_unverified"]).toContain(
+      expect(["verified", "cited", "answer_only_unverified"]).toContain(
         competitor.evidenceStatus,
       );
+      if (competitor.evidenceStatus === "cited") {
+        expect(competitor.evidence.sourceUrl).toMatch(/^https?:\/\//);
+      }
     }
   });
 

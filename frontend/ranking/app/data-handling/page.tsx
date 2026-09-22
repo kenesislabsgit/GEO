@@ -15,11 +15,11 @@ const sections = [
   },
   {
     title: "Public scans",
-    body: "Anonymous free scans use publicly available website information. Results may appear in a public report until claimed by an verified owner.",
+    body: "Audits require an account. New websites and their report previews are public by default on every plan. Anyone can open the public link, and public reports are included in our sitemap and may appear in search engines. Free includes public sharing. Claiming a report does not change its visibility.",
   },
   {
     title: "Premium data",
-    body: "Paid scan results, full answers, competitor intelligence, and exports are scoped to your account. Private and secret-link reports are never indexed or exposed in public APIs.",
+    body: "Plus and Pro owners can switch a website between public and private in Website settings. This applies to its reports, including existing ones. Private reports are accessible only to their owner and are excluded from the public sitemap. Search engines may take time to remove previously indexed previews. Full dashboard evidence stays account-scoped even when the report preview is public.",
   },
   {
     title: "Provider relationships",

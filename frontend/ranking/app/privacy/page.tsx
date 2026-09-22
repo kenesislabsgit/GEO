@@ -18,6 +18,10 @@ const sections = [
     body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Public reports expose only explicitly public fields; private reports reveal nothing on any surface, including preview images.",
   },
   {
+    title: "Report visibility",
+    body: "New reports are public by default on every plan. Their previews can be shared and may appear in search engines. Free includes public sharing; Plus and Pro let website owners make reports private in Website settings. Claiming a report does not automatically make it private.",
+  },
+  {
     title: "How long we keep things",
     body: "Report data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
   },

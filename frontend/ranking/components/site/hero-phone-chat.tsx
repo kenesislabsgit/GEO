@@ -30,24 +30,15 @@ function useTypedText(
   msPerChar: number,
   instant: boolean,
 ): { shown: string; done: boolean } {
-  const [shown, setShown] = useState(instant && active ? text : "");
+  const [typed, setTyped] = useState({ text, count: 0 });
 
   useEffect(() => {
-    if (!active) {
-      setShown("");
-      return;
-    }
-    if (instant) {
-      setShown(text);
-      return;
-    }
-
-    setShown("");
+    if (!active || instant) return;
     let count = 0;
     let timer = 0;
     const tick = () => {
       count += 1;
-      setShown(text.slice(0, count));
+      setTyped({ text, count });
       if (count < text.length) {
         timer = window.setTimeout(tick, msPerChar);
       }
@@ -56,6 +47,7 @@ function useTypedText(
     return () => window.clearTimeout(timer);
   }, [text, active, msPerChar, instant]);
 
+  const shown = !active ? "" : instant ? text : text.slice(0, typed.text === text ? typed.count : 0);
   return { shown, done: active && shown === text };
 }
 
@@ -80,7 +72,11 @@ function ThinkingDots() {
  * Tiny phone chat pinned to a peep who is looking at their phone.
  * Decorative — clicks pass through to the hero form.
  */
-export function HeroPhoneChat({
+export function HeroPhoneChat(props: HeroPhoneChatProps) {
+  return <HeroPhoneChatContent key={`${props.prompt.question}:${props.instant}`} {...props} />;
+}
+
+function HeroPhoneChatContent({
   snapshot,
   liveSnapshotRef,
   prompt,
@@ -88,7 +84,7 @@ export function HeroPhoneChat({
   onComplete,
 }: HeroPhoneChatProps) {
   const boxRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<ChatPhase>(instant ? "answer" : "question");
+  const [phase, setPhase] = useState<ChatPhase>(instant ? "hold" : "question");
   const question = useTypedText(
     prompt.question,
     phase === "question" || phase === "thinking" || phase === "answer" || phase === "hold",
@@ -101,14 +97,6 @@ export function HeroPhoneChat({
     HERO_PHONE_ANSWER_MS_PER_CHAR,
     instant || phase === "hold",
   );
-
-  useEffect(() => {
-    if (instant) {
-      setPhase("hold");
-      return;
-    }
-    setPhase("question");
-  }, [prompt.question, instant]);
 
   useEffect(() => {
     if (phase !== "question" || !question.done || instant) return;
@@ -127,7 +115,8 @@ export function HeroPhoneChat({
 
   useEffect(() => {
     if (phase !== "answer" || !answer.done) return;
-    setPhase("hold");
+    const timer = window.setTimeout(() => setPhase("hold"), 0);
+    return () => window.clearTimeout(timer);
   }, [phase, answer.done]);
 
   useEffect(() => {

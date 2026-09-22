@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   PLAN_CONFIG,
-  PLUS_CHECKS_INCLUDED,
-  PLUS_EARLY_BIRD_BONUS_CHECKS,
+  PLUS_CHECKS_SUMMARY,
   type PlanId,
 } from "@/lib/billing/entitlements";
 import {
@@ -22,13 +21,13 @@ import {
 } from "@/lib/billing/pricing";
 
 const PLUS_HIGHLIGHTS = [
-  `Track your website with ${PLUS_CHECKS_INCLUDED} monthly checks plus ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird bonus checks`,
+  `Track your website with ${PLUS_CHECKS_SUMMARY}`,
   "Run full audits with 20 real buyer questions",
   "Compare leading AI assistants side by side",
   "See complete answers, citations, mentions, and competitor evidence",
   "Get a prioritized website improvement plan backed by sources",
   "Monitor visibility weekly and receive change alerts",
-  "Keep your audit history and share private or public reports",
+  "Keep your audit history and share report links",
 ] as const;
 
 export function BillingActions({
@@ -265,9 +264,8 @@ export function BillingActions({
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Payments are processed by Dodo Payments (test mode supported). When API
-        keys are missing, checkout simulates an active subscription locally for
-        development.
+        Payments are processed securely by Dodo Payments. Your subscription
+        activates after payment is confirmed.
       </p>
     </div>
   );

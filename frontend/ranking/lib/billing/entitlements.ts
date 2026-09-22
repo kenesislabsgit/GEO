@@ -3,6 +3,7 @@ import {
   DEFAULT_SCAN_PROVIDERS,
   FREE_AUDIT_PROVIDER,
   MOST_USED_PROVIDERS,
+  providerDisplayName,
 } from "@/lib/constants";
 import type { ProviderId } from "@/types/database";
 
@@ -11,6 +12,14 @@ export type PlanId = "free" | "founder" | "growth" | "agency";
 /** Plus includes this many checks. Early-bird adds a bonus on top. */
 export const PLUS_CHECKS_INCLUDED = 500;
 export const PLUS_EARLY_BIRD_BONUS_CHECKS = 200;
+/** What a Plus customer can spend this month, bonus included. */
+export const PLUS_CHECKS_THIS_MONTH =
+  PLUS_CHECKS_INCLUDED + PLUS_EARLY_BIRD_BONUS_CHECKS;
+/** Customer-facing Plus allowance. The bonus is inside the monthly total. */
+export const PLUS_CHECKS_SUMMARY = `${PLUS_CHECKS_THIS_MONTH} checks this month, ${PLUS_EARLY_BIRD_BONUS_CHECKS} of them an early-bird bonus`;
+/** Shown next to the price. A check is the unit the plans meter. */
+export const PROVIDER_CHECK_DEFINITION =
+  "A provider check is one buyer question asked to one AI.";
 
 export type PlanFeatures = {
   brands: number;
@@ -96,7 +105,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   founder: {
     id: "founder",
     name: "Plus",
-    description: `One website, multi-provider monitoring, and ${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS} early-bird checks.`,
+    description: `One website, multi-provider monitoring, and ${PLUS_CHECKS_SUMMARY}.`,
     monthlyPriceUsd: 79,
     yearlyPriceUsd: 790,
     trialDays: 7,
@@ -241,6 +250,19 @@ export type EntitlementContext = {
   brandCount: number;
   activePromptCount: number;
 };
+
+function joinWithAnd(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/** Plus models in plan order, using the names customers see. */
+export function plusModelNames(): string {
+  return joinWithAnd(
+    PLAN_CONFIG.founder.features.providers.map((id) => providerDisplayName(id)),
+  );
+}
 
 export function getFeaturesForPlan(plan: PlanId): PlanFeatures {
   return PLAN_CONFIG[plan].features;

@@ -69,6 +69,7 @@ export function HeroCrowd() {
   const phoneBusy = useRef(false);
   const speechBusy = useRef(false);
   const heroVisible = useRef(true);
+  const [inView, setInView] = useState(true);
   const phoneArmedAt = useRef(0);
   const speechArmedAt = useRef(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -101,12 +102,15 @@ export function HeroCrowd() {
   useEffect(() => {
     const node = wrapRef.current;
     if (!node) return;
-    setPortalTarget(node.closest("section"));
+    // Keep every decorative overlay inside the illustration's clipping area.
+    // On mobile that area sits below the copy and signup form.
+    setPortalTarget(node);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
         heroVisible.current = entry.isIntersecting;
+        setInView(entry.isIntersecting);
         if (!entry.isIntersecting) {
           phoneBusy.current = false;
           activePhoneFrameRef.current = null;
@@ -331,7 +335,7 @@ export function HeroCrowd() {
         src={PEEP_SHEET_SRC}
         rows={PEEP_SHEET_COLUMNS}
         cols={PEEP_SHEET_ROWS}
-        paused={reducedMotion}
+        paused={reducedMotion || !inView}
         slowed={chat !== null && !reducedMotion}
         onPeeps={onPeeps}
         className="absolute inset-0 h-full w-full"

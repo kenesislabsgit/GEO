@@ -17,20 +17,30 @@ export const routes = {
   blog: "/blog",
   blogPost: (slug: string) => `/blog/${slug}`,
 
-  login: (opts?: { claim?: string; returnTo?: string; mode?: "signin" | "signup" }) => {
+  login: (opts?: {
+    claim?: string;
+    returnTo?: string;
+    mode?: "signin" | "signup";
+    domain?: string;
+  }) => {
     const params = new URLSearchParams();
     if (opts?.claim) params.set("claim", opts.claim);
     if (opts?.returnTo) params.set("returnTo", opts.returnTo);
+    if (opts?.domain) params.set("domain", opts.domain);
     if (opts?.mode) params.set("mode", opts.mode);
     const qs = params.toString();
     return qs ? `/login?${qs}` : "/login";
   },
 
+  /** A completed ChatGPT audit anyone can open without an account. */
+  sampleReport: "/report/sample",
   publicReport: (slug: string, scanId?: string) =>
     scanId
       ? `/report/${slug}?scan=${encodeURIComponent(scanId)}`
       : `/report/${slug}`,
   claim: (slug: string) => `/claim/${slug}`,
+  publicReportImage: (slug: string, scanId?: string) =>
+    `/report/${slug}/opengraph-image${scanId ? `?scan=${encodeURIComponent(scanId)}` : ""}`,
 
   dashboard: "/dashboard",
   addWebsite: "/dashboard/brands/new",

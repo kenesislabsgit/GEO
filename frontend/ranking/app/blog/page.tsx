@@ -5,13 +5,13 @@ import { Reveal } from "@/components/site/reveal";
 import { BLOG_CATEGORIES, blogPosts } from "@/lib/blog";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import { publicPageMetadata } from "@/lib/public-metadata";
 
-export const metadata = {
-  title: "Blog",
-  description:
-    "Practical writing on generative engine optimization (GEO), AI visibility, and how to measure whether ChatGPT, Gemini, and Perplexity recommend your brand.",
-  alternates: { canonical: "/blog" },
-};
+export const metadata = publicPageMetadata(
+  "AI visibility blog — Get your company recommended",
+  "Does AI recommend your company? Read Arcanoris guides to AI visibility, buyer questions, cited sources, and measuring your brand in AI answers.",
+  "/blog",
+);
 
 function formatDate(iso: string): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {

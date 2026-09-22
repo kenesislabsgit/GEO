@@ -166,16 +166,27 @@ export function DashboardShell({
   // Remember the collapse choice per browser; read after mount (deferred a
   // tick) so SSR and the first client render agree.
   useEffect(() => {
-    const stored = localStorage.getItem("rbai-nav-collapsed") === "1";
-    if (stored) setCollapsed(true);
+    let nextFrame = 0;
     const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setAnimateWidth(true));
+      try {
+        setCollapsed(localStorage.getItem("rbai-nav-collapsed") === "1");
+      } catch {
+        // The sidebar still works when browser storage is unavailable.
+      }
+      nextFrame = requestAnimationFrame(() => setAnimateWidth(true));
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      cancelAnimationFrame(nextFrame);
+    };
   }, []);
   const toggleCollapsed = () => {
     setCollapsed((current) => {
-      localStorage.setItem("rbai-nav-collapsed", current ? "0" : "1");
+      try {
+        localStorage.setItem("rbai-nav-collapsed", current ? "0" : "1");
+      } catch {
+        // Keep the preference in memory for this visit.
+      }
       return !current;
     });
   };
@@ -221,6 +232,7 @@ export function DashboardShell({
                 <NavLink
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] transition-colors",
                     active
@@ -295,6 +307,7 @@ export function DashboardShell({
                         <NavLink
                           key={item.href}
                           href={item.href}
+                          aria-current={active ? "page" : undefined}
                           title={item.label}
                           className={cn(
                             "relative flex h-9 items-center rounded-lg text-[13.5px] transition-colors",

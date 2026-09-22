@@ -1,25 +1,27 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { Check, Minus } from "lucide-react";
+import { Minus } from "lucide-react";
+import { FeatureCheck } from "@/components/site/feature-check";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProviderStack } from "@/components/providers/provider-logo";
 import { JsonLd } from "@/components/site/json-ld";
 import { PricingPlans } from "@/components/site/pricing-plans";
 import { HorizontalScrollHint } from "@/components/site/scroll-hint";
-import { PLAN_CONFIG, PLUS_CHECKS_INCLUDED, PLUS_EARLY_BIRD_BONUS_CHECKS, type PlanId } from "@/lib/billing/entitlements";
+import { PLAN_CONFIG, PLUS_CHECKS_SUMMARY, type PlanId } from "@/lib/billing/entitlements";
 import { formatChecks, isSalesLockedPlan, SOLD_PLAN_IDS } from "@/lib/billing/pricing";
 import { getSessionUser } from "@/lib/auth/session";
-import { ALL_PROVIDERS, APP_NAME } from "@/lib/constants";
+import { ALL_PROVIDERS, APP_NAME, FREE_AUDIT_QUESTION_COUNT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import { publicPageMetadata } from "@/lib/public-metadata";
 
-const PLAN_IDS: PlanId[] = SOLD_PLAN_IDS;
+const PLAN_IDS: PlanId[] = ["free", ...SOLD_PLAN_IDS];
 
-export const metadata = {
-  title: "Pricing",
-  description: "Plus and Pro plans for AI visibility monitoring.",
-  alternates: { canonical: "/pricing" },
-};
+export const metadata = publicPageMetadata(
+  "AI visibility pricing — Free, Plus & Pro",
+  "Does AI recommend your company? Compare Arcanoris Free, Plus, and Pro plans. Start with a free ChatGPT audit or try Plus for 7 days.",
+  "/pricing",
+);
 
 type Cell =
   | string
@@ -27,17 +29,22 @@ type Cell =
   | { label: string; providers: readonly string[] };
 
 /** The exhaustive comparison. One row per real capability, one column per
- * PLAN_IDS entry (founder/Plus, agency/Pro - in that order). */
+ * PLAN_IDS entry (Free, Plus, Pro - in that order). */
 const COMPARISON: Array<{
   section: string;
-  rows: Array<{ label: string; cells: [Cell, Cell] }>;
+  rows: Array<{ label: string; cells: [Cell, Cell, Cell] }>;
 }> = [
   {
     section: "Audit",
     rows: [
       {
+        label: "Price",
+        cells: ["$0", `$${PLAN_CONFIG.founder.monthlyPriceUsd}/month or $${PLAN_CONFIG.founder.yearlyPriceUsd}/year`, `From $${PLAN_CONFIG.agency.monthlyPriceUsd}/month or $${PLAN_CONFIG.agency.yearlyPriceUsd}/year`],
+      },
+      {
         label: "Websites",
         cells: [
+          String(PLAN_CONFIG.free.features.brands),
           String(PLAN_CONFIG.founder.features.brands),
           String(PLAN_CONFIG.agency.features.brands),
         ],
@@ -45,17 +52,26 @@ const COMPARISON: Array<{
       {
         label: "Tracked buyer questions per website",
         cells: [
+          String(PLAN_CONFIG.free.features.activePrompts),
           String(PLAN_CONFIG.founder.features.activePrompts),
           String(PLAN_CONFIG.agency.features.activePrompts),
         ],
       },
       {
         label: "Questions asked per audit run",
-        cells: ["20", "20"],
+        cells: [String(FREE_AUDIT_QUESTION_COUNT), "20", "20"],
+      },
+      {
+        label: "Scan allowance",
+        cells: ["1 scan/site/month", "Within monthly check allowance", "Within monthly check allowance"],
       },
       {
         label: "AI providers compared",
         cells: [
+          {
+            label: "ChatGPT",
+            providers: PLAN_CONFIG.free.features.providers,
+          },
           {
             label: String(PLAN_CONFIG.founder.features.providers.length),
             providers: PLAN_CONFIG.founder.features.providers,
@@ -67,15 +83,17 @@ const COMPARISON: Array<{
         ],
       },
       {
-        label: "Provider checks per month",
+        label: "Provider checks per month - one buyer question asked to one AI",
         cells: [
-          `${PLUS_CHECKS_INCLUDED} + ${PLUS_EARLY_BIRD_BONUS_CHECKS}`,
+          formatChecks(PLAN_CONFIG.free.features.providerChecksPerMonth),
+          PLUS_CHECKS_SUMMARY,
           formatChecks(PLAN_CONFIG.agency.features.providerChecksPerMonth),
         ],
       },
       {
         label: "Competitors tracked per website",
         cells: [
+          "Top competitor",
           String(PLAN_CONFIG.founder.features.competitorsPerBrand),
           String(PLAN_CONFIG.agency.features.competitorsPerBrand),
         ],
@@ -85,14 +103,14 @@ const COMPARISON: Array<{
   {
     section: "Evidence",
     rows: [
-      { label: "Visibility score & breakdown", cells: [true, true] },
-      { label: "Full AI answers", cells: [true, true] },
+      { label: "Visibility score & breakdown", cells: ["Score", true, true] },
+      { label: "Full AI answers", cells: [false, true, true] },
       {
         label: "Sources & verified web mentions",
-        cells: [true, true],
+        cells: [false, true, true],
       },
-      { label: "Citation gaps", cells: [true, true] },
-      { label: "Score history", cells: [true, true] },
+      { label: "Citation gaps - sources that cite a rival and not you", cells: [false, true, true] },
+      { label: "Score history", cells: [false, true, true] },
     ],
   },
   {
@@ -100,15 +118,15 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Website improvement plan",
-        cells: ["Full plan", "Full plan"],
+        cells: ["First fix", "Full plan", "Full plan"],
       },
       {
         label: "Copy-paste prompt for your AI coding tool",
-        cells: [true, true],
+        cells: [false, true, true],
       },
       {
         label: "Impact tracking on completed fixes",
-        cells: [false, true],
+        cells: [false, false, true],
       },
     ],
   },
@@ -117,18 +135,18 @@ const COMPARISON: Array<{
     rows: [
       {
         label: "Scheduled re-scans",
-        cells: ["Weekly", "Daily"],
+        cells: [false, "Weekly", "Daily"],
       },
-      { label: "Score alerts by email", cells: [true, true] },
+      { label: "Score alerts by email", cells: [false, true, true] },
     ],
   },
   {
     section: "Sharing",
     rows: [
-      { label: "Shareable report link", cells: [true, true] },
-      { label: "Private reports", cells: [true, true] },
-      { label: "CSV export", cells: [false, true] },
-      { label: "PDF report", cells: [false, true] },
+      { label: "Public, shareable report preview (may be indexed)", cells: [true, true, true] },
+      { label: "Private-report controls in Website settings", cells: [false, true, true] },
+      { label: "CSV export", cells: [false, false, true] },
+      { label: "PDF report", cells: [false, false, true] },
     ],
   },
 ];
@@ -136,23 +154,19 @@ const COMPARISON: Array<{
 const FAQS = [
   {
     q: "What counts as a provider check?",
-    a: `One question asked to one AI provider. A 20-question Plus audit across ${PLAN_CONFIG.founder.features.providers.length} providers uses ${20 * PLAN_CONFIG.founder.features.providers.length} checks. Monthly limits reset on the 1st.`,
+    a: `One question asked to one AI provider, once per audit. A 20-question Plus audit across ${PLAN_CONFIG.founder.features.providers.length} providers uses ${20 * PLAN_CONFIG.founder.features.providers.length} checks. There are no repeated samples within that run. Each audit is a snapshot; compare repeated runs with the same questions and models to assess a trend. Monthly limits reset on the 1st.`,
   },
   {
     q: "How do 500 tracked questions fit into audits of 20?",
-    a: "On Pro, you curate up to 500 tracked questions per website. Each audit run asks 20 of them; scheduled monitoring rotates deterministically through the rest, sized so a month of runs fits inside your provider-check allowance. Your dashboard shows which questions the latest run checked.",
+    a: "Paid manual audits ask 20 buyer questions. Scheduled monitoring repeats the same five questions you select, so successive runs stay comparable. Each run uses your plan's provider-check allowance, and your dashboard shows the exact questions checked.",
   },
   {
     q: "How do the AI providers work on each plan?",
     a: `Plus checks ChatGPT (with live web search), Claude, Gemini, Perplexity, and Mistral on every audit. Pro unlocks all ${ALL_PROVIDERS.length} providers and runs any ${PLAN_CONFIG.agency.features.providersPerScan} per audit, swappable in the picker. Every selected provider answers the same buyer questions so results are directly comparable.`,
   },
   {
-    q: "What about Growth?",
-    a: `Growth adds more websites, daily scans, and the ${PLAN_CONFIG.growth.features.providersPerScan} most-used AIs. We're letting people in in waves — join the list on this page and we'll email you when a spot opens.`,
-  },
-  {
     q: "What does the free audit include?",
-    a: "A real audit, not a teaser: your visibility score, five buyer questions with mention status, your top competitor with evidence, and your first prioritized fix. One per website every 30 days.",
+    a: "A real audit, not a teaser: your visibility score, five buyer questions with mention status, your top competitor with evidence, and your first prioritized fix. Free audits use your account's monthly provider-check allowance, shown in your dashboard.",
   },
   {
     q: "Can I cancel anytime?",
@@ -170,7 +184,7 @@ const FAQS = [
 
 function CellValue({ value }: { value: Cell }) {
   if (value === true) {
-    return <Check className="mx-auto size-4 text-[color:var(--arc-green)]" aria-label="Included" />;
+    return <FeatureCheck className="mx-auto" label="Included" />;
   }
   if (value === false) {
     return <Minus className="mx-auto size-4 text-border" aria-label="Not included" />;
@@ -179,7 +193,7 @@ function CellValue({ value }: { value: Cell }) {
     return (
       <span className="inline-flex flex-col items-center gap-1.5">
         <span className="text-sm">{value.label}</span>
-        <ProviderStack providers={value.providers} max={8} />
+        <ProviderStack providers={value.providers} />
       </span>
     );
   }
@@ -203,7 +217,7 @@ export default async function PricingPage() {
           offers: {
             "@type": "AggregateOffer",
             priceCurrency: "USD",
-            lowPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
+            lowPrice: String(PLAN_CONFIG.free.monthlyPriceUsd),
             highPrice: String(PLAN_CONFIG.founder.monthlyPriceUsd),
             offerCount: PLAN_IDS.length,
             offers: PLAN_IDS.map((planId) => {
@@ -237,7 +251,7 @@ export default async function PricingPage() {
           Start free. Scale when it matters.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          The free audit is the trial. Paid plans add more providers, ongoing
+          Start with a free public audit or a 7-day Plus trial. Paid plans add more providers, ongoing
           monitoring, and the full evidence behind every answer.
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
@@ -271,10 +285,10 @@ export default async function PricingPage() {
         </div>
         <div className="mt-8">
           <HorizontalScrollHint label="Swipe to compare plans">
-          <table className="w-full min-w-[640px] border-collapse text-left">
+          <table className="w-full min-w-[760px] border-collapse text-left">
             <thead>
               <tr className="border-b border-border">
-                <th className="w-[36%] py-3 pr-4 text-sm font-medium text-muted-foreground">
+                <th scope="col" className="sticky left-0 z-20 w-[148px] min-w-[148px] max-w-[148px] bg-background py-3 pr-4 text-sm font-medium text-muted-foreground md:w-[30%] md:max-w-none">
                   Feature
                 </th>
                 {planIds.map((planId) => (
@@ -300,7 +314,7 @@ export default async function PricingPage() {
                   </tr>
                   {group.rows.map((row) => (
                     <tr key={row.label} className="border-b border-border/70">
-                      <td className="py-3 pr-4 pl-1 text-sm">{row.label}</td>
+                      <th scope="row" className="sticky left-0 z-10 w-[148px] min-w-[148px] max-w-[148px] bg-background py-3 pr-4 pl-1 text-sm font-normal shadow-[1px_0_0_var(--border)] md:w-[30%] md:max-w-none">{row.label}</th>
                       {row.cells.map((cell, index) => (
                         <td
                           key={`${row.label}-${planIds[index]}`}

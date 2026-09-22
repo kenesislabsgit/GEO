@@ -83,7 +83,8 @@ export const auth = betterAuth({
         to: user.email,
         subject: "Confirm your email address",
         body:
-          `Welcome! Confirm this address to unlock your first audit:\n\n${url}\n\n` +
+          `Welcome. Your audit can start now. Confirm this address when you ` +
+          `have a moment so we know the inbox is yours:\n\n${url}\n\n` +
           `If you did not create an account, ignore this email.`,
       });
     },

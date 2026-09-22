@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCheckoutSession } from "@/lib/billing/create-checkout";
 
 const user = { id: "user_1", email: "founder@example.com" };
+const advertisedPrice = { type: "recurring_price", currency: "USD", price: 7900, payment_frequency_count: 1, payment_frequency_interval: "Month", trial_period_days: 7, trial_payment_method_optional: false };
+
+function checkoutFetch() {
+  return vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ price: advertisedPrice }) })
+    .mockResolvedValue({ ok: true, json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }) });
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -44,10 +50,7 @@ describe("createCheckoutSession", () => {
     vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in");
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }),
-    });
+    const fetchMock = checkoutFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await createCheckoutSession({
@@ -61,8 +64,8 @@ describe("createCheckoutSession", () => {
       ok: true,
       url: "https://checkout.dodopayments.com/sess_1",
     });
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     const body = JSON.parse(String(init.body));
     expect(body.customer).toEqual({ email: user.email });
     expect(body.product_cart[0].product_id).toBe("prod_plus_monthly");
@@ -78,10 +81,7 @@ describe("createCheckoutSession", () => {
     vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in/");
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }),
-    });
+    const fetchMock = checkoutFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     await createCheckoutSession({
@@ -91,7 +91,7 @@ describe("createCheckoutSession", () => {
       origin: "http://127.0.0.1:3000",
     });
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     const body = JSON.parse(String(init.body));
     expect(body.return_url).toBe(
       "https://app.arcanoris.in/dashboard/billing/success",
@@ -150,10 +150,7 @@ describe("createCheckoutSession", () => {
     vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ checkout_url: "https://checkout.dodopayments.com/sess_1" }),
-    });
+    const fetchMock = checkoutFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     await createCheckoutSession({
@@ -163,10 +160,22 @@ describe("createCheckoutSession", () => {
       origin: "http://localhost:3000",
     });
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
     const body = JSON.parse(String(init.body));
     expect(body.return_url).toBe(
       "http://localhost:3000/dashboard/billing/success",
     );
+  });
+
+  it.each([{ price: 2900 }, { trial_period_days: 0 }, { trial_amount: 100 }, { trial_payment_method_optional: true }, { payment_frequency_interval: "Year" }])("blocks checkout when configured terms differ: %j", async (mismatch) => {
+    vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
+    vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ price: { ...advertisedPrice, ...mismatch } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await createCheckoutSession({ user, plan: "founder", interval: "monthly", origin: "http://localhost:3000" });
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined();
   });
 });

@@ -17,7 +17,7 @@ export const LLM_CONFIG: Record<
   { color: DitherColor; label: string; shortLabel: string }
 > = {
   bedrock_claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
-  bedrock_llama: { color: "purple", label: "Llama", shortLabel: "Llama" },
+  bedrock_llama: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },
   bedrock_mistral: { color: "red", label: "Mistral", shortLabel: "Mistral" },
   bedrock_nova: { color: "blue", label: "Nova", shortLabel: "Nova" },
   openai: { color: "green", label: "ChatGPT", shortLabel: "ChatGPT" },

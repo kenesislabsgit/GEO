@@ -76,15 +76,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
   const [system, setSystem] = useState<ResolvedTheme>("light");
   const themeRef = useRef(theme);
-  themeRef.current = theme;
 
   useEffect(() => {
     const stored = readStoredTheme();
     const sys = systemTheme();
     const resolved = stored === "system" ? sys : stored;
-    setThemeState(stored);
-    setSystem(sys);
-    setResolvedTheme(resolved);
+    themeRef.current = stored;
+    const frame = requestAnimationFrame(() => {
+      // An interaction or media event may have arrived since mounting.
+      setThemeState(themeRef.current);
+      setSystem(systemTheme());
+      setResolvedTheme(resolveTheme(themeRef.current));
+    });
     applyTheme(resolved, false);
 
     const media = window.matchMedia(THEME_MEDIA_QUERY);
@@ -101,6 +104,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY) return;
       const next = readStoredTheme();
+      themeRef.current = next;
       const nextResolved = resolveTheme(next);
       setThemeState(next);
       setResolvedTheme(nextResolved);
@@ -109,6 +113,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", onStorage);
 
     return () => {
+      cancelAnimationFrame(frame);
       media.removeEventListener("change", onMedia);
       window.removeEventListener("storage", onStorage);
     };
@@ -116,6 +121,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((next: Theme | ((current: Theme) => Theme)) => {
     const value = typeof next === "function" ? next(themeRef.current) : next;
+    themeRef.current = value;
     try {
       localStorage.setItem(THEME_STORAGE_KEY, value);
     } catch {

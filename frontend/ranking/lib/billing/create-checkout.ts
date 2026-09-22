@@ -1,5 +1,6 @@
 import {
   getProductIdForPlan,
+  PLAN_CONFIG,
   type PlanId,
 } from "@/lib/billing/entitlements";
 import { dodoApiBase } from "@/lib/billing/dodo";
@@ -115,6 +116,25 @@ export async function createCheckoutSession(input: {
   // Dodo appends subscription_id, status, and email onto this URL. Keep the
   // path query-free so those parameters reach /dashboard/billing/success.
   const returnUrl = `${resolved.appUrl}${routes.billingSuccess()}`;
+
+  // A checkout must honor the terms shown next to the trial button.
+  const productResponse = await fetch(`${dodoApiBase()}/products/${encodeURIComponent(productId)}`, {
+    headers: { Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}` },
+    cache: "no-store",
+  });
+  const product = productResponse.ok ? await productResponse.json() : null;
+  const price = product?.price;
+  const plan = PLAN_CONFIG[input.plan];
+  const expectedPrice = (input.interval === "yearly" ? plan.yearlyPriceUsd : plan.monthlyPriceUsd) * 100;
+  if (!price || price.type !== "recurring_price" || price.currency !== "USD" ||
+      price.price !== expectedPrice || price.payment_frequency_count !== 1 ||
+      price.payment_frequency_interval !== (input.interval === "yearly" ? "Year" : "Month") ||
+      price.trial_period_days !== plan.trialDays || price.trial_payment_method_optional === true ||
+      (price.trial_amount != null && price.trial_amount !== 0) ||
+      Boolean(price.discount) || Boolean(price.discount_bps) || price.purchasing_power_parity === true) {
+    log.error("dodo_checkout_terms_mismatch", { plan: input.plan, interval: input.interval });
+    return { ok: false, status: 503, error: "Checkout is temporarily unavailable while we align the billing setup with the advertised price and trial. No payment has been taken. Please contact support." };
+  }
 
   const response = await fetch(`${dodoApiBase()}/checkouts`, {
     method: "POST",

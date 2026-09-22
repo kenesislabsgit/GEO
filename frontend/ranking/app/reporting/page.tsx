@@ -167,7 +167,7 @@ export default function ReportingPage() {
         </h2>
         <div className="mt-6 space-y-6">
           <div>
-            <p className="font-medium">Shareable link (Plus and Pro)</p>
+            <p className="font-medium">Public sharing (Free); private controls (Plus and Pro)</p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Paid plans can flip a report between public (anyone with the
               link) and private (only the owner). Free audits stay public by

@@ -72,18 +72,12 @@ function HeroAiStack() {
 }
 
 /**
- * Cinematic landing hero: copy sits over a walking crowd.
+ * Mobile stacks copy above the crowd; desktop keeps the full hero backdrop.
  */
 export function LandingHero() {
   return (
-    <section className="relative isolate min-h-[100svh] overflow-hidden bg-background text-foreground">
-      <div aria-hidden className="absolute inset-0 bg-background">
-        <HeroCrowd />
-        <div className="absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-background via-background/50 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
-      </div>
-
-      <div className="relative z-30 mx-auto flex min-h-[100svh] max-w-5xl flex-col items-center justify-start px-6 pt-16 pb-20 text-center md:pt-20">
+    <section className="relative isolate overflow-hidden bg-background text-foreground md:min-h-[100svh]">
+      <div className="relative z-30 mx-auto flex max-w-5xl flex-col items-center justify-start px-6 pt-8 pb-8 text-center sm:pt-12 md:min-h-[100svh] md:pt-20 md:pb-20">
         <p className="arc-fade-up inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-background/50 px-2.5 py-1 text-xs text-foreground/80 backdrop-blur-sm">
           <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-background uppercase">
             New
@@ -127,28 +121,33 @@ export function LandingHero() {
           <div className="flex h-12 select-none items-center rounded-xl border border-foreground/25 bg-background px-3.5 shadow-sm [-webkit-tap-highlight-color:transparent] focus-within:border-foreground/50">
             <span
               aria-hidden
-              className="mr-2 shrink-0 select-none font-mono text-xs text-foreground/40"
+              className="shrink-0 select-none font-mono text-xs text-foreground/40"
             >
               https://
             </span>
             <HeroDomainInput />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <RainbowButton type="submit" className="h-12 flex-1 shadow-md">
-              Run free audit
-              <ArrowRight className="size-4" aria-hidden />
-            </RainbowButton>
-            <Link
-              href={routes.methodology}
-              className="inline-flex h-12 items-center justify-center rounded-xl border border-foreground bg-background px-5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-foreground hover:text-background sm:min-w-36"
-            >
-              Methodology
-            </Link>
-          </div>
+          <RainbowButton type="submit" className="h-12 w-full shadow-md">
+            Run free audit
+            <ArrowRight className="size-4" aria-hidden />
+          </RainbowButton>
         </form>
         <p className="arc-fade-up arc-fade-up-delay-3 mt-4 text-xs text-foreground/45">
-          Free account · no card · confirm email · ~2 min on ChatGPT
+          Free account · no card · ~2 min on ChatGPT
+          {" · "}
+          <Link href={routes.sampleReport} className="underline-offset-4 hover:underline">
+            See a real report
+          </Link>
         </p>
+      </div>
+      <div
+        aria-hidden
+        data-hero-illustration
+        className="relative isolate h-72 overflow-hidden bg-background md:absolute md:inset-0 md:h-auto"
+      >
+        <HeroCrowd />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-background via-background/50 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
       </div>
     </section>
   );

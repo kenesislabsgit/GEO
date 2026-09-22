@@ -218,9 +218,6 @@ export default function ProvidersPage() {
           <Button asChild size="sm">
             <Link href={routes.pricing}>See plan picker limits</Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={routes.methodology}>Methodology</Link>
-          </Button>
         </div>
         <div className="mt-14">
           <ProductCrossNav current={routes.providers} />

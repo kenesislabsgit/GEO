@@ -3,26 +3,34 @@
 import { useState } from "react";
 import { Check, Copy, Download, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
+import { toast } from "sonner";
 
 export function ShareControls({
   slug,
   brandName,
   score,
+  scanId,
 }: {
   slug: string;
   brandName: string;
   score: number;
+  scanId: string;
 }) {
   const [copied, setCopied] = useState(false);
 
   function reportUrl(): string {
-    return `${window.location.origin}/report/${slug}`;
+    return `${window.location.origin}${routes.publicReport(slug, scanId)}`;
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(reportUrl());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(reportUrl());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy the link. Please copy it from your address bar.");
+    }
   }
 
   function shareOnX() {
@@ -70,7 +78,7 @@ export function ShareControls({
         className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
       >
         <a
-          href={`/report/${slug}/opengraph-image`}
+          href={routes.publicReportImage(slug, scanId)}
           target="_blank"
           rel="noreferrer"
         >

@@ -6,7 +6,7 @@ import { Tooltip } from "@/components/dither-kit/tooltip";
 
 const CONFIG = { rate: { label: "Mention rate %", color: "blue" } } as const;
 
-export type ContinentRate = { continent: string; rate: number };
+export type ContinentRate = { continent: string; rate: number | null };
 
 /** Mention rate by continent, as a dithered radar. */
 export function MarketRadar({ data }: { data: ContinentRate[] }) {

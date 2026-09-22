@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { ProviderStack } from "@/components/providers/provider-logo";
 import { ProReportLock } from "@/components/dashboard/pro-report-lock";
-import { canonicalUrl, sourceLabel } from "@/lib/audit/source-links";
+import { canonicalUrl, companyMentionKey, sourceLabel } from "@/lib/audit/source-links";
 import type { ProviderId } from "@/types/database";
 
 type Citation = {
@@ -126,10 +126,10 @@ export default async function SourcesPage({
     for (const mention of (result.sources as VerifiedMention[]) ?? []) {
       // The same mention list is attached to every answer of the audit, so a
       // run storing 45 distinct pages arrives here as several hundred rows.
-      // Keyed on the address rather than the string, so two spellings of one
-      // page collapse too.
+      // Key by company and canonical address: a comparison page can mention
+      // several companies, and each relationship must remain in its group.
       if (mention?.url && mention.verified !== false) {
-        mentionMap.set(canonicalUrl(mention.url), mention);
+        mentionMap.set(companyMentionKey(mention), mention);
       }
     }
   }

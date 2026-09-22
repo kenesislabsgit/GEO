@@ -27,6 +27,7 @@ import {
   type ProviderBarRow,
 } from "@/components/dashboard/overview-charts";
 import { roundForDisplay } from "@/lib/scores/format";
+import { accountTrend, average as avg, comparableDelta } from "@/lib/scores/overview";
 import { routes } from "@/lib/routes";
 import {
   getUsageWarningLevel,
@@ -68,7 +69,7 @@ function Delta({
   if (value === null || value === 0) {
     return (
       <p className="mt-3 text-[13px] text-muted-foreground">
-        no change {suffix}
+        {value === null ? "no previous audit to compare" : `no change ${suffix}`}
       </p>
     );
   }
@@ -96,7 +97,7 @@ export default async function DashboardPage() {
 
   const [series, ...brandScores] = await Promise.all([
     accountOverviewSeries(user.id),
-    ...brands.map((brand) => scoresForBrand(brand.id)),
+    ...brands.map((brand) => scoresForBrand(brand.id, 2)),
   ]);
   const brandCards = brands.map((brand, index) => ({
     brand,
@@ -104,40 +105,22 @@ export default async function DashboardPage() {
     previous: brandScores[index][1],
   }));
   const recentScans = (
-    await listScansForBrands(brands.map((brand) => brand.id))
-  ).slice(0, 6);
+    await listScansForBrands(brands.map((brand) => brand.id), 6)
+  );
   const brandNameById = new Map(brands.map((brand) => [brand.id, brand.name]));
 
   // ── KPIs, from stored snapshots ───────────────────────────────────────────
   const withLatest = brandCards.filter((card) => card.latest);
-  const avg = (values: number[]) =>
-    values.length
-      ? values.reduce((sum, value) => sum + value, 0) / values.length
-      : null;
   const avgScore = avg(
     withLatest.map((card) => Number(card.latest!.overall_score)),
-  );
-  const prevAvgScore = avg(
-    brandCards
-      .filter((card) => card.previous)
-      .map((card) => Number(card.previous!.overall_score)),
   );
   const avgMention = avg(
     withLatest.map((card) => Number(card.latest!.mention_rate) * 100),
   );
-  const prevAvgMention = avg(
-    brandCards
-      .filter((card) => card.previous)
-      .map((card) => Number(card.previous!.mention_rate) * 100),
-  );
-  const scoreDelta =
-    avgScore !== null && prevAvgScore !== null
-      ? roundForDisplay(avgScore - prevAvgScore)
-      : null;
-  const mentionDelta =
-    avgMention !== null && prevAvgMention !== null
-      ? roundForDisplay(avgMention - prevAvgMention)
-      : null;
+  const scoreChange = comparableDelta(brandCards, (score) => Number(score.overall_score));
+  const mentionChange = comparableDelta(brandCards, (score) => Number(score.mention_rate) * 100);
+  const scoreDelta = scoreChange === null ? null : roundForDisplay(scoreChange);
+  const mentionDelta = mentionChange === null ? null : roundForDisplay(mentionChange);
 
   const usagePct = Math.min(
     100,
@@ -178,14 +161,15 @@ export default async function DashboardPage() {
       others: row.others,
     }));
 
-  const scoreTrend = series.snapshots.map((snapshot) => ({
+  const trend = accountTrend(series.snapshots);
+  const scoreTrend = trend.map((snapshot) => ({
     date: new Date(snapshot.created_at).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
     }),
     value: roundForDisplay(snapshot.overall_score),
   }));
-  const mentionTrend = series.snapshots.map((snapshot) => ({
+  const mentionTrend = trend.map((snapshot) => ({
     date: new Date(snapshot.created_at).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",

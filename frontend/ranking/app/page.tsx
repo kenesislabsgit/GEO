@@ -1,16 +1,17 @@
 ﻿import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Check, Sparkles } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { LandingHero } from "@/components/site/hero";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
-import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { PricingPlans } from "@/components/site/pricing-plans";
+import { FeatureCheck } from "@/components/site/feature-check";
+import { PLAN_CONFIG, plusModelNames } from "@/lib/billing/entitlements";
 import {
   APP_NAME,
   APP_TAGLINE,
@@ -20,15 +21,22 @@ import {
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import { publicPageMetadata } from "@/lib/public-metadata";
 
-export const metadata = {
-  alternates: { canonical: "/" },
-};
+export const metadata = publicPageMetadata(
+  APP_TAGLINE,
+  "Does AI recommend your company? Run a free ChatGPT visibility audit with Arcanoris. See your score, top competitor, and first fix. No card required.",
+  "/",
+);
+
+const CATALOG_COUNT = ALL_PROVIDERS.length;
+const PLUS_MODELS = plusModelNames();
+const PRO_PROVIDERS_PER_AUDIT = PLAN_CONFIG.agency.features.providersPerScan;
 
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across five AIs; Pro picks any ten from a catalog of fourteen.",
+    a: `No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across ${PLUS_MODELS}. Pro picks any ${PRO_PROVIDERS_PER_AUDIT} from a catalog of ${CATALOG_COUNT}.`,
   },
   {
     q: "Can results change between runs?",
@@ -72,6 +80,12 @@ function InlineProviderName({
  * company that piloted this tool): the buyer's question, the products the
  * model named, and the row that hurts - Kenesis, absent.
  */
+const EXAMPLE_RANKED = [
+  { name: "Witvix", note: "recommended first", source: "witvix.com" },
+  { name: "viAct", note: "runner up", source: "viact.ai" },
+  { name: "Triya", note: "also recommended", source: "triya.ai" },
+] as const;
+
 function AnswerCard() {
   return (
     <div className="relative mx-auto w-full max-w-md">
@@ -95,11 +109,7 @@ function AnswerCard() {
             access to restricted zones in industrial facilities?
           </div>
           <div className="space-y-2">
-            {[
-              { name: "Witvix", note: "recommended first" },
-              { name: "viAct", note: "runner up" },
-              { name: "Triya", note: "also recommended" },
-            ].map((item, index) => (
+            {EXAMPLE_RANKED.map((item, index) => (
               <div
                 key={item.name}
                 className="arc-rise flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5"
@@ -136,7 +146,7 @@ function AnswerCard() {
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
               Cited
             </span>
-            {["triya.ai", "witvix.com", "cobaltai.com"].map((source) => (
+            {EXAMPLE_RANKED.map(({ source }) => (
               <span
                 key={source}
                 className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground"
@@ -253,18 +263,10 @@ function SectionFrame({
 /* -------------------------------------------------- feature mini-visuals -- */
 
 /** Green check bullet for feature lists. */
-function CheckItem({
-  children,
-  delay = 0,
-}: {
-  children: ReactNode;
-  delay?: number;
-}) {
+function CheckItem({ children }: { children: ReactNode }) {
   return (
-    <li className="arc-rise flex items-start gap-3" style={delayStyle(delay)}>
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#3ecf7a]">
-        <Check className="size-3 text-white" strokeWidth={3} aria-hidden />
-      </span>
+    <li className="flex items-start gap-3">
+      <FeatureCheck className="mt-0.5" />
       <span className="text-sm md:text-[15px]">{children}</span>
     </li>
   );
@@ -316,7 +318,7 @@ function ShareOfVoicePanel() {
           Share of voice
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          20 questions · 5 AIs · Plus
+          20 questions · {PLUS_MODELS}
         </p>
       </div>
       <div className="mt-5 space-y-4">
@@ -341,7 +343,8 @@ function ShareOfVoicePanel() {
         ))}
       </div>
       <p className="mt-5 text-xs text-muted-foreground">
-        Broken down per question, per provider, per market.
+        Share of voice is how often AI names you versus rivals, broken down
+        per question, per provider, and per market.
       </p>
       </div>
     </div>
@@ -408,7 +411,8 @@ function ActionListPanel() {
         ))}
       </div>
       <p className="mt-5 text-xs text-muted-foreground">
-        Each fix is tied to the exact prompts and sources behind it.
+        Action centre is this fix list, each item tied to the prompts and
+        sources behind it.
       </p>
       </div>
     </div>
@@ -467,41 +471,15 @@ function EvidencePanel() {
 
 const PROVIDER_STRIP = ALL_PROVIDERS;
 
-// What a Pro audit actually reports on - real feature names, not
-// filler. Two rows moving opposite ways so they don't read as one mechanical
-// strip; each is doubled at render time so its own loop has no visible seam.
-const STAT_CHIPS_ROW_1 = [
-  `${ALL_PROVIDERS.length} providers available`,
-  "Cited sources",
-  "Share of voice",
-  "Position tracking",
-  "Competitor benchmarking",
-  "Citation gaps",
-] as const;
-const STAT_CHIPS_ROW_2 = [
-  "Full answer text",
-  "Weekly monitoring",
-  "Action centre",
-  "Email alerts",
-  "Multi-market scans",
-  "PDF & CSV export",
-] as const;
-
 /* ---------------------------------------------------- bento mini-visuals -- */
 
-// Only providers the audit engine genuinely asks, dotted around the radar.
-const RADAR_BLIPS = [
-  { id: "openai", className: "top-[8%] left-[46%]" },
-  { id: "claude", className: "top-[20%] right-[17%]" },
-  { id: "gemini", className: "top-[24%] left-[19%]" },
-  { id: "perplexity", className: "top-[47%] left-[7%]" },
-  { id: "grok", className: "top-[43%] right-[8%]" },
-  { id: "deepseek", className: "top-[68%] left-[20%]" },
-  { id: "llama", className: "top-[66%] right-[18%]" },
-  { id: "mistral", className: "top-[80%] left-[44%]" },
-  { id: "kimi", className: "top-[36%] left-[33%]" },
-  { id: "nova", className: "top-[58%] right-[36%]" },
-] as const;
+/** One mark per catalog provider, placed on an ellipse around the dial. */
+const RADAR_BLIPS = ALL_PROVIDERS.map((id, index) => {
+  const angle = (index / ALL_PROVIDERS.length) * Math.PI * 2 - Math.PI / 2;
+  const left = 50 + Math.cos(angle) * 40;
+  const top = 50 + Math.sin(angle) * 38;
+  return { id, left, top };
+});
 
 /* ----------------------------------------------------------------- page -- */
 
@@ -610,8 +588,9 @@ export default async function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Catalog of {ALL_PROVIDERS.length} providers. Plus runs 5 per
-              audit; Pro picks any 10.
+              Catalog of {PROVIDER_STRIP.length} providers. Plus runs{" "}
+              {PLUS_MODELS} on every audit; Pro picks any{" "}
+              {PRO_PROVIDERS_PER_AUDIT}.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {PROVIDER_STRIP.map((id, index) => (
@@ -654,8 +633,8 @@ export default async function HomePage() {
                   A score that moves when you do
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Mentions and position rolled into a comparable 0-100. The
-                  report also shows evidence quality beside the score.
+                  Mentions (65%), position (30%) and evidence quality (5%)
+                  form a 0–100 score. Citations are diagnostic, with no score weight.
                 </p>
                 <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
                   <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -677,31 +656,8 @@ export default async function HomePage() {
               </div>
               </Reveal>
 
-              {/* Regional growth - interactive globe */}
-              <Reveal delay={100} className="lg:row-span-2">
-              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative flex min-h-44 flex-1 items-center justify-center sm:min-h-56" aria-hidden>
-                  <div className="arc-glow absolute inset-0" />
-                  <RegionalGlobe className="relative aspect-square w-full max-w-[220px] sm:max-w-[380px]" />
-                </div>
-                <div className="p-5 sm:p-6 md:p-8">
-                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-                    Regional growth · Pro
-                  </p>
-                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                    Grow across every market
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    On Pro and Growth, compare AI visibility across countries
-                    to see where your brand leads or falls behind. Plus is one
-                    market.
-                  </p>
-                </div>
-              </div>
-              </Reveal>
-
               {/* Providers - floating pills */}
-              <Reveal delay={150} className="lg:row-span-2">
+              <Reveal delay={150}>
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
                 <div className="relative min-h-52 flex-1 sm:min-h-72">
                   {/* The radar dial: rings, crosshair, and a sweeping beam. */}
@@ -719,10 +675,14 @@ export default async function HomePage() {
                   {RADAR_BLIPS.map((blip, index) => (
                     <span
                       key={blip.id}
-                      className={`arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm sm:size-9 ${blip.className} ${index >= 6 ? "hidden sm:grid" : ""}`}
-                      style={delayStyle(index * 550)}
+                      className="arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm"
+                      style={{
+                        ...delayStyle(index * 280),
+                        left: `calc(${blip.left}% - 16px)`,
+                        top: `calc(${blip.top}% - 16px)`,
+                      }}
                     >
-                      <ProviderLogo provider={blip.id} className="size-3.5 sm:size-4" />
+                      <ProviderLogo provider={blip.id} className="size-3.5" />
                     </span>
                   ))}
                 </div>
@@ -734,15 +694,16 @@ export default async function HomePage() {
                     One method, every provider
                   </h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Plus compares the same buyer questions across 5 AIs. Pro
-                    picks any 10 from a catalog of {ALL_PROVIDERS.length}.
+                    Plus compares the same buyer questions across {PLUS_MODELS}.
+                    Pro picks any {PRO_PROVIDERS_PER_AUDIT} from a catalog of{" "}
+                    {CATALOG_COUNT}.
                   </p>
                 </div>
               </div>
               </Reveal>
 
               {/* Big stat card */}
-              <Reveal delay={100} className="sm:col-span-2 lg:col-span-1">
+              <Reveal delay={100}>
               <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
                 <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                   200
@@ -750,32 +711,6 @@ export default async function HomePage() {
                 <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
                   provider answers per Pro audit - 20 questions × 10 selected providers
                 </p>
-                <div className="mt-6 flex flex-col gap-2 overflow-hidden">
-                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
-                    <div className="arc-marquee flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
-                      {[...STAT_CHIPS_ROW_1, ...STAT_CHIPS_ROW_1].map((chip, i) => (
-                        <span
-                          key={`${chip}-${i}`}
-                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="arc-marquee-mask relative -mx-5 sm:-mx-6 md:-mx-8">
-                    <div className="arc-marquee arc-marquee--reverse flex w-max items-center gap-2 px-5 sm:px-6 md:px-8">
-                      {[...STAT_CHIPS_ROW_2, ...STAT_CHIPS_ROW_2].map((chip, i) => (
-                        <span
-                          key={`${chip}-${i}`}
-                          className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
               </Reveal>
 
@@ -857,14 +792,14 @@ export default async function HomePage() {
                     you&rsquo;re losing buyers to.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
-                      Share of voice against every rival
+                    <CheckItem>
+                      Share of voice: how often AI names you versus each rival
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Question-by-question breakdown
                     </CheckItem>
-                    <CheckItem delay={400}>
-                      Split by provider. Country markets on Pro.
+                    <CheckItem>
+                      Split by provider
                     </CheckItem>
                   </ul>
                 </Reveal>
@@ -884,26 +819,26 @@ export default async function HomePage() {
                     Leave with a fix list, not a grade
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    The to-do list is written from your results, prioritized
-                    by how many answers each fix can move.
+                    Action centre is the to-do list written from your results,
+                    prioritized by how many answers each fix can move.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
+                    <CheckItem>
                       Pages to publish, ranked by impact
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Sources worth getting cited on
                     </CheckItem>
-                    <CheckItem delay={400}>
+                    <CheckItem>
                       Every fix tied to its exact prompts
                     </CheckItem>
                   </ul>
                   <p className="mt-5">
                     <Link
-                      href={routes.actionCentre}
+                      href={routes.sampleReport}
                       className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      How the Action centre ranks fixes
+                      Open a real sample report
                     </Link>
                   </p>
                 </Reveal>
@@ -927,14 +862,14 @@ export default async function HomePage() {
                     reports keep the underlying answers one click away.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
+                    <CheckItem>
                       Weekly monitoring on Plus; daily on Pro
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Email alerts when visibility shifts
                     </CheckItem>
-                    <CheckItem delay={400}>
-                      Shareable links on Plus; PDF and CSV on Pro
+                    <CheckItem>
+                      Public sharing on Free; private-report controls on Plus; PDF and CSV on Pro
                     </CheckItem>
                   </ul>
                   <p className="mt-5">
@@ -1001,7 +936,7 @@ export default async function HomePage() {
                   },
                   {
                     title: "Every answer becomes evidence",
-                    body: "Mentions, positions, citations and competitor patterns - scored into one number and a prioritized fix list.",
+                    body: "Mentions (65%), position (30%) and evidence quality (5%) form the score. Citations and competitor patterns are diagnostic information used to guide your fixes.",
                   },
                 ].map((step, index) => (
                   <li
@@ -1036,13 +971,13 @@ export default async function HomePage() {
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                Start with a free ChatGPT audit. Plus adds a 7-day trial,
-                five AIs, and weekly monitoring.
+                Start with a free ChatGPT audit. Plus adds a 7-day trial and
+                weekly monitoring across {PLUS_MODELS}.
               </p>
             </Reveal>
 
             <div className="mt-12">
-              <PricingPlans variant="teaser" signedIn={Boolean(user)} />
+              <PricingPlans variant="full" signedIn={Boolean(user)} />
             </div>
 
             <div className="mt-8 text-center">
@@ -1092,39 +1027,29 @@ export default async function HomePage() {
         <div aria-hidden className="arc-hatch h-8 border-t border-border" />
 
         {/* Final CTA */}
-        <section className="relative bg-[color:var(--arc-ink)]">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--arc-accent)_35%,transparent),transparent_60%)]"
-          />
-          <div aria-hidden className="arc-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
-          <SectionFrame tone="dark" marks="both" />
-          <Reveal className="relative mx-auto max-w-6xl px-4 py-24 text-center md:px-6 md:py-32">
-            <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
-              <Sparkles className="arc-pulse-soft size-3" aria-hidden />
-              Two minutes for the free ChatGPT report
-            </p>
+        <section className="relative bg-card">
+          <Reveal className="relative mx-auto max-w-6xl px-4 py-14 text-center md:px-6 md:py-16">
             <h2
-              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-white md:text-6xl"
+              className="arc-rise font-heading mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-balance text-foreground md:text-4xl"
               style={delayStyle(100)}
             >
               Find out before your competitors do.
             </h2>
             <p
-              className="arc-rise mx-auto mt-4 max-w-lg text-white/55"
+              className="arc-rise mx-auto mt-3 max-w-lg text-sm text-muted-foreground"
               style={delayStyle(200)}
             >
-              Run a free AI visibility audit. No card. Confirm your email,
-              then a shareable ChatGPT report in about two minutes.
+              Your score, top competitor, and first fix in one free ChatGPT report.
+              No card required.
             </p>
             <div
-              className="arc-rise mt-9 flex flex-wrap items-center justify-center gap-3"
+              className="arc-rise mt-6 flex justify-center"
               style={delayStyle(300)}
             >
               <Button
                 asChild
                 size="lg"
-                className="group h-10 bg-white px-5 text-black shadow-none hover:bg-white/90"
+                className="group h-10 px-5"
               >
                 <Link href={routes.freeAuditSignup}>
                   Run free audit
@@ -1132,17 +1057,6 @@ export default async function HomePage() {
                     data-icon="inline-end"
                     className="transition-transform duration-200 group-hover:translate-x-0.5"
                   />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-10 border-white/20 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white"
-              >
-                <Link href={routes.methodology}>
-                  Methodology
-                  <ArrowUpRight data-icon="inline-end" />
                 </Link>
               </Button>
             </div>

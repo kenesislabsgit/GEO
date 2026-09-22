@@ -1,17 +1,17 @@
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { Badge } from "@/components/ui/badge";
+import { publicPageMetadata } from "@/lib/public-metadata";
 import {
   ALL_PROVIDERS,
   METHODOLOGY_VERSION,
   SCORE_WEIGHTS,
 } from "@/lib/constants";
 
-export const metadata = {
-  title: "Methodology",
-  description:
-    "How Arcanoris measures AI visibility: provider sampling, unbiased prompts, scoring weights, and known limitations.",
-  alternates: { canonical: "/methodology" },
-};
+export const metadata = publicPageMetadata(
+  "Methodology — How we measure AI recommendations",
+  "Does AI recommend your company? Learn how Arcanoris tests buyer questions, measures brand mentions, verifies sources, and explains its scoring limits.",
+  "/methodology",
+);
 
 const weights = [
   {
@@ -53,7 +53,7 @@ const providers = [
       "Each queried via its official API and labelled with the exact model that answered.",
   },
   {
-    name: "Llama, Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam, Qwen",
+    name: "Mistral, Nova, DeepSeek, Kimi, Groq, MiniMax, Sarvam, Qwen",
     detail:
       "Additional providers queried through their APIs. The exact model is stored with every answer; a provider that cannot answer marks the scan partial rather than vanishing.",
   },
@@ -72,7 +72,7 @@ export default function MethodologyPage() {
         <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
           Arcanoris measures whether AI answer engines recommend a brand
           when buyers ask commercial questions. Every report embeds the
-          methodology version, timestamp, models, and sample size used.
+          methodology version, stored timestamps, model identifiers, and sample size used. Older runs identify missing settings as unrecorded.
         </p>
       </section>
 
@@ -99,6 +99,11 @@ export default function MethodologyPage() {
       </section>
 
       <section className="border-b border-border py-14">
+        <h2 className="font-heading text-2xl font-semibold tracking-tight">One audit is a snapshot</h2>
+        <p className="mt-3 leading-relaxed text-muted-foreground">Each question is asked once per selected provider in an audit. Free samples 5 questions × ChatGPT × 1 answer = 5 checks. Plus samples 20 questions × 5 providers × 1 answer = 100 checks. Pro samples 20 questions once per selected provider, up to 10 providers. Provider retries recover failures; they are not repeated independent samples. Monitoring repeats selected questions in later audits and uses the same check allowance. A single run does not establish a stable trend; compare repeated runs with the same questions, models and methodology.</p>
+      </section>
+
+      <section className="border-b border-border py-14">
         <h2 className="font-heading text-2xl font-semibold tracking-tight">
           Unbiased prompts
         </h2>
@@ -119,6 +124,10 @@ export default function MethodologyPage() {
           The AI Visibility Score is a 0–100 weighted composite. Each
           query&apos;s sub-scores are averaged per provider, then
           aggregated across providers.
+          {" "}Mentions contribute 65%, position 30%, and evidence completeness 5%.
+          A brand with no mentions can therefore receive up to 5 points from
+          evidence completeness alone. Those points do not mean the brand was
+          recommended. Citations carry 0% weight and remain diagnostic information.
         </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {weights.map((w) => (

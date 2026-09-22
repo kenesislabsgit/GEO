@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HeaderBar } from "@/components/site/header-bar";
+import { MobileNav } from "@/components/site/mobile-nav";
 import { Logo } from "@/components/site/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSessionUser } from "@/lib/auth/session";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: routes.pricing, label: "Pricing" },
+  { href: routes.sampleReport, label: "Sample report" },
   { href: routes.methodology, label: "Methodology" },
   { href: routes.blog, label: "Blog" },
 ];
@@ -18,9 +20,9 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   return (
     <HeaderBar overlay={overlay}>
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-4 md:px-6">
+      <div className="mx-auto grid h-14 max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 md:flex md:justify-between md:gap-2 md:px-6">
         <div className="flex min-w-0 items-center gap-8">
-          <Logo />
+          <Logo compactOnMobile className="shrink-0" />
           <nav className="hidden items-center gap-1 md:flex">
             {nav.map((item) => (
               <Link
@@ -40,11 +42,10 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ThemeToggle
-            className={
-              overlay
-                ? "text-foreground hover:bg-foreground/10 hover:text-foreground"
-                : undefined
-            }
+            className={cn(
+              "hidden md:inline-flex",
+              overlay && "text-foreground hover:bg-foreground/10 hover:text-foreground",
+            )}
           />
           {user ? (
             <>
@@ -53,7 +54,7 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "hidden sm:inline-flex",
+                  "hidden md:inline-flex",
                   overlay &&
                     "text-foreground hover:bg-foreground/10 hover:text-foreground",
                 )}
@@ -81,11 +82,10 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 asChild
                 variant="ghost"
                 size="sm"
-                className={
-                  overlay
-                    ? "text-foreground hover:bg-foreground/10 hover:text-foreground"
-                    : undefined
-                }
+                className={cn(
+                  "hidden md:inline-flex",
+                  overlay && "text-foreground hover:bg-foreground/10 hover:text-foreground",
+                )}
               >
                 <Link href={routes.login({ mode: "signin" })}>Sign in</Link>
               </Button>
@@ -102,6 +102,7 @@ export async function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               </Button>
             </>
           )}
+          <MobileNav links={nav} signedIn={Boolean(user)} />
         </div>
       </div>
     </HeaderBar>

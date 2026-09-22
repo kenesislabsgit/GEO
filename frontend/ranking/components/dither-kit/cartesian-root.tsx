@@ -14,6 +14,7 @@ import {
   useChartController,
 } from "./chart-context"
 import { CommonChartContext } from "./common-context"
+import { ChartData, chartKeyboardIndex } from "./chart-data"
 import type { BloomInput } from "./dither-paint"
 import { cn } from "./lib"
 import type { StackType } from "./scales"
@@ -33,6 +34,7 @@ const DEFAULT_MARGINS: Margins = {
 
 export type CartesianChartProps<TData extends Row> = {
   data: TData[]
+  ariaLabel?: string
   config: ChartConfig
   children: ReactNode
   stackType?: StackType
@@ -78,6 +80,7 @@ export function CartesianRoot<TData extends Row>({
   chartType,
   Canvas,
   data,
+  ariaLabel,
   config,
   children,
   stackType = "default",
@@ -123,12 +126,24 @@ export function CartesianRoot<TData extends Row>({
   const backChildren: ReactNode[] = []
   const svgChildren: ReactNode[] = []
   const domChildren: ReactNode[] = []
+  let labelKey: string | undefined
   Children.forEach(children, (child) => {
+    if (isValidElement<{ dataKey?: string; labelKey?: string }>(child)) {
+      if (layerOf(child) === "dom" && child.props.labelKey) labelKey = child.props.labelKey
+      else if (!labelKey && layerOf(child) === "back" && child.props.dataKey) labelKey = child.props.dataKey
+    }
     const layer = layerOf(child)
     if (layer === "back") backChildren.push(child)
     else if (layer === "dom") domChildren.push(child)
     else svgChildren.push(child)
   })
+  const chartLabel = ariaLabel ?? `${Object.entries(config).map(([key, value]) => value.label ?? key).join(", ")} ${chartType} chart`
+  const selectPoint = (index: number | null) => {
+    ctx.setHoverIndex(index)
+    ctx.setMouseInChart(index !== null)
+    if (index !== null) ctx.setCursorX(margins.left + ctx.xCenter(index))
+    onHoverChange?.(index)
+  }
 
   const onMove = (clientX: number) => {
     const el = ref.current
@@ -147,6 +162,18 @@ export function CartesianRoot<TData extends Row>({
         <div
           ref={ref}
           className={cn("relative h-full w-full", className)}
+          role="group"
+          aria-label={chartLabel}
+          tabIndex={interactive && data.length ? 0 : undefined}
+          onFocus={(event) => { if (interactive && event.target === event.currentTarget) selectPoint(0) }}
+          onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) selectPoint(null) }}
+          onKeyDown={(event) => {
+            if (!interactive || event.target !== event.currentTarget) return
+            const index = chartKeyboardIndex(event.key, ctx.hoverIndex, data.length)
+            if (index === undefined) return
+            event.preventDefault()
+            selectPoint(index)
+          }}
           onPointerEnter={() => ctx.setMouseInChart(true)}
           onPointerMove={interactive ? (e) => onMove(e.clientX) : undefined}
           onPointerLeave={() => {
@@ -174,8 +201,7 @@ export function CartesianRoot<TData extends Row>({
               width={size.width}
               height={size.height}
               className="absolute inset-0 overflow-visible"
-              role="img"
-              aria-label="Chart"
+              aria-hidden
             >
               <g transform={`translate(${margins.left},${margins.top})`}>
                 {svgChildren}
@@ -183,6 +209,7 @@ export function CartesianRoot<TData extends Row>({
             </svg>
           )}
           {domChildren}
+          <ChartData data={data} config={config} labelKey={labelKey} label={chartLabel} activeIndex={ctx.hoverIndex} />
         </div>
       </CommonChartContext>
     </ChartContext>

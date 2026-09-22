@@ -37,7 +37,8 @@ const ASSISTANT_NAMES: Record<string, string> = {
   perplexity: "Perplexity",
   bedrock_claude: "Claude",
   bedrock_nova: "Nova",
-  bedrock_llama: "Llama",
+  bedrock_llama: "Perplexity",
+  llama: "Perplexity",
   bedrock_mistral: "Mistral",
 };
 

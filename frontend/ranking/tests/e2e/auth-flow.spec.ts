@@ -15,7 +15,7 @@ test("homepage auth controls switch modes and submit with Enter", async ({
     page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Need an account? Sign up" }).click();
+  await page.getByRole("link", { name: "Sign up", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
@@ -35,39 +35,31 @@ test("plan choice survives account creation and checkout fails closed without co
   const email = `plan-flow-${Date.now()}@example.com`;
 
   await page.goto("/pricing");
-  await page.getByRole("link", { name: "Get started" }).first().click();
+  await page.getByRole("link", { name: "Start 7-day trial" }).click();
   await expect(page).toHaveURL(/\/login\?/);
 
-  // The pricing CTA lands in sign-in mode; switch to signup for a new account.
-  await page.getByRole("link", { name: "Need an account? Sign up" }).click();
+  await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Selected trial" })).toContainText("Plus · Monthly · 7-day trial");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("password1234");
-  // Better Auth rate-limits signup bursts; a suite of tests signing up in a
-  // row can trip it. Retry the click until the redirect happens.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await page.getByRole("button", { name: "Create account" }).click();
-    try {
-      await page.waitForURL(/\/dashboard\/billing\?/, { timeout: 12_000 });
-      break;
-    } catch {
-      await page.waitForTimeout(10_000);
-    }
-  }
-  await page.waitForURL(/\/dashboard\/billing\?/, { timeout: 15_000 });
-  await expect(page.getByText("Pro", { exact: true }).first()).toBeVisible();
-
-  // Real checkout: the button either hands off to Dodo's hosted page (keys
-  // configured) or answers 503 (keys missing). It never simulates a plan.
   const [response] = await Promise.all([
-    page.waitForResponse((res) => res.url().includes("/api/billing/checkout")),
-    page.getByRole("button", { name: /Subscribe monthly/i }).first().click(),
+    page.waitForResponse((res) => res.url().includes("/api/auth/complete") && res.request().method() === "POST"),
+    page.getByRole("button", { name: "Create account" }).click(),
   ]);
-  expect([200, 503]).toContain(response.status());
-  if (response.status() === 200) {
-    // Keys configured: the browser hands off to Dodo's hosted checkout.
-    await page.waitForURL(/dodopayments\.com/, { timeout: 20_000 });
-  } else {
-    // Failed closed: still on billing, no plan granted.
-    await expect(page).toHaveURL(/\/dashboard\/billing/);
+  expect(response.status()).toBe(200);
+  const destination = new URL((await response.json()).redirect, page.url());
+  expect(destination.pathname).toBe("/dashboard/billing/start");
+  expect(destination.searchParams.get("plan")).toBe("founder");
+  expect(["monthly", "yearly"]).toContain(destination.searchParams.get("interval"));
+
+  // Checkout now starts on the server as soon as this destination loads.
+  // It either redirects to the provider or presents the existing retry state.
+  await expect(async () => {
+    if (new URL(page.url()).hostname.endsWith("dodopayments.com")) return;
+    await expect(page.getByText("Could not start checkout", { exact: true })).toBeVisible();
+  }).toPass({ timeout: 20_000 });
+  if (!new URL(page.url()).hostname.endsWith("dodopayments.com")) {
+    await expect(page).toHaveURL(/\/dashboard\/billing\/start\?/);
+    await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
   }
 });

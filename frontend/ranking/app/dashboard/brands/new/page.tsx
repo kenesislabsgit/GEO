@@ -56,6 +56,7 @@ export default async function AddWebsitePage({
       </div>
 
       <AddBrandScanForm
+        userId={user.id}
         isPaid={isPaid}
         brandLimitReached={brandLimitReached}
         providers={

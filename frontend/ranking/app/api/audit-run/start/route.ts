@@ -11,12 +11,10 @@ import {
   getScanRun,
   upsertBrand,
 } from "@/lib/db/repository";
-import { one } from "@/lib/db/pg";
 import { enqueueScan } from "@/lib/scans/queue";
 import { hashIp } from "@/lib/security/hash";
 import { limitAuditStart } from "@/lib/rate-limit";
 import { normalizeDomain, UrlValidationError } from "@/lib/security/url";
-import { isEmailDeliveryConfigured } from "@/lib/email/resend";
 import type { ScanInputSnapshot } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -85,25 +83,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // A confirmed email is what stops throwaway signups burning provider
-  // credit. Google accounts arrive verified; password accounts confirm once.
-  // Only enforced when email sending is configured - otherwise nobody could
-  // ever verify and the whole product would lock itself.
-  if (isEmailDeliveryConfigured()) {
-    const row = await one<{ emailVerified: boolean }>(
-      `select "emailVerified" from "user" where id = $1`,
-      [user.id],
-    );
-    if (row && !row.emailVerified) {
-      return NextResponse.json(
-        {
-          error: "Confirm your email address before running an audit.",
-          code: "email_unverified",
-        },
-        { status: 403 },
-      );
-    }
-  }
+  // Confirmation email still goes out at signup. It does not hold the first
+  // audit: the homepage promises a result in about two minutes, and a person
+  // who just typed a domain should see that scan start while the inbox
+  // catches up. Rate limiting above is what stops a flood of throwaway runs.
 
   const existingBrand = body.brandId ? await getBrandById(body.brandId) : null;
   if (body.brandId && (!existingBrand || existingBrand.owner_id !== user.id)) {
