@@ -12,7 +12,6 @@ import { resolveReturnTo, routes } from "@/lib/routes";
 import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
-import { VisibilityNotice } from "@/components/report/visibility-notice";
 
 function SignupPolicies() {
   return <p className="mt-2 text-xs leading-relaxed text-muted-foreground">By creating an account, including with Google, you agree to the <Link href={routes.terms} className="underline underline-offset-4">Terms</Link>. Read our <Link href={routes.privacy} className="underline underline-offset-4">Privacy Policy</Link> before continuing.</p>;
@@ -124,7 +123,11 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{trialCommitment(trial.interval)}</p>
         <p className="mt-2 text-xs text-muted-foreground">Your trial starts after checkout, not when you create this account.</p>
       </section> : null}
-      <VisibilityNotice />
+      <p className="mt-3 text-xs text-muted-foreground">
+        <Link href={routes.dataHandling} className="underline underline-offset-4">
+          Report visibility and data handling
+        </Link>
+      </p>
 
       <div className="mt-5 grid grid-cols-2 rounded-xl bg-muted p-1">
         <Link

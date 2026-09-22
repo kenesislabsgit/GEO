@@ -13,7 +13,8 @@ for (const interval of ["monthly", "yearly"] as const) {
     const trial = page.getByRole("region", { name: "Selected trial" });
     await expect(trial).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
     await expect(trial).toContainText("Cancel in Billing before your 7-day trial ends");
-    await expect(page.getByText(/New reports are public by default/)).toBeVisible();
+    await expect(page.getByText(/New reports are public by default/)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Report visibility and data handling" })).toHaveAttribute("href", "/data-handling");
     await expect(page.locator('a[href="/terms"]').first()).toBeVisible();
     await expect(page.locator('a[href="/privacy"]').first()).toBeVisible();
     await page.getByRole("link", { name: "Sign in", exact: true }).click();
