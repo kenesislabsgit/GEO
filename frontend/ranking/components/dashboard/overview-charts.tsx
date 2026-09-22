@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 import { Area } from "@/components/dither-kit/area";
 import { AreaChart } from "@/components/dither-kit/area-chart";
 import { Bar } from "@/components/dither-kit/bar";
@@ -91,10 +93,8 @@ export function TrendChart({
   if (data.length < 2) {
     return (
       <p className="py-16 text-center text-sm text-muted-foreground">
-        This account trend needs at least two points after every included
-        website has a saved score in the loaded history. Audits without a score
-        do not add points here. Open a website’s History to see its individual
-        audits.
+        Not enough history for an overall trend.
+        <Link href={routes.scans} className="mt-2 block underline">View website history</Link>
       </p>
     );
   }

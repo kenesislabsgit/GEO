@@ -247,7 +247,7 @@ export async function listScanHistoryForBrands(brandIds: string[]) {
   >(
     `with coverage as (
        select s.*,
-         coalesce(nullif(questions.n, 0), nullif(answers.questions, 0)) as question_count,
+         coalesce(nullif(questions.n, 0), nullif(answers.questions, 0), nullif((s.input_snapshot->>'question_count')::int, 0)) as question_count,
          coalesce(answers.successful, 0)::int as successful_checks,
          coalesce(answers.failed, 0)::int as failed_checks,
          greatest(s.total_queries, answers.total, coalesce(nullif((s.input_snapshot->>'question_count')::int, 0), nullif(questions.n, 0), answers.questions, 0) * coalesce(nullif(jsonb_array_length(s.input_snapshot->'assistants'), 0), jsonb_array_length(s.provider_ids), 0))::int as requested_checks,
@@ -256,7 +256,7 @@ export async function listScanHistoryForBrands(brandIds: string[]) {
          end as sample_key
        from scan_runs s
        left join lateral (select count(*)::int as n, md5(string_agg(prompt, '|' order by position)) as signature from scan_questions where scan_run_id = s.id) questions on true
-       left join lateral (select count(*)::int as total, count(distinct coalesce(question_position::text, tracked_prompt_id::text, id::text))::int as questions,
+       left join lateral (select count(*)::int as total, count(distinct coalesce(question_position::text, tracked_prompt_id::text))::int as questions,
          count(*) filter (where error is null and (length(trim(raw_answer)) > 0 or length(trim(answer_summary)) > 0))::int as successful,
          count(*) filter (where error is not null)::int as failed
          from query_results where scan_run_id = s.id) answers on true

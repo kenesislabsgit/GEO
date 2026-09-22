@@ -12,7 +12,7 @@ import { routes } from "@/lib/routes";
  */
 export default function ErrorPage({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="arc-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
+    <main id="main-content" tabIndex={-1} className="arc-atmosphere relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
       <div aria-hidden className="arc-mesh pointer-events-none absolute inset-0 opacity-70" />
       <div className="relative w-full max-w-md text-center">
         <div className="flex justify-center">

@@ -26,6 +26,7 @@ export function SecuritySettings({
   hasPassword,
   hasGoogle,
   sessions,
+  sessionsNeedSignIn = false,
 }: {
   name: string;
   email: string;
@@ -33,6 +34,7 @@ export function SecuritySettings({
   hasPassword: boolean;
   hasGoogle: boolean;
   sessions: SessionRow[];
+  sessionsNeedSignIn?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,6 +58,23 @@ export function SecuritySettings({
   const [pwNote, setPwNote] = useState<string | null>(null);
 
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [signingInAgain, setSigningInAgain] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  async function signInAgain() {
+    setSigningInAgain(true);
+    setSessionError(null);
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Couldn’t sign out. Try again.");
+      window.location.assign(
+        routes.login({ mode: "signin", returnTo: routes.settings }),
+      );
+    } catch {
+      setSessionError("Couldn’t sign out. Try again.");
+      setSigningInAgain(false);
+    }
+  }
 
   async function saveName() {
     setSavingName(true);
@@ -366,12 +385,24 @@ export function SecuritySettings({
           {sessions.length === 0 ? (
             <div className="space-y-3 px-5 py-4 text-sm text-muted-foreground">
               <p>
-                Session details are unavailable. You are signed in, but the
-                session list could not be loaded.
+                {sessionsNeedSignIn
+                  ? "Sign in again to view your sessions."
+                  : "Couldn’t load your sessions. Try again."}
               </p>
-              <Button variant="outline" onClick={() => router.refresh()}>
-                Reload sessions
+              <Button
+                variant="outline"
+                disabled={signingInAgain}
+                onClick={() =>
+                  sessionsNeedSignIn ? void signInAgain() : router.refresh()
+                }
+              >
+                {sessionsNeedSignIn
+                  ? signingInAgain
+                    ? "Redirecting…"
+                    : "Sign in again"
+                  : "Try again"}
               </Button>
+              {sessionError ? <p role="alert">{sessionError}</p> : null}
             </div>
           ) : null}
           {sessions.map((s) => (

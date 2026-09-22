@@ -1,8 +1,10 @@
+import { readableAnswer } from "@/lib/reports/answer-presentation";
 import type {
   Brand,
   QueryResult,
   Recommendation,
   ScanRun,
+  ScanQuestion,
   ScoreSnapshot,
   TrackedPrompt,
 } from "@/types/database";
@@ -118,6 +120,7 @@ export function toPublicReportDTO(input: {
   prompts: TrackedPrompt[];
   results: QueryResult[];
   recommendations: Recommendation[];
+  scanQuestions?: ScanQuestion[];
 }): PublicReportDTO {
   const testedPromptIds = new Set(
     input.results
@@ -353,8 +356,8 @@ export function toPublicReportDTO(input: {
       methodologyVersion: input.scan.methodology_version,
       demoMode: input.scan.demo_mode,
       providerIds: input.scan.provider_ids,
-      promptCount: auditCoverage(input.scan, input.results).questions ?? promptMatrix.length,
-      coverage: auditCoverage(input.scan, input.results),
+      promptCount: auditCoverage(input.scan, input.results, input.scanQuestions).questions ?? promptMatrix.length,
+      coverage: auditCoverage(input.scan, input.results, input.scanQuestions),
       confidence: hasVerifiedEvidence ? "standard" : "low",
       sampling: reportSampling(input.results.map((result) => ({ ...result, question: result.tracked_prompt_id ?? String(result.question_position ?? result.id) }))),
     },
@@ -385,7 +388,7 @@ export function toPublicReportDTO(input: {
       ? {
           prompt: promptForExample?.prompt ?? "Sample prompt",
           provider: mentionedResult.provider,
-          answer: mentionedResult.raw_answer,
+          answer: readableAnswer(mentionedResult.raw_answer ?? "", mentionedResult.answer_summary).prose,
           citations: citations.slice(0, 5),
         }
       : null,

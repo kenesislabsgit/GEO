@@ -23,7 +23,7 @@ for (const width of [360, 1280]) {
     await expect(sift.locator("summary")).toHaveText("Source verified · View evidence");
     await expect(sift.getByText("Revenue Replaces Risk When CX meets AI", { exact: true })).toBeVisible();
     await expect(page.locator('[data-competitor="Adyen"] summary')).toHaveText("AI-cited source · View evidence");
-    const action = page.locator("section").filter({ has: page.getByRole("heading", { name: "Your best next action" }) });
+    const action = page.locator("section").filter({ has: page.getByRole("heading", { name: "Suggested next action" }) });
     await action.scrollIntoViewIfNeeded();
     await expect(action.getByRole("link", { name: "https://sift.com/platform", exact: true })).toHaveAttribute("href", "https://sift.com/platform");
     await expect(action.getByRole("link", { name: "https://sift.com/platform/new-releases", exact: true })).toHaveAttribute("href", "https://sift.com/platform/new-releases");

@@ -88,6 +88,10 @@ export function BrandMonitoringForm({
         if (controller.signal.aborted) return;
         setData(payload);
         const s = payload.settings;
+        const available = payload.availableProviders ?? payload.plan.providers;
+        const selected = (s?.providers ?? []).filter((provider) =>
+          available.includes(provider),
+        );
         const hasSavedQuestions = s?.monitoringQuestions?.length === 5;
         setChoosingQuestions(!hasSavedQuestions);
         const matchingSet = payload.questionSets.find((set) =>
@@ -107,7 +111,10 @@ export function BrandMonitoringForm({
             s?.timezone ??
             Intl.DateTimeFormat().resolvedOptions().timeZone ??
             "UTC",
-          providers: s?.providers ?? [],
+          providers: (selected.length ? selected : available).slice(
+            0,
+            payload.plan.providersPerScan,
+          ),
           monitoringQuestions: hasSavedQuestions ? s.monitoringQuestions : [],
           country: (s?.country ?? payload.brand.country ?? "us").toLowerCase(),
           language: (
@@ -217,9 +224,10 @@ export function BrandMonitoringForm({
   const selectedAvailable = form.providers.filter((provider) =>
     availableProviders.includes(provider),
   );
-  const effectiveProviders = (
-    selectedAvailable.length ? selectedAvailable : availableProviders
-  ).slice(0, data.plan.providersPerScan);
+  const effectiveProviders = selectedAvailable.slice(
+    0,
+    data.plan.providersPerScan,
+  );
   const validQuestions =
     form.monitoringQuestions.length === 5 &&
     form.monitoringQuestions.every((question) => question.trim().length >= 5) &&
@@ -271,17 +279,17 @@ export function BrandMonitoringForm({
           <p className="font-semibold">
             {!form.enabled
               ? "Monitoring off"
-              : !validQuestions
-                ? "Setup incomplete"
+              : !validQuestions || form.providers.length === 0
+                ? "Finish setup"
                 : data.blockingReasons?.length
-                  ? "Monitoring blocked"
-                  : "Monitoring configured"}
+                  ? "Monitoring paused"
+                  : "Monitoring scheduled"}
           </p>
           {!validQuestions && form.enabled ? (
-            <p className="mt-1">
-              Choose five distinct, non-empty questions and save settings before
-              monitoring can run.
-            </p>
+            <p className="mt-1">Choose five questions to start monitoring.</p>
+          ) : null}
+          {form.enabled && form.providers.length === 0 ? (
+            <p className="mt-1">Choose at least one AI assistant.</p>
           ) : null}
           {data.blockingReasons?.map((reason) => (
             <p key={reason} className="mt-1">
@@ -289,22 +297,22 @@ export function BrandMonitoringForm({
             </p>
           ))}
           <p className="mt-2 text-xs text-muted-foreground">
-            Effective providers:{" "}
+            AI assistants:{" "}
             {effectiveProviders.map(providerDisplayName).join(", ") ||
               "None available"}
             .
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Last successful monitoring run:{" "}
+            Last completed audit:{" "}
             {data.lastSuccessfulAt
               ? new Date(data.lastSuccessfulAt).toLocaleString()
-              : "No successful scheduled run recorded"}
+              : "Monitoring hasn’t started"}
             .
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {form.enabled && validQuestions && !data.blockingReasons?.length
-              ? `Scheduled window: ${form.frequency === "daily" ? "daily" : DAYS[form.dayOfWeek]}, from ${String(form.hourLocal).padStart(2, "0")}:00 ${form.timezone}. The worker starts eligible runs when capacity is available.`
-              : "Next run: waiting for a valid, enabled configuration with available checks."}{" "}
+              ? `Scheduled for: ${form.frequency === "daily" ? "daily" : DAYS[form.dayOfWeek]}, from ${String(form.hourLocal).padStart(2, "0")}:00 ${form.timezone}.`
+              : "Next run: finish setup or resolve the pause shown above."}{" "}
             Changes take effect after Save settings.
           </p>
         </div>
@@ -514,15 +522,11 @@ export function BrandMonitoringForm({
       <section className="arc-panel space-y-4 p-6">
         <div>
           <p className="text-sm font-medium">
-            Providers ({form.providers.length} of {data.plan.providersPerScan})
+            AI assistants ({form.providers.length} of{" "}
+            {data.plan.providersPerScan})
           </p>
           <p className="text-xs text-muted-foreground">
-            No selection uses:{" "}
-            {availableProviders
-              .slice(0, data.plan.providersPerScan)
-              .map(providerDisplayName)
-              .join(", ")}
-            .
+            Choose the AI assistants for each monitoring audit.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -533,7 +537,7 @@ export function BrandMonitoringForm({
             >
               <input
                 type="checkbox"
-                disabled={!canEdit}
+                disabled={!canEdit || !availableProviders.includes(provider)}
                 checked={form.providers.includes(provider)}
                 onChange={() => toggleProvider(provider)}
               />
@@ -582,7 +586,7 @@ export function BrandMonitoringForm({
         disabled={
           saving ||
           (form.enabled && !canEdit) ||
-          (form.enabled && !validQuestions)
+          (form.enabled && (!validQuestions || form.providers.length === 0))
         }
       >
         {saving ? (

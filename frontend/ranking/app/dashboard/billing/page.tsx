@@ -22,7 +22,11 @@ export default async function BillingPage({
   // Latest subscription whatever its status: a past_due plan must show as
   // past_due with a working Manage button, not silently read as "free".
   const subscription = await getLatestSubscription(user.id);
-  const plan = PLAN_CONFIG[subscription?.plan ?? "free"];
+  const activeSubscription =
+    subscription &&
+    ["active", "trialing", "past_due"].includes(subscription.status);
+  const plan =
+    PLAN_CONFIG[activeSubscription ? subscription.plan : entitlements.plan];
   const planStatus = subscription?.status ?? entitlements.status;
   const usagePct = Math.min(
     100,
@@ -56,35 +60,25 @@ export default async function BillingPage({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="arc-panel p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Current plan
+            Current subscription
           </p>
           <div className="mt-2 flex items-center gap-2.5">
             <p className="text-2xl font-semibold tracking-tight">{plan.name}</p>
             <Badge variant="secondary" className="rounded-full capitalize">
-              {planStatus}
+              {planStatus.replaceAll("_", " ")}
             </Badge>
           </div>
-          {subscription?.current_period_end ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {subscription.cancel_at_period_end
-                ? "Access ends "
-                : "Current billing period ends "}
-              {new Date(subscription.current_period_end).toLocaleDateString()}
-            </p>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {subscription
-                ? "Billing period details are unavailable. Open Manage subscription for your current invoice and renewal details."
-                : "No active subscription. You are on the Free plan."}
-            </p>
-          )}
         </div>
         <div className="arc-panel p-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Provider checks this month
+            Checks remaining
           </p>
           <p className="mt-2 text-2xl font-semibold tracking-tight">
-            {entitlements.providerChecksUsed}
+            {Math.max(
+              0,
+              plan.features.providerChecksPerMonth -
+                entitlements.providerChecksUsed,
+            )}
             <span className="text-sm font-normal text-muted-foreground">
               {" "}
               / {plan.features.providerChecksPerMonth}
@@ -99,23 +93,52 @@ export default async function BillingPage({
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Check allowance resets on{" "}
-        {new Date(
-          Date.UTC(
-            new Date().getUTCFullYear(),
-            new Date().getUTCMonth() + 1,
-            1,
-          ),
-        ).toLocaleDateString("en", { timeZone: "UTC" })}{" "}
-        at 00:00 UTC, independently of subscription renewal.{" "}
-        {entitlements.plan === "founder"
-          ? "Your current plan configuration includes 500 checks plus the 200-check early-bird bonus in each monthly allowance."
-          : ""}{" "}
-        Your exact billing cadence and next charge are shown in Manage
-        subscription; existing subscription prices may differ from current
-        offers below.
-      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="arc-panel p-5">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            {subscription?.cancel_at_period_end
+              ? "Access ends"
+              : "Next payment"}
+          </p>
+          <p className="mt-2 font-semibold">
+            {activeSubscription && subscription.current_period_end
+              ? new Date(subscription.current_period_end).toLocaleDateString()
+              : activeSubscription
+                ? "See billing details"
+                : "No upcoming payment"}
+          </p>
+          {activeSubscription ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Your exact charge and billing interval are available in Manage
+              subscription.
+            </p>
+          ) : null}
+        </div>
+        <div className="arc-panel p-5">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            Resets on
+          </p>
+          <p className="mt-2 font-semibold">
+            {new Date(
+              Date.UTC(
+                new Date().getUTCFullYear(),
+                new Date().getUTCMonth() + 1,
+                1,
+              ),
+            ).toLocaleDateString("en", { timeZone: "UTC" })}{" "}
+            at 00:00 UTC
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Check allowances reset monthly, independently of your payment date.
+          </p>
+          {entitlements.plan === "founder" ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Your monthly allowance includes 500 checks plus a recurring
+              200-check early-bird bonus.
+            </p>
+          ) : null}
+        </div>
+      </div>
       <BillingActions
         highlightedPlan={params.plan}
         highlightedInterval={

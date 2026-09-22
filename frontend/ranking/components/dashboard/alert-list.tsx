@@ -1,5 +1,7 @@
 "use client";
 
+import { FilterField } from "@/components/ui/filter-field";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,7 +35,13 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
-  const unread = alerts.filter((a) => !a.read_at && !readIds.has(a.id)).length;
+  const comparisonHistory = filtered.filter((alert) => alert.comparison_notice);
+  const performanceAlerts = filtered.filter(
+    (alert) => !alert.comparison_notice,
+  );
+  const unread = alerts.filter(
+    (a) => !a.read_at && !readIds.has(a.id),
+  ).length;
 
   async function markRead(alertId: string) {
     setReadIds((prev) => new Set(prev).add(alertId));
@@ -72,33 +80,39 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          aria-label="Search alerts"
-          placeholder="Search website or alert"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="h-11 min-w-0 flex-1 basis-full rounded-md sm:basis-auto border border-border bg-background px-3 text-sm"
-        />
-        <select
-          aria-label="Filter alert type"
-          value={type}
-          onChange={(event) => setType(event.target.value)}
-          className="h-11 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="">All types</option>
-          {[...new Set(alerts.map((alert) => alert.type))].map((value) => (
-            <option key={value} value={value}>
-              {value.replaceAll("_", " ")}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label="Alerts on or after"
-          type="date"
-          value={after}
-          onChange={(event) => setAfter(event.target.value)}
-          className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
-        />
+        <FilterField label="Search alerts" wide>
+          <input
+            aria-label="Search alerts"
+            placeholder="Search website or alert"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm"
+          />
+        </FilterField>
+        <FilterField label="Type">
+          <select
+            aria-label="Filter alert type"
+            value={type}
+            onChange={(event) => setType(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">All types</option>
+            {[...new Set(alerts.map((alert) => alert.type))].map((value) => (
+              <option key={value} value={value}>
+                {value.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label="Alerts on or after">
+          <input
+            aria-label="Alerts on or after"
+            type="date"
+            value={after}
+            onChange={(event) => setAfter(event.target.value)}
+            className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </FilterField>
         <label className="inline-flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -109,7 +123,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
         </label>
       </div>
       <p className="text-xs text-muted-foreground">
-        {filtered.length} of {alerts.length} alerts shown
+        {performanceAlerts.length} alerts shown
       </p>
       {unread > 0 ? (
         <div className="flex justify-end">
@@ -121,7 +135,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
       ) : null}
       <div className="arc-list">
         <div className="divide-y divide-border">
-          {filtered.map((alert) => {
+          {performanceAlerts.map((alert) => {
             const Icon = alertIcon(alert.type);
             const isRead = Boolean(alert.read_at) || readIds.has(alert.id);
             return (
@@ -137,11 +151,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">
-                      {alert.comparison_notice
-                        ? `${alert.website_name ?? "Audit"}: comparison needs review`
-                        : alert.title}
-                    </p>
+                    <p className="font-medium">{alert.title}</p>
                     <Badge
                       variant="secondary"
                       className="rounded-full text-[11px] capitalize"
@@ -155,23 +165,9 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                       />
                     ) : null}
                   </div>
-                  {alert.comparison_notice ? (
-                    <>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {alert.comparison_notice}
-                      </p>
-                      <details className="mt-2 text-xs">
-                        <summary className="min-h-11 cursor-pointer py-3">
-                          Original alert and recorded values
-                        </summary>
-                        <p>{alert.body}</p>
-                      </details>
-                    </>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {alert.body}
-                    </p>
-                  )}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {alert.body}
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span>{new Date(alert.created_at).toLocaleString()}</span>
                     {alert.brand_id ? (
@@ -184,7 +180,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                         className="inline-flex min-h-11 items-center underline hover:text-foreground"
                       >
                         {alert.scan_run_id
-                          ? "View triggering audit"
+                          ? "View audit"
                           : "View audit history"}
                       </Link>
                     ) : null}
@@ -204,6 +200,46 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
           })}
         </div>
       </div>
+      {performanceAlerts.length === 0 ? (
+        <p className="p-4 text-sm text-muted-foreground">No matching alerts.</p>
+      ) : null}
+      {comparisonHistory.length ? (
+        <details className="arc-panel p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            Previous results ({comparisonHistory.length})
+          </summary>
+          <div className="mt-3 divide-y divide-border">
+            {comparisonHistory.map((alert) => (
+              <div key={alert.id} className="py-3 text-sm">
+                <p className="font-medium">
+                  {alert.website_name ?? "Audit"}: Comparison unavailable
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  These audits used different settings, or there isn’t enough
+                  information to compare them.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(alert.created_at).toLocaleString()}
+                </p>
+                {alert.brand_id ? (
+                  <Link
+                    className="inline-flex min-h-11 items-center underline"
+                    href={
+                      alert.scan_run_id
+                        ? routes.brandSection(alert.brand_id, "prompts") +
+                          "?scan=" +
+                          encodeURIComponent(alert.scan_run_id)
+                        : routes.brandSection(alert.brand_id, "history")
+                    }
+                  >
+                    View audit
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

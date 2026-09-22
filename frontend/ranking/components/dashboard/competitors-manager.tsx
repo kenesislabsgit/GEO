@@ -153,7 +153,7 @@ export function CompetitorsManager({
                   <p className="font-mono text-xs text-muted-foreground">
                     {c.domain && c.domain.toLowerCase() !== "unknown"
                       ? c.domain
-                      : "No verified domain"}
+                      : "Website not identified"}
                   </p>
                 </div>
                 <Button

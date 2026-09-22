@@ -76,7 +76,6 @@ export default async function WebsiteReportSummary({
   const coverage = latestScan
     ? auditCoverage(latestScan, results, await getScanQuestions(latestScan.id))
     : null;
-  const testedPromptIds = { size: coverage?.testedQuestions ?? 0 };
   const providers = Array.from(
     new Set(results.map((result) => result.provider)),
   );
@@ -132,7 +131,7 @@ export default async function WebsiteReportSummary({
       ? "Frequently recommended"
       : mentionRate > 0
         ? "Sometimes recommended"
-        : "Not currently recommended";
+        : "Not mentioned in this audit";
   const score = latest ? roundForDisplay(Number(latest.overall_score)) : null;
   const scoreDelta =
     latest &&
@@ -169,21 +168,14 @@ export default async function WebsiteReportSummary({
   return (
     <div className="space-y-6">
       <AuditCompleteBanner />
-      {coverage ? <AuditCoverageNotice coverage={coverage} /> : null}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Score: mentions 65%, position 30%, evidence quality 5%. Evidence quality
-        can contribute points even with zero mentions. Citations are diagnostic.
-        Compare only audits with the same questions, providers, methodology and
-        coverage; differences are not necessarily performance changes.
-      </p>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-heading truncate text-2xl font-semibold tracking-tight">
+            <h1 className="font-heading break-words text-2xl font-semibold tracking-tight">
               {brand.name}
             </h1>
             <Badge variant="secondary" className="rounded-full text-[11px]">
-              {isPaid ? "Pro report" : "Free report"}
+              {isPaid ? "Full report" : "Free report"}
             </Badge>
           </div>
           <p className="mt-1 font-mono text-[13px] text-muted-foreground">
@@ -224,9 +216,8 @@ export default async function WebsiteReportSummary({
                 of it. The line below is a threshold on one number, so it is
                 the fallback for scans recorded before the summary existed. */}
             <p className="mt-1 text-sm text-muted-foreground">
-              {latestScan?.summary?.trim()
-                ? latestScan.summary
-                : `Mentioned in ${mentionCount} of ${results.length} AI answers across ${testedPromptIds.size} buyer questions.`}
+              {`Mentioned in ${mentionCount} of ${coverage?.successful ?? results.length} AI answers in this audit.`}
+              {topCompetitor ? ` ${topCompetitor.name} appeared in ${topCompetitor.mentions ?? 0} answers.` : ""}
             </p>
           </div>
         </div>
@@ -243,6 +234,11 @@ export default async function WebsiteReportSummary({
         )}
       </section>
 
+      {coverage ? <AuditCoverageNotice coverage={coverage} detailsHref={routes.brandSection(brand.id, "prompts") + "?scan=" + latestScan?.id} retryHref={routes.newScan(brand.id)} /> : null}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer py-2">How this score is calculated</summary>
+        <p>Mentions contribute 65%, position 30%, and evidence completeness up to 5 points. A brand with no mentions can receive completeness points. Citations do not add points. Changes are shown only for comparable audits.</p>
+      </details>
       {/* One stat band, hairline-divided - the quiet Vercel row. */}
       <div className="arc-panel grid grid-cols-2 gap-y-5 p-5 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-border">
         {[
@@ -256,7 +252,7 @@ export default async function WebsiteReportSummary({
             label: "AI mentions",
             value: `${mentionCount}/${results.length}`,
             delta: null,
-            detail: `${testedPromptIds.size} questions tested`,
+            detail: coverage?.questions ? `${coverage.questions} buyer questions` : "this audit",
           },
           {
             label: "Top competitor",
@@ -272,7 +268,7 @@ export default async function WebsiteReportSummary({
             delta: null,
             detail: isPaid
               ? "citations and verified mentions"
-              : "details on Pro",
+              : "details on Plus",
           },
         ].map((item) => (
           <div
@@ -355,7 +351,7 @@ export default async function WebsiteReportSummary({
 
         <section className="arc-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
-            <h2 className="text-sm font-medium">Top website improvements</h2>
+            <h2 className="text-sm font-medium">Suggested website improvements</h2>
             <Link
               href={routes.brandSection(brand.id, "actions")}
               className="text-[13px] text-muted-foreground transition-colors hover:text-foreground"

@@ -39,4 +39,12 @@ it("keeps SQL history counts consistent with details and resets comparisons for 
   expect(row.question_count).toBe(coverage.questions);
   expect(row.sample_key).toBeNull();
   expect(coverage.missing).toBe(5);
+  // Older exports have answers but no frozen questions or question references.
+  await exec(`delete from scan_questions where scan_run_id=$1`, [first.scanRunId]);
+  await exec(`update query_results set question_position=null, tracked_prompt_id=null where scan_run_id=$1`, [first.scanRunId]);
+  await exec(`update scan_runs set input_snapshot=null, provider_ids='["openai_search","gemini","claude","perplexity","mistral"]'::jsonb where id=$1`, [first.scanRunId]);
+  const legacy = (await repo.listScanHistoryForBrands([first.brandId])).find((row) => row.id === first.scanRunId)!;
+  expect(legacy.question_count).toBeNull();
+  expect(legacy.requested_checks).toBe(5);
+  expect(legacy.successful_checks).toBe(5);
 });

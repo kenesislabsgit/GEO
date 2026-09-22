@@ -75,7 +75,7 @@ function Delta({
     return (
       <p className="mt-3 text-[13px] text-muted-foreground">
         {value === null
-          ? "no comparable complete sample"
+          ? "No comparison yet"
           : `no change ${suffix}`}
       </p>
     );
@@ -249,13 +249,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Account scores average the latest saved score for each audited website.
-        Changes compare only complete audits with matching questions, providers,
-        market and methodology ({comparableCards.length} eligible websites).
-        History charts show snapshots, which may use different samples. Evidence
-        quality can contribute points even when a brand has no mentions.
-      </p>
       {usageNudge ? (
         <div
           role="status"
@@ -524,6 +517,10 @@ export default async function DashboardPage() {
           </div>
         </section>
       </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer py-2">About scores and comparisons</summary>
+        <p>The overall score averages the latest result for each audited website. A comparison needs two complete audits with matching questions, AI assistants, market and scoring method. Completeness points can contribute to a score even without a brand mention.</p>
+      </details>
     </div>
   );
 }

@@ -8,6 +8,8 @@ import {
 } from "@/components/dashboard/answer-explorer";
 import { ScanProgress } from "@/components/scan/scan-progress";
 import { BrandMonitoringForm } from "@/components/dashboard/brand-monitoring-form";
+import { AlertList } from "@/components/dashboard/alert-list";
+import type { Alert } from "@/types/database";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -20,6 +22,12 @@ afterEach(() => {
 });
 
 describe("dashboard state and evidence clarity", () => {
+  it("keeps invalid comparisons in optional history and lets their unread notification be cleared", () => {
+    render(createElement(AlertList, { alerts: [{ id: "old", title: "Unreliable score gain", body: "Old performance claim", type: "score_change", created_at: "2026-09-01T00:00:00Z", read_at: null, website_name: "Kenesis", comparison_notice: "Different samples" } as Alert] }));
+    expect(screen.queryByText("Unreliable score gain")).toBeNull();
+    expect(screen.getByText("Kenesis: Comparison unavailable").closest("details")?.open).toBe(false);
+    expect(screen.getByRole("button", { name: "Mark all read" })).toBeTruthy();
+  });
   it("keeps a cancelled audit terminal even while its status connection is unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     render(
@@ -84,7 +92,7 @@ describe("dashboard state and evidence clarity", () => {
     render(createElement(AnswerExplorer, { questions, brandName: "Acme" }));
     expect(screen.getByText("Compare these platforms.")).toBeTruthy();
     expect(
-      screen.getByText("View raw provider response").closest("details")?.open,
+      screen.getByText("View original response").closest("details")?.open,
     ).toBe(false);
     fireEvent.change(screen.getByLabelText("Filter mention outcome"), {
       target: { value: "unavailable" },
@@ -135,10 +143,11 @@ describe("dashboard state and evidence clarity", () => {
         canEdit: true,
       }),
     );
-    expect(await screen.findByText("Setup incomplete")).toBeTruthy();
+    expect(await screen.findByText("Finish setup")).toBeTruthy();
     expect(
-      screen.getByText(/Effective providers:.*ChatGPT.*Claude/),
+      screen.getByText(/AI assistants:.*ChatGPT.*Claude/),
     ).toBeTruthy();
+    expect(screen.getByText("AI assistants (2 of 2)")).toBeTruthy();
     expect(
       (
         screen.getByRole("button", {

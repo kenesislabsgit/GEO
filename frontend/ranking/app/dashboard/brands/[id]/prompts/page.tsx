@@ -173,7 +173,7 @@ export default async function AIAnswersPage({
       {results.length === 0 ? (
         <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No AI answers yet. Run an audit to collect prompt-level evidence.
+            No AI answers yet. Run an audit to collect answers to your buyer questions.
           </p>
         </div>
       ) : (
@@ -184,8 +184,8 @@ export default async function AIAnswersPage({
                 Questions and answers
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                {questions.length} questions · {assistantCount} AI providers ·{" "}
-                {results.length} saved answers. Open a question to read what
+                {questions.length} questions · {assistantCount} AI assistants ·{" "}
+                {results.length} AI answers. Open a question to read what
                 each provider said, with {brand.name} highlighted.
               </p>
             </div>

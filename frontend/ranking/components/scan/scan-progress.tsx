@@ -21,6 +21,7 @@ import {
 } from "@/components/scan/reasoning-timeline";
 import type { AuditFeedEvent } from "@/components/scan/use-detached-audit";
 import { ProviderBadge } from "@/components/providers/provider-logo";
+import { auditStatusLabel } from "@/lib/audit/coverage";
 import { routes } from "@/lib/routes";
 
 export type ProgressState = {
@@ -138,7 +139,8 @@ export function ScanProgress({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Cancel failed");
-      toast.success("Cancellation requested. The audit is stopping.");
+      if (typeof data.status === "string") setState((previous) => previous ? { ...previous, status: data.status, cancelRequested: data.status === "cancel_requested" } : previous);
+      toast.success(data.status === "cancelled" ? "Audit cancelled." : "Cancellation requested.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Cancel failed");
     } finally {
@@ -149,6 +151,7 @@ export function ScanProgress({
   const progress = state?.progress ?? 0;
   const failed = ENDED_BADLY.has(state?.status ?? "");
   const queued = state?.status === "queued";
+  const longWait = queued && state?.queuedAt && checkedAt != null && checkedAt - new Date(state.queuedAt).getTime() > 15 * 60 * 1000;
   const stopping =
     state?.status === "cancel_requested" || Boolean(state?.cancelRequested);
   const stages = auditStages(plan);
@@ -193,7 +196,7 @@ export function ScanProgress({
                   "Audit failed"
                 )
               ) : queued ? (
-                "Waiting for the next available audit slot"
+                (longWait ? "Your audit hasn’t started" : "Your audit is waiting to start")
               ) : stopping ? (
                 "Stopping this audit"
               ) : (
@@ -204,16 +207,16 @@ export function ScanProgress({
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {failed
-                ? "This audit has stopped. It will not keep running when you leave."
+                ? "You can retry using the same settings."
                 : stopping
-                  ? "Cancellation is pending. No new audit has been started."
+                  ? "Cancellation is pending."
                   : queued
-                    ? "This audit is waiting to start; it is not running yet."
+                    ? (longWait ? "This is taking longer than expected. Cancel this audit, then retry." : "We’ll show progress here when it starts.")
                     : !state
-                      ? "Fetching the saved state. No new audit is being started."
+                      ? "Checking for the latest update."
                       : destination.type === "dashboard"
                         ? "You can leave this page - the audit keeps running."
-                        : "Live progress from the job queue - not a simulated timer."}
+                        : "Your progress updates automatically."}
             </p>
           </div>
         </div>
@@ -224,7 +227,7 @@ export function ScanProgress({
           </p>
           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
             {state
-              ? `${state.completedQueries}/${state.totalQueries} checks · ${state.status.replace("_", " ")}`
+              ? `${state.completedQueries}/${state.totalQueries} checks · ${auditStatusLabel(state.status)}`
               : "connecting…"}
           </p>
         </div>
@@ -236,15 +239,12 @@ export function ScanProgress({
           <Clock className="size-4 shrink-0" aria-hidden />
           <div>
             <p>
-              Waiting for a worker.{" "}
               {state?.queuedAt
                 ? `Queued since ${new Date(state.queuedAt).toLocaleString()}${checkedAt ? ` (${formatDistanceStrict(new Date(state.queuedAt), checkedAt)} ago)` : ""}.`
-                : "Queue time was not recorded."}
+                : "Waiting to start."}
             </p>
             <p className="mt-1 text-xs">
-              A long wait does not confirm a worker failure. Refresh the status,
-              or cancel this queued audit before trying again. Status updates
-              automatically.
+              Status updates automatically. You can cancel below.
             </p>
           </div>
         </div>
@@ -368,9 +368,7 @@ export function ScanProgress({
           <AlertTitle>Connection issue</AlertTitle>
           <AlertDescription>
             <p>
-              Progress connection failed. The last saved status above may be out
-              of date; this does not confirm whether the worker has stopped. We
-              will retry automatically.
+              Couldn’t refresh progress. We’ll try again automatically.
             </p>
             <Button
               variant="outline"

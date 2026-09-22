@@ -23,6 +23,40 @@ const answers = Array.from({ length: 20 }, (_, question_position) => ({
 })) as QueryResult[];
 
 describe("saved audit coverage", () => {
+  it("does not invent questions or missing checks for legacy answers without question identifiers", () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      provider: ["openai_search", "claude", "gemini", "perplexity", "mistral"][
+        index % 5
+      ],
+      raw_answer: "An answer",
+      error: null,
+    })) as QueryResult[];
+    expect(
+      auditCoverage(
+        {
+          ...scan,
+          status: "completed",
+          total_queries: 100,
+          input_snapshot: null,
+          provider_ids: [
+            "openai_search",
+            "claude",
+            "gemini",
+            "perplexity",
+            "bedrock_mistral",
+          ],
+        },
+        rows,
+      ),
+    ).toMatchObject({
+      questions: null,
+      requested: 100,
+      successful: 100,
+      failed: 0,
+      missing: 0,
+    });
+  });
   it("does not call a partial five-provider audit complete because its stored counter is 21", () => {
     const result = auditCoverage(
       scan,

@@ -266,8 +266,6 @@ function CompetitorEvidencePanel({
   const answerEvidence = signal.answer_evidence ?? [];
   const websiteEvidence = cleanWebsiteEvidence(signal.website_evidence ?? []);
   const verifiedMentions = signal.verified_mentions ?? [];
-  const evidenceCount =
-    answerEvidence.length + websiteEvidence.length + verifiedMentions.length;
 
   return (
     <details className="group">
@@ -314,7 +312,6 @@ function CompetitorEvidencePanel({
               {signal.average_rank
                 ? ` · average position ${signal.average_rank}`
                 : ""}
-              {` · ${evidenceCount} evidence`}
             </span>
             <span className="text-xs text-[color:var(--arc-accent)] group-open:hidden">
               Evidence
@@ -350,8 +347,8 @@ function CompetitorEvidencePanel({
         <div className="mt-5 grid gap-6 xl:grid-cols-2">
           <div className="min-w-0">
             <p className="mb-3 text-xs text-muted-foreground">
-              {answerEvidence.length} saved excerpts for {signal.mentions ?? 0}{" "}
-              reported mentions. Excerpts may cover fewer answers than the
+              {answerEvidence.length} supporting excerpts for {signal.mentions ?? 0}{" "}
+              AI mentions. Excerpts may cover fewer answers than the
               mention count.
             </p>
             <Link
@@ -399,7 +396,7 @@ function AnswerEvidenceList({
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase text-muted-foreground">
-        Why AI selected them
+        What the AI said
       </h3>
       {rows.length ? (
         <div className="mt-3 space-y-4">
@@ -431,7 +428,7 @@ function AnswerEvidenceList({
                 href={evidenceAnswerHref(answersHref, evidence)}
                 className="inline-flex min-h-11 items-center text-xs underline underline-offset-4"
               >
-                View full saved answer
+                View AI answer
               </Link>
               {evidence.answer_excerpt ? (
                 <>
@@ -446,7 +443,7 @@ function AnswerEvidenceList({
               {evidence.reason ? (
                 <>
                   <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
-                    Why it was recommended
+                    AI explanation
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {evidence.reason}

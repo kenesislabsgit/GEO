@@ -42,10 +42,25 @@ export default async function AlertsPage() {
       run?.sample_key &&
       earlier.length === 2 &&
       earlier.every((row) => row.sample_key === run.sample_key);
+    const websiteName = brands.find(
+      (brand) => brand.id === alert.brand_id,
+    )?.name;
+    const capitalizeWebsite = (text: string) =>
+      websiteName
+        ? text.replace(
+            new RegExp(
+              websiteName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+              "gi",
+            ),
+            () => websiteName,
+          )
+        : text;
     return {
       ...alert,
+      title: capitalizeWebsite(alert.title),
+      body: capitalizeWebsite(alert.body),
       scan_run_id: scanId,
-      website_name: brands.find((brand) => brand.id === alert.brand_id)?.name,
+      website_name: websiteName,
       comparison_notice:
         comparison && !verified
           ? "The baseline’s questions, providers, coverage or methodology differ or cannot be verified. Treat these as separate audit snapshots, not a confirmed performance change."

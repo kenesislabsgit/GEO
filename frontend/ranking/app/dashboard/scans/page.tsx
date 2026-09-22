@@ -1,3 +1,5 @@
+import { FilterField } from "@/components/ui/filter-field";
+import { auditStatusLabel } from "@/lib/audit/coverage";
 import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
@@ -45,6 +47,7 @@ export default async function ScansPage({
   const brandMap = new Map(brands.map((b) => [b.id, b]));
   const scans = await listScanHistoryForBrands(brands.map((b) => b.id));
   const rows = scans
+    .map((scan) => ({ ...scan, status: scan.status === "completed" && scan.successful_checks < scan.requested_checks ? "partial" as const : scan.status }))
     .filter(
       (scan) =>
         (!filters.website || scan.brand_id === filters.website) &&
@@ -90,14 +93,14 @@ export default async function ScansPage({
       </div>
 
       <form className="flex flex-wrap gap-2" role="search">
-        <input
+        <FilterField label="Search audit history" wide><input
           aria-label="Search audit history"
           name="q"
           defaultValue={filters.q}
-          placeholder="Search websites or methodology"
-          className="h-11 min-w-0 flex-1 basis-full rounded-md sm:basis-auto border border-border bg-background px-3 text-sm"
-        />
-        <select
+          placeholder="Search audit history"
+          className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm"
+        /></FilterField>
+        <FilterField label="Website"><select
           aria-label="Filter history website"
           name="website"
           defaultValue={filters.website}
@@ -109,8 +112,8 @@ export default async function ScansPage({
               {brand.name}
             </option>
           ))}
-        </select>
-        <select
+        </select></FilterField>
+        <FilterField label="Status"><select
           aria-label="Filter audit status"
           name="status"
           defaultValue={filters.status}
@@ -118,16 +121,16 @@ export default async function ScansPage({
         >
           <option value="">All statuses</option>
           {Object.keys(STATUS_STYLES).map((status) => (
-            <option key={status}>{status}</option>
+            <option key={status} value={status}>{auditStatusLabel(status)}</option>
           ))}
-        </select>
-        <input
+        </select></FilterField>
+        <FilterField label="Audits on or after"><input
           aria-label="Audits on or after"
           type="date"
           name="after"
           defaultValue={filters.after}
           className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
-        />
+        /></FilterField>
         <Button type="submit" variant="outline">
           Filter
         </Button>
@@ -139,9 +142,7 @@ export default async function ScansPage({
         </Link>
       </form>
       <p className="text-xs text-muted-foreground">
-        Swipe the table to see all columns. Changes appear only for complete
-        audits with matching saved questions, providers, region and methodology.
-        Missing comparison data establishes a new baseline.
+        AI answers can vary between audits. Swipe the table to see all columns.
       </p>
       {rows.length === 0 ? (
         <div className="arc-empty p-10 text-center">
@@ -165,7 +166,7 @@ export default async function ScansPage({
                 <th className="px-4 py-2.5">Website</th>
                 <th className="px-4 py-2.5">Date</th>
                 <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Requested providers</th>
+                <th className="px-4 py-2.5">AI assistants</th>
                 <th className="px-4 py-2.5 text-right">Questions</th>
                 <th className="px-4 py-2.5 text-right">Checks</th>
                 <th className="px-4 py-2.5 text-right">Score</th>
@@ -192,7 +193,7 @@ export default async function ScansPage({
                         variant="secondary"
                         className={`rounded-full text-[11px] capitalize ${STATUS_STYLES[scan.status]}`}
                       >
-                        {scan.status}
+                        {auditStatusLabel(scan.status)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
@@ -208,23 +209,15 @@ export default async function ScansPage({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
-                      {scan.question_count ?? "Not recorded"}
+                      {scan.question_count ?? "Unavailable"}
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
-                      <span className="block whitespace-nowrap">
-                        {scan.successful_checks}/{scan.requested_checks}{" "}
-                        successful
-                      </span>
-                      <span className="block text-xs whitespace-nowrap">
-                        {scan.failed_checks} failed ·{" "}
-                        {Math.max(
-                          0,
-                          scan.requested_checks -
-                            scan.successful_checks -
-                            scan.failed_checks,
-                        )}{" "}
-                        missing
-                      </span>
+                      {scan.status === "completed" ? "Completed" : (
+                        <details className="min-w-40 text-xs">
+                          <summary className="cursor-pointer py-2">{scan.successful_checks} answers available</summary>
+                          <p>{scan.requested_checks} checks requested · {scan.failed_checks} failed · {Math.max(0, scan.requested_checks - scan.successful_checks - scan.failed_checks)} unavailable</p>
+                        </details>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {score !== null ? (

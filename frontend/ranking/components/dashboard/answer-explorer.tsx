@@ -1,5 +1,9 @@
 "use client";
 
+import { FilterField } from "@/components/ui/filter-field";
+
+import { readableAnswer } from "@/lib/reports/answer-presentation";
+import { providerDisplayName } from "@/lib/constants";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ExternalLink } from "lucide-react";
@@ -80,35 +84,43 @@ export function AnswerExplorer({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <input
-          aria-label="Search questions and answers"
-          placeholder="Search questions, answers or companies"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="h-11 min-w-0 flex-1 basis-full rounded-md sm:basis-auto border border-border bg-background px-3 text-sm"
-        />
-        <select
-          aria-label="Filter answer provider"
-          value={provider}
-          onChange={(event) => setProvider(event.target.value)}
-          className="h-11 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="">All providers</option>
-          {providers.map((value) => (
-            <option key={value}>{value}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter mention outcome"
-          value={outcome}
-          onChange={(event) => setOutcome(event.target.value)}
-          className="h-11 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="">All outcomes</option>
-          <option value="mentioned">Mentioned</option>
-          <option value="absent">Not mentioned</option>
-          <option value="unavailable">Unavailable</option>
-        </select>
+        <FilterField label="Search answers" wide>
+          <input
+            aria-label="Search questions and answers"
+            placeholder="Search questions, answers or companies"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm"
+          />
+        </FilterField>
+        <FilterField label="AI assistant">
+          <select
+            aria-label="Filter answer provider"
+            value={provider}
+            onChange={(event) => setProvider(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">All AI assistants</option>
+            {providers.map((value) => (
+              <option key={value} value={value}>
+                {providerDisplayName(value)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label="Mention outcome">
+          <select
+            aria-label="Filter mention outcome"
+            value={outcome}
+            onChange={(event) => setOutcome(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">All outcomes</option>
+            <option value="mentioned">Mentioned</option>
+            <option value="absent">Not mentioned</option>
+            <option value="unavailable">Unavailable</option>
+          </select>
+        </FilterField>
       </div>
       <p className="text-xs text-muted-foreground">
         {filtered.length} of {questions.length} questions shown
@@ -214,27 +226,7 @@ function AnswerBlock({
   brandName: string;
 }) {
   const brandKey = brandName.trim().toLowerCase();
-  let prose = answer.answer;
-  let structured = false;
-  try {
-    const parsed = JSON.parse(
-      answer.answer.replace(/^```(?:json)?\s*|\s*```$/g, ""),
-    );
-    if (parsed && typeof parsed === "object") {
-      structured = true;
-      prose =
-        [
-          parsed.answer,
-          parsed.answer_text,
-          parsed.response,
-          parsed.summary,
-          answer.summary,
-        ].find((value) => typeof value === "string" && value.trim()) ??
-        "The provider returned structured recommendations. See the extracted companies and citations below.";
-    }
-  } catch {
-    /* Plain-text answers are already readable. */
-  }
+  const { prose, structured } = readableAnswer(answer.answer, answer.summary);
 
   return (
     <div
@@ -267,7 +259,7 @@ function AnswerBlock({
         {structured ? (
           <details className="mt-4 min-w-0 text-xs text-muted-foreground">
             <summary className="min-h-11 cursor-pointer py-3">
-              View raw provider response
+              View original response
             </summary>
             <pre className="max-h-80 max-w-full overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-3 [overflow-wrap:anywhere]">
               {answer.answer}

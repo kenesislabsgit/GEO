@@ -18,8 +18,11 @@ export const SCAN_HEARTBEAT_TIMEOUT_SECONDS = Number(
   process.env.SCAN_HEARTBEAT_TIMEOUT_SECONDS ?? "180",
 );
 
-/** A queued row nobody claimed after this long is dead, not "still starting". */
+/** Allow an unclaimed run to be replaced after this wait. */
 const STALE_QUEUED_MS = 15 * 60 * 1000;
+
+// Queue timestamps are timestamptz: use now() directly. Stripping its zone
+// before insertion makes fresh jobs look hours old in non-UTC databases.
 
 /** Estimated provider checks for a scan: one question to one provider. */
 export function estimatedChecks(snapshot: ScanInputSnapshot): number {
@@ -115,9 +118,9 @@ export async function enqueueScan(
       await exec(
         `update scan_runs set
            status = 'cancelled', step = 'cancelled',
-           cancel_requested_at = timezone('utc', now()),
-           cancelled_at = timezone('utc', now()),
-           completed_at = timezone('utc', now()),
+           cancel_requested_at = now(),
+           cancelled_at = now(),
+           completed_at = now(),
            error_summary = 'Cancelled because the audit sat in queue too long.',
            failure_reason = 'stale_queue'
          where id = $1 and status = 'queued'`,
@@ -157,7 +160,7 @@ export async function enqueueScan(
          ) values (
            $1, $2, $3, 'queued', $4,
            $5, 0, 'pending', false,
-           $6, $7, 'queued', 0, timezone('utc', now()), 0,
+           $6, $7, 'queued', 0, now(), 0,
            $8, $9, $10, $11, $12
          ) returning *`,
         [
@@ -265,9 +268,9 @@ export async function claimNextScan(
     `update scan_runs set
        status = 'running',
        claimed_by = $1,
-       claimed_at = timezone('utc', now()),
-       started_at = coalesce(started_at, timezone('utc', now())),
-       heartbeat_at = timezone('utc', now()),
+       claimed_at = now(),
+       started_at = coalesce(started_at, now()),
+       heartbeat_at = now(),
        attempts = attempts + 1,
        worker_version = $2,
        step = 'starting',
@@ -292,7 +295,7 @@ export async function heartbeatScan(
   scanId: string,
 ): Promise<ScanStatus | null> {
   const row = await one<{ status: ScanStatus }>(
-    `update scan_runs set heartbeat_at = timezone('utc', now())
+    `update scan_runs set heartbeat_at = now()
      where id = $1 returning status`,
     [scanId],
   );
@@ -334,7 +337,7 @@ export async function failOrRequeueScan(
     `update scan_runs set
        status = 'queued', claimed_by = null, claimed_at = null,
        heartbeat_at = null, step = 'queued', progress = 0,
-       last_error_at = timezone('utc', now()),
+       last_error_at = now(),
        error_summary = $2, failure_reason = $3
      where id = $1 and attempts < max_attempts
        and status in ('running', 'cancel_requested')
@@ -346,10 +349,10 @@ export async function failOrRequeueScan(
   await exec(
     `update scan_runs set
        status = case when cancel_requested_at is not null then 'cancelled' else 'failed' end,
-       cancelled_at = case when cancel_requested_at is not null then timezone('utc', now()) else cancelled_at end,
+       cancelled_at = case when cancel_requested_at is not null then now() else cancelled_at end,
        step = 'failed',
-       completed_at = timezone('utc', now()),
-       last_error_at = timezone('utc', now()),
+       completed_at = now(),
+       last_error_at = now(),
        error_summary = $2, failure_reason = $3
      where id = $1 and status in ('running', 'cancel_requested')`,
     [scanId, message, reason],
@@ -362,8 +365,8 @@ export async function markScanCancelled(scanId: string): Promise<void> {
   await exec(
     `update scan_runs set
        status = 'cancelled', step = 'cancelled',
-       cancelled_at = timezone('utc', now()),
-       completed_at = timezone('utc', now())
+       cancelled_at = now(),
+       completed_at = now()
      where id = $1 and status in ('running', 'cancel_requested', 'queued')`,
     [scanId],
   );
@@ -383,12 +386,12 @@ export async function reapStaleScans(): Promise<number> {
        step = case when attempts < max_attempts and cancel_requested_at is null
                    then 'queued' else 'failed' end,
        completed_at = case when attempts < max_attempts and cancel_requested_at is null
-                          then completed_at else timezone('utc', now()) end,
-       last_error_at = timezone('utc', now()),
+                          then completed_at else now() end,
+       last_error_at = now(),
        failure_reason = 'heartbeat_timeout',
        error_summary = 'The worker running this audit stopped responding.'
      where status in ('running', 'cancel_requested')
-       and heartbeat_at < timezone('utc', now()) - make_interval(secs => $1)
+       and heartbeat_at < now() - make_interval(secs => $1)
      returning id, status as outcome`,
     [SCAN_HEARTBEAT_TIMEOUT_SECONDS],
   );
@@ -406,9 +409,9 @@ export async function requestScanCancel(
   const queued = await one<{ status: ScanStatus }>(
     `update scan_runs set
        status = 'cancelled', step = 'cancelled',
-       cancel_requested_at = timezone('utc', now()),
-       cancelled_at = timezone('utc', now()),
-       completed_at = timezone('utc', now())
+       cancel_requested_at = now(),
+       cancelled_at = now(),
+       completed_at = now()
      where id = $1 and status = 'queued'
      returning status`,
     [scanId],
@@ -417,7 +420,7 @@ export async function requestScanCancel(
   const running = await one<{ status: ScanStatus }>(
     `update scan_runs set
        status = 'cancel_requested',
-       cancel_requested_at = timezone('utc', now())
+       cancel_requested_at = now()
      where id = $1 and status = 'running'
      returning status`,
     [scanId],
@@ -464,7 +467,7 @@ export async function retryScan(
   const requeued = await one<ScanRun>(
     `update scan_runs set
        status = 'queued', step = 'queued', progress = 0,
-       queued_at = timezone('utc', now()),
+       queued_at = now(),
        claimed_by = null, claimed_at = null, heartbeat_at = null,
        cancel_requested_at = null, cancelled_at = null,
        completed_at = null, error_summary = null, failure_reason = null,

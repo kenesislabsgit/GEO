@@ -147,7 +147,7 @@ export function BillingActions({
                       {yearlySavingsUsd(plan) > 0
                         ? ` · save $${yearlySavingsUsd(plan)}`
                         : ""}
-                      {plan.trialDays > 0
+                      {!currentPlan && plan.trialDays > 0
                         ? ` · ${plan.trialDays}-day trial`
                         : ""}
                     </p>
@@ -291,8 +291,7 @@ export function BillingActions({
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Payments are processed securely by Dodo Payments. Your subscription
-        activates after payment is confirmed.
+        Payments are processed securely by Dodo Payments.{!currentPlan ? " Your subscription activates after payment is confirmed." : ""}
       </p>
     </div>
   );

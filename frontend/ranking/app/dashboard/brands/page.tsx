@@ -4,7 +4,10 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
-import { listBrandsForOwner } from "@/lib/db/repository";
+import {
+  getBrandMonitoringSettings,
+  listBrandsForOwner,
+} from "@/lib/db/repository";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { routes } from "@/lib/routes";
@@ -20,6 +23,39 @@ export default async function BrandsPage() {
   ]);
   const plan = PLAN_CONFIG[entitlements.plan];
   const isPaid = isPaidSubscription(entitlements);
+  const monitoring = new Map(
+    await Promise.all(
+      brands.map(
+        async (brand) =>
+          [brand.id, await getBrandMonitoringSettings(brand.id)] as const,
+      ),
+    ),
+  );
+  const enabledBrands = brands.filter(
+    (brand) => monitoring.get(brand.id)?.enabled,
+  );
+  const monitoringLabel = (brand: (typeof brands)[number]) => {
+    const settings = monitoring.get(brand.id);
+    if (!settings?.enabled) return "Monitoring off";
+    if (!isPaid || !plan.features.weeklyMonitoring)
+      return "Monitoring paused · upgrade your plan";
+    const position = enabledBrands.filter(
+      (other) => other.created_at <= brand.created_at,
+    ).length;
+    if (position > plan.features.brands)
+      return "Monitoring paused · website limit reached";
+    if (entitlements.providerChecksUsed >= plan.features.providerChecksPerMonth)
+      return "Monitoring paused · no checks remaining";
+    const questions = settings.monitoringQuestions ?? [];
+    if (
+      questions.length !== 5 ||
+      questions.some((question) => question.trim().length < 5) ||
+      new Set(questions.map((question) => question.trim().toLowerCase()))
+        .size !== 5
+    )
+      return "Finish monitoring setup";
+    return "Monitoring scheduled";
+  };
   const atLimit = brands.length >= plan.features.brands;
 
   return (
@@ -63,11 +99,10 @@ export default async function BrandsPage() {
 
       {brands.length > plan.features.brands ? (
         <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-          Your saved websites exceed this plan&apos;s {plan.features.brands}-website
-          limit. Existing reports remain available; adding websites is blocked.
-          Scheduled monitoring is limited to the oldest enabled websites within
-          your allowance. Review monitoring settings or contact us for a plan
-          that covers your websites.
+          Your saved websites exceed this plan&apos;s {plan.features.brands}
+          -website limit. Existing reports remain available; adding websites is
+          blocked. Review paused websites below, or upgrade to cover more
+          websites.
         </p>
       ) : null}
       {brands.length === 0 ? (
@@ -84,16 +119,26 @@ export default async function BrandsPage() {
         <div className="arc-list">
           <div className="divide-y divide-border">
             {brands.map((brand) => (
-              <Link
+              <div
                 key={brand.id}
-                href={routes.brand(brand.id)}
                 className="flex items-center justify-between gap-4 bg-card px-5 py-4 transition-colors hover:bg-muted/50"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{brand.name}</p>
+                  <Link
+                    href={routes.brand(brand.id)}
+                    className="block min-h-6 truncate font-medium hover:underline"
+                  >
+                    {brand.name}
+                  </Link>
                   <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                     {brand.canonical_domain}
                   </p>
+                  <Link
+                    href={routes.brand(brand.id) + "/settings"}
+                    className="mt-1 inline-flex min-h-11 items-center text-xs text-muted-foreground underline"
+                  >
+                    {monitoringLabel(brand)}
+                  </Link>
                 </div>
                 <Badge
                   variant="secondary"
@@ -101,7 +146,7 @@ export default async function BrandsPage() {
                 >
                   {brand.visibility}
                 </Badge>
-              </Link>
+              </div>
             ))}
           </div>
         </div>

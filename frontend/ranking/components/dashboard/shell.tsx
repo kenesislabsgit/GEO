@@ -494,13 +494,13 @@ export function DashboardShell({
             cross-fades this region - without a name here the browser's
             default transition captures the whole viewport, sidebar
             included, which flashes chrome that never actually changed. */}
-        <main className="min-w-0 flex-1 [view-transition-name:dash-main]">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 [view-transition-name:dash-main]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
             {brands.length > 1 ? (
               <label className="mb-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                Website context
+                Website
                 <select
-                  aria-label="Website context"
+                  aria-label="Website"
                   value={activeBrand?.id ?? ""}
                   onChange={(event) => {
                     setRememberedBrand(event.target.value);

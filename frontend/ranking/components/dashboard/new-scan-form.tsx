@@ -483,14 +483,7 @@ export function NewScanForm({
                 </Button>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                {draftQuestions.filter((item) => item.trim()).length} supplied.
-                AI will write{" "}
-                {Math.max(
-                  questionsPerProvider -
-                    draftQuestions.filter((item) => item.trim()).length,
-                  0,
-                )}{" "}
-                more, for {questionsPerProvider} total.
+                {draftQuestions.filter((item) => item.trim()).length} questions ready{draftQuestions.filter((item) => item.trim()).length < questionsPerProvider ? ` · We’ll add questions to reach ${questionsPerProvider}.` : "."}
               </p>
             </div>
           ) : (
@@ -566,11 +559,11 @@ export function NewScanForm({
               </div>
 
               {lockedProviders.length > 0 ? (
-                <div className="mt-4 overflow-hidden rounded-lg border border-dashed border-border">
-                  <p className="flex items-center gap-1.5 border-b border-dashed border-border px-3.5 py-2 text-xs font-medium text-muted-foreground">
+                <details className="mt-4 overflow-hidden rounded-lg border border-dashed border-border">
+                  <summary className="cursor-pointer px-3.5 py-3 text-xs font-medium text-muted-foreground">
                     <Lock className="size-3" aria-hidden />
-                    Not in the {plan.name} plan
-                  </p>
+                    More AI assistants on other plans
+                  </summary>
                   <div className="divide-y divide-border/60">
                     {lockedProviders.map(({ id, unlockPlan }) => (
                       <div
@@ -601,7 +594,7 @@ export function NewScanForm({
                       Unlock with {PLAN_CONFIG[unlockCtaPlan].name} →
                     </Link>
                   ) : null}
-                </div>
+                </details>
               ) : null}
             </div>
             {geoEnabled ? (
@@ -628,8 +621,7 @@ export function NewScanForm({
             ) : plan.isPaid ? (
               <p className="text-xs text-muted-foreground">
                 <Lock className="mr-1 inline size-3" aria-hidden />
-                Geographic market simulation - asking as a buyer in your home
-                market - is available on{" "}
+                Compare visibility in your target markets with{" "}
                 <Link
                   href={routes.billing({
                     plan: "agency",

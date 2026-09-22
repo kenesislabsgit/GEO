@@ -124,7 +124,7 @@ export default async function WebsiteImprovementsPage({
           {topCompetitor?.name ? (
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
               <EntityMark name={topCompetitor.name} />
-              {" is in "}
+              {" appeared in "}
               <ValueMark>{topCompetitor.mentions ?? 0} answers</ValueMark>
               {topCompetitor.average_rank ? (
                 <>
@@ -205,25 +205,16 @@ export default async function WebsiteImprovementsPage({
                     ) : null}
                   </div>
                   <div className="mt-3 max-w-2xl rounded-lg bg-muted/50 p-3 text-sm leading-relaxed [overflow-wrap:anywhere]">
-                    <p className="mb-1 font-medium">Recommended action</p>
+                    <p className="mb-1 font-medium">Suggested action</p>
                     <p>{action.explanation}</p>
                   </div>
                   <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
                     {lostQuestions[0]?.prompt ? (
                       <>
-                        {lostQuestions.length === 1 ? (
-                          <>Lost this question</>
-                        ) : (
-                          <>
-                            Lost{" "}
-                            <ValueMark>
-                              {lostQuestions.length} questions
-                            </ValueMark>
-                          </>
-                        )}
+                        <>Recommended instead</>
                         {lostQuestions[0].winners?.[0]?.company_name ? (
                           <>
-                            {" to "}
+                            {": "}
                             <EntityMark
                               name={lostQuestions[0].winners[0].company_name}
                             />
@@ -238,7 +229,7 @@ export default async function WebsiteImprovementsPage({
                           </>
                         ) : lostQuestions[0].recommended_instead?.[0] ? (
                           <>
-                            {" to "}
+                            {": "}
                             <EntityMark
                               name={lostQuestions[0].recommended_instead[0]}
                             />
@@ -248,8 +239,7 @@ export default async function WebsiteImprovementsPage({
                       </>
                     ) : (
                       <span>
-                        Review the saved evidence below before applying this
-                        recommendation.
+                        Suggestion based on this audit.
                       </span>
                     )}
                   </p>
@@ -259,20 +249,19 @@ export default async function WebsiteImprovementsPage({
                     </p>
                   ) : null}
 
-                  {!relevantSources.some((source) => source.excerpt?.trim()) ? (
+                  {!relevantSources.length || relevantSources.some((source) => !source.excerpt?.trim()) ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Evidence incomplete: no supporting page passage was saved.
-                      Source links alone do not verify this recommendation.
+                      Suggestion: supporting website evidence is incomplete.
                     </p>
                   ) : null}
                   {hasProof ? (
                     <details className="group mt-3">
                       <summary className="cursor-pointer list-none text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline [&::-webkit-details-marker]:hidden">
                         <span className="group-open:hidden">
-                          Show saved evidence
+                          View evidence
                         </span>
                         <span className="hidden group-open:inline">
-                          Hide saved evidence
+                          Hide evidence
                         </span>
                       </summary>
                       <div className="mt-3 max-w-xl space-y-3 border-t border-border pt-3">
@@ -376,10 +365,7 @@ export default async function WebsiteImprovementsPage({
                         {relevantSources.length ? (
                           <div className="space-y-3 text-sm">
                             <p className="text-xs text-muted-foreground">
-                              Saved recommendation sources. These pages are
-                              separate from the competitor named in an AI
-                              answer; inspect the passage before relying on the
-                              recommendation.
+                              Related website excerpts. Suggestions without a supporting passage are not verified recommendations.
                             </p>
                             {relevantSources.map((source, sourceIndex) => (
                               <div
@@ -411,7 +397,7 @@ export default async function WebsiteImprovementsPage({
                                   </blockquote>
                                 ) : (
                                   <p className="mt-1 text-xs text-muted-foreground">
-                                    Evidence incomplete: no page passage saved.
+                                    Page excerpt unavailable.
                                   </p>
                                 )}
                               </div>

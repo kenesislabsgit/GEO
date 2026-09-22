@@ -18,12 +18,22 @@ export function auditCoverage(
     results
       .filter(
         (row) =>
-          !row.error && (row.raw_answer?.trim() || row.answer_summary?.trim()),
+          (row.question_position != null || row.tracked_prompt_id != null) &&
+          !row.error &&
+          (row.raw_answer?.trim() || row.answer_summary?.trim()),
       )
       .map(questionKey),
   );
   const knownQuestions =
-    questions.length || new Set(results.map(questionKey)).size;
+    questions.length ||
+    new Set(
+      results
+        .filter(
+          (row) =>
+            row.question_position != null || row.tracked_prompt_id != null,
+        )
+        .map(questionKey),
+    ).size;
   const plannedQuestions =
     scan.input_snapshot?.question_count || knownQuestions;
   const providers = scan.input_snapshot?.assistants?.length
@@ -41,15 +51,45 @@ export function auditCoverage(
   const failed = results.filter((row) => Boolean(row.error)).length;
   const missing = Math.max(0, requested - successful - failed);
   return {
-    questions: knownQuestions || null,
+    questions: knownQuestions || scan.input_snapshot?.question_count || null,
     testedQuestions: tested.size,
     requested,
     successful,
     failed,
     missing,
     providers,
+    assistants: providers.map((provider) => ({
+      provider,
+      requested: plannedQuestions || null,
+      successful: results.filter(
+        (row) =>
+          row.provider === provider &&
+          !row.error &&
+          (row.raw_answer?.trim() || row.answer_summary?.trim()),
+      ).length,
+      failed: results.filter(
+        (row) => row.provider === provider && Boolean(row.error),
+      ).length,
+    })),
     status: scan.status,
   };
 }
 
 export type AuditCoverage = ReturnType<typeof auditCoverage>;
+
+export function auditStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    completed: "Completed",
+    partial: "Audit incomplete",
+    queued: "Queued",
+    running: "Running",
+    failed: "Failed",
+    cancelled: "Cancelled",
+    cancel_requested: "Cancellation pending",
+    timed_out: "Timed out",
+  };
+  return (
+    labels[status] ??
+    status.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())
+  );
+}

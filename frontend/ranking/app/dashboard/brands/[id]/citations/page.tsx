@@ -1,3 +1,4 @@
+import { providerDisplayName } from "@/lib/constants";
 import { notFound } from "next/navigation";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
@@ -247,12 +248,12 @@ export default async function SourcesPage({
         brandId={brand.id}
         brandName={brand.name}
         title="Sources & Mentions"
-        description="AI-cited URLs and independently collected web mentions. A citation is distinct from a page our system fetched or a passage it saved."
+        description="Sources cited in AI answers and independent web mentions."
         isPaid={isPaid}
       />
       {isPaid ? (
         <form className="flex flex-wrap items-end gap-3" method="get">
-          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs">
+          <label className="flex min-w-0 flex-1 basis-full flex-col gap-1 text-xs sm:basis-auto">
             Search citations
             <input
               name="q"
@@ -262,17 +263,17 @@ export default async function SourcesPage({
             />
           </label>
           <label className="flex flex-col gap-1 text-xs">
-            Citation provider
+            AI assistant
             <select
               name="provider"
               defaultValue={filters.provider ?? ""}
               className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">All providers</option>
+              <option value="">All AI assistants</option>
               {Array.from(new Set(results.map((row) => row.provider))).map(
                 (provider) => (
                   <option key={provider} value={provider}>
-                    {provider}
+                    {providerDisplayName(provider)}
                   </option>
                 ),
               )}
@@ -297,8 +298,7 @@ export default async function SourcesPage({
       ) : citations.length === 0 && verifiedMentions.length === 0 ? (
         <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No saved citations or web mentions match this view. Missing evidence
-            does not establish that no mentions exist.
+            No sources match this view. Try clearing the filters or opening another audit.
           </p>
         </div>
       ) : (
@@ -307,14 +307,14 @@ export default async function SourcesPage({
           <section className="arc-panel grid grid-cols-2 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
             {(
               [
-                [citations.length, "Pages AI read"],
+                [citations.length, "Sources cited"],
                 [allDomains.size, "Websites involved"],
-                [ownMentionCount, "Write about you"],
-                [competitorMentionCount, "About competitors"],
+                [verifiedMentions.length ? ownMentionCount : "Unavailable", "Mentions of you"],
+                [verifiedMentions.length ? competitorMentionCount : "Unavailable", "Mentions of competitors"],
               ] as const
             ).map(([value, label]) => (
               <div key={label} className="px-5 py-4">
-                <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight">
+                <p className={`arc-tabular font-heading font-semibold tracking-tight ${typeof value === "number" ? "text-2xl" : "text-base"}`}>
                   {value}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
@@ -351,7 +351,7 @@ export default async function SourcesPage({
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {group.rows.length}{" "}
-                          {group.rows.length === 1 ? "page" : "pages"} · read by{" "}
+                          {group.rows.length === 1 ? "page" : "pages"} · cited by{" "}
                           {group.providers.length}{" "}
                           {group.providers.length === 1
                             ? "assistant"
@@ -448,9 +448,7 @@ export default async function SourcesPage({
             </div>
             {verifiedMentions.length === 0 ? (
               <div className="arc-empty p-5 text-sm text-muted-foreground">
-                Independent mentions unavailable in this view. No saved evidence
-                establishes whether mentions were checked and absent or could
-                not be collected.
+                Independent web mentions aren’t available for this audit.
               </div>
             ) : (
               <div className="arc-list divide-y divide-border">
@@ -483,7 +481,7 @@ export default async function SourcesPage({
                     <div className="border-t border-border">
                       {group.rows.length === 0 ? (
                         <p className="bg-background/40 px-5 py-4 text-sm text-muted-foreground">
-                          No page on the open web was found writing about you.
+                          No mentions of you in the collected sources.
                           An assistant asked to recommend a company in this
                           category has nothing to read.
                         </p>

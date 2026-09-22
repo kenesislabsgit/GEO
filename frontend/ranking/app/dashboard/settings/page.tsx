@@ -27,9 +27,19 @@ export default async function SettingsPage() {
   )[0];
 
   const requestHeaders = await headers();
-  const sessions = await auth.api
+  const { sessions, sessionsNeedSignIn } = await auth.api
     .listSessions({ headers: requestHeaders })
-    .catch(() => []);
+    .then((sessions) => ({ sessions, sessionsNeedSignIn: false }))
+    .catch((error: unknown) => {
+      const sessionsNeedSignIn = Boolean(
+        error &&
+        typeof error === "object" &&
+        "body" in error &&
+        (error.body as { code?: string } | undefined)?.code ===
+          "SESSION_NOT_FRESH",
+      );
+      return { sessions: [], sessionsNeedSignIn };
+    });
   const currentSession = await auth.api
     .getSession({ headers: requestHeaders })
     .catch(() => null);
@@ -51,6 +61,7 @@ export default async function SettingsPage() {
         emailVerified={Boolean(profile?.emailVerified)}
         hasPassword={hasPassword}
         hasGoogle={hasGoogle}
+        sessionsNeedSignIn={sessionsNeedSignIn}
         sessions={sessions.map((s) => ({
           token: s.token,
           createdAt:
