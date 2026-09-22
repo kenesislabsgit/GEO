@@ -1,3 +1,4 @@
+import { publicPageMetadata } from "@/lib/public-metadata";
 import Link from "next/link";
 import { MarketingShell } from "@/components/site/marketing-shell";
 import { ProductCrossNav } from "@/components/site/product-cross-nav";
@@ -5,12 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 
-export const metadata = {
-  title: "Action centre",
-  description:
-    "How Arcanoris turns lost AI answers into a prioritized website-improvement list and a copy-paste prompt for your coding tool.",
-  alternates: { canonical: routes.actionCentre },
-};
+export const metadata = publicPageMetadata(
+  "Action centre",
+  "How Arcanoris turns lost AI answers into a prioritized website-improvement list and a copy-paste prompt for your coding tool.",
+  "/action-centre",
+);
 
 const sampleActions = [
   {

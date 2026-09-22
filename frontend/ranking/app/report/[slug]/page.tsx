@@ -146,7 +146,13 @@ export async function generateMetadata({
           scanId: selectedScanId(query.scan),
         });
   if (!report) {
-    return { title: "Audit not found", robots: { index: false } };
+    return {
+      title: "Audit not found",
+      description: "This audit is unavailable.",
+      robots: { index: false },
+      openGraph: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
+      twitter: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
+    };
   }
   return {
     title: `${report.brand.name} AI Visibility Audit`,

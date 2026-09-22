@@ -11,9 +11,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { resolveReturnTo, routes } from "@/lib/routes";
 import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
+import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
+
+function typedAuditUrl(raw: string): string {
+  const host = raw.trim().replace(/^(https?:\/\/)+/i, "").replace(/\/+$/, "");
+  return host ? `https://${host}` : "";
+}
 
 export function LoginForm({
   googleEnabled = false,
@@ -26,6 +32,7 @@ export function LoginForm({
   const params = useSearchParams();
   const claim = params.get("claim");
   const requestedDomain = params.get("domain")?.trim() ?? "";
+  const auditUrl = typedAuditUrl(requestedDomain);
   const mode = params.get("mode") === "signup" ? "signup" : "signin";
   // The hero's "audit my site" field arrives as its own `domain` param, not
   // baked into returnTo (a GET form drops any query string on its own
@@ -36,11 +43,14 @@ export function LoginForm({
     domain: params.get("domain"),
     mode,
   });
+  const trial = selectedTrial(returnTo);
   const authError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const needsAgreement = mode === "signup" && !termsAccepted;
   const passwordLengthValid =
     password.length >= MIN_PASSWORD_LENGTH &&
     password.length <= MAX_PASSWORD_LENGTH;
@@ -49,10 +59,11 @@ export function LoginForm({
       mode: nextMode,
       ...(claim ? { claim } : {}),
       ...(returnTo ? { returnTo } : {}),
+      ...(requestedDomain ? { domain: requestedDomain } : {}),
     });
 
   async function submit() {
-    if (loading) return;
+    if (loading || needsAgreement) return;
     setLoading(true);
     setError(null);
     try {
@@ -102,6 +113,12 @@ export function LoginForm({
 
   return (
     <div>
+      {auditUrl ? (
+        <div className="mb-5">
+          <p className="break-all font-mono text-sm font-medium">{auditUrl}</p>
+          <p className="mt-1 text-sm text-muted-foreground">You&apos;re about to audit this site.</p>
+        </div>
+      ) : null}
       <h1 className="font-heading text-xl font-semibold tracking-tight">
         {mode === "signup" ? "Create your account" : "Welcome back"}
       </h1>
@@ -117,6 +134,19 @@ export function LoginForm({
           : "Sign in to your dashboard."}
       </p>
 
+      {trial ? (
+        <section aria-label="Selected trial" className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+          <h2 className="text-sm font-semibold">Plus · {trial.interval === "yearly" ? "Yearly" : "Monthly"} · {trial.plan.trialDays}-day trial</h2>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{trialCommitment(trial.interval)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Your trial starts after checkout, not when you create this account.</p>
+        </section>
+      ) : null}
+
+      <div className="mt-5 grid grid-cols-2 rounded-xl bg-muted p-1">
+        <Link href={modeHref("signin")} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${mode === "signin" ? "bg-background shadow-sm" : "text-muted-foreground"}`}>Sign in</Link>
+        <Link href={modeHref("signup")} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${mode === "signup" ? "bg-background shadow-sm" : "text-muted-foreground"}`}>Sign up</Link>
+      </div>
+
       {claim ? (
         <div className="mt-4 rounded-lg border border-[color:var(--arc-accent)]/30 bg-[color:var(--arc-accent-soft)] px-3.5 py-2.5 text-sm">
           You&apos;re claiming the audit for{" "}
@@ -130,7 +160,7 @@ export function LoginForm({
           in a password first and find the shortcut afterwards. */}
       {googleEnabled ? (
         <div className="mt-6">
-          <GoogleButton claim={claim} returnTo={returnTo} />
+          <GoogleButton claim={claim} returnTo={returnTo} disabled={needsAgreement || loading} />
           <div className="mt-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs text-muted-foreground">or</span>
@@ -214,11 +244,13 @@ export function LoginForm({
               <AlertDescription>{error || authError}</AlertDescription>
             </Alert>
           ) : null}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
+          {mode === "signup" ? (
+            <div className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+              <input id="signup-terms" type="checkbox" required checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} className="mt-0.5 size-4 shrink-0 cursor-pointer accent-foreground" />
+              <label htmlFor="signup-terms" className="cursor-pointer">I agree to the <Link href={routes.terms} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap underline underline-offset-4 hover:text-foreground">Terms and Conditions</Link>.</label>
+            </div>
+          ) : null}
+          <Button type="submit" className="w-full" disabled={loading || needsAgreement}>
             {loading ? (
               <>
                 <Loader2 data-icon="inline-start" className="animate-spin" />
@@ -244,6 +276,7 @@ export function LoginForm({
         </Link>
       </div>
       <p className="mt-4 text-center text-xs text-muted-foreground">
+        {mode === "signup" ? <><Link href={routes.privacy} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Privacy Policy</Link><span aria-hidden className="mx-2">·</span></> : null}
         <Link href="/" className="hover:text-foreground">
           Back to home
         </Link>

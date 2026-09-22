@@ -366,7 +366,7 @@ function ActionListPanel() {
     },
     {
       title: "Add pricing to your public site",
-      why: "Models skip brands that hide pricing",
+      why: "Clear pricing can help answer cost comparisons",
       priority: "Medium",
     },
   ];
@@ -551,20 +551,20 @@ export default async function HomePage() {
               <Reveal direction="left">
                 <p className="arc-eyebrow">The shift</p>
                 <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
-                  AI doesn&rsquo;t give ten links. It names two or three products.
+                  AI answers can put a few brands in the spotlight.
                 </h2>
                 <p className="mt-4 max-w-md text-muted-foreground">
                   Buyers ask{" "}
                   <InlineProviderName provider="openai">ChatGPT</InlineProviderName>{" "}
-                  what to use and get a short list of names.
-                  There is no page two - if you&rsquo;re not on the list,
-                  you&rsquo;re invisible.
+                  what to use and may get a shortlist, a longer comparison, or
+                  links to explore. The names and their positions vary by
+                  question, provider and run. Measure where your brand appears.
                 </p>
                 <div className="mt-8 grid grid-cols-3 divide-x divide-border border-y border-border">
                   {[
-                    ["1", "answer, not 10 links"],
-                    ["2-3", "brands named per answer"],
-                    ["0", "clicks if you're absent"],
+                    ["Varies", "brands and sources per answer"],
+                    ["Measure", "mentions and position"],
+                    ["Repeat", "to assess changes over time"],
                   ].map(([stat, label], index) => (
                     <div
                       key={label}

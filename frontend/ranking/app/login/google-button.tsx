@@ -35,9 +35,11 @@ function GoogleMark() {
 export function GoogleButton({
   claim,
   returnTo,
+  disabled = false,
 }: {
   claim?: string | null;
   returnTo?: string | null;
+  disabled?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +58,9 @@ export function GoogleButton({
         type="button"
         variant="outline"
         className="w-full"
-        disabled={loading}
+        disabled={loading || disabled}
         onClick={async () => {
+          if (loading || disabled) return;
           setLoading(true);
           setError(null);
           const { error: failed } = await signIn.social({

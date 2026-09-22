@@ -94,8 +94,7 @@ export function LandingHero() {
             <HeroAiStack />
           </span>
           <span className="mt-1 inline-block whitespace-nowrap text-foreground/50">
-            do they recommend your{" "}
-            <HeroWordFlip />
+            do they recommend your <HeroWordFlip />
           </span>
         </h1>
 

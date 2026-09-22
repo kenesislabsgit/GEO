@@ -13,7 +13,8 @@ export type PostBlock =
   | { type: "table"; headers: string[]; rows: string[][] }
   | { type: "stats"; items: Array<{ value: string; label: string }> };
 
-export type BlogCategory = "Fundamentals" | "Tactics" | "Measurement" | "Technical";
+export type BlogCategory =
+  "Fundamentals" | "Tactics" | "Measurement" | "Technical";
 
 /** Fixed per-category accent, same convention as the citation-source dots
  * elsewhere in the app: small decorative marks use a literal hex rather than
@@ -44,21 +45,25 @@ export const blogPosts: BlogPost[] = [
       "GEO is the practice of making your brand visible in AI-generated answers from ChatGPT, Gemini, and Perplexity - here's what it is, why it matters, and how it's measured.",
     category: "Fundamentals",
     published: "2026-08-14",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 9,
     blocks: [
       {
         type: "p",
-        text: "When someone asks ChatGPT for \"the best project management tool for a small agency\", they get a short list of named products - not ten blue links. If your product is on that list, you win a customer you never paid to acquire. If it isn't, you were never in the running. Generative engine optimization (GEO) is the practice of understanding and improving whether AI answer engines name your brand in moments like that.",
+        text: "Scope and evidence: [Google documents how its Search AI features use website content](https://developers.google.com/search/docs/appearance/ai-features). The practical GEO advice below is our interpretation, not a provider-approved recipe or a guarantee that a mention will produce a sale.",
+      },
+      {
+        type: "p",
+        text: "When someone asks an AI assistant to suggest tools for their business, the answer may name products and cite sources. Appearing in that answer creates an opportunity to be considered, not a guaranteed customer. Generative engine optimization (GEO) is the practice of understanding and improving how your brand appears in answers like these.",
       },
       { type: "h2", text: "Why this is different from SEO" },
       {
         type: "p",
-        text: "Search engines rank pages; answer engines synthesize an answer and cite a handful of sources. A page ranking third on Google still gets clicks. A brand mentioned nowhere in an AI answer gets nothing - there is no page two. That makes AI visibility closer to a binary outcome than a gradient, and it makes knowing where you stand the first job.",
+        text: "Search engines rank pages; answer engines can synthesize responses and expose sources. An answer may mention a brand, cite its website without naming it, or omit both. Measure those outcomes separately across buyer questions instead of treating a single answer as a complete picture of visibility.",
       },
       {
         type: "p",
-        text: "The second difference is that answers are non-deterministic. Ask the same question twice and the list can change. Any serious measurement has to sample repeatedly and report a rate - \"you appear in 6 of 10 runs\" - rather than pretend there is a fixed rank.",
+        text: 'The second difference is that answers are non-deterministic. Ask the same question twice and the list can change. Any serious measurement has to sample repeatedly and report a rate - "you appear in 6 of 10 runs" - rather than pretend there is a fixed rank.',
       },
       { type: "h2", text: "What actually influences AI answers" },
       {
@@ -76,7 +81,7 @@ export const blogPosts: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Of these, grounding is the one that changes week to week and the one you can influence fastest - it's a function of what's currently indexed and currently ranking, which is normal SEO territory. Training data moves on a model's release cycle, measured in months, and no amount of publishing this quarter reaches a model that already shipped. Entity clarity and third-party corroboration are the slow-compounding ones: they're what turns a single grounded citation into something the next training run remembers on its own.",
+        text: "Retrieved sources and model training are different routes by which information can influence an answer. Updating an accessible page may affect future retrieval, but does not update a deployed model's trained parameters. We cannot know whether a page will enter a later training set. Keep public facts accurate and inspect the sources exposed in each answer.",
       },
       { type: "h2", text: "Why a single check is worthless" },
       {
@@ -86,7 +91,10 @@ export const blogPosts: BlogPost[] = [
       {
         type: "stats",
         items: [
-          { value: "1 of 1", label: "what a screenshot tells you - nothing repeatable" },
+          {
+            value: "1 of 1",
+            label: "what a screenshot tells you - nothing repeatable",
+          },
           { value: "7 of 10", label: "a brand with real, defensible presence" },
           { value: "2 of 10", label: "a brand that got lucky once" },
         ],
@@ -99,7 +107,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: "list",
         items: [
-          "Mention rate - the share of sampled answers that named you at all. This is the headline number and the closest thing GEO has to \"are we visible.\"",
+          'Mention rate - the share of sampled answers that named you at all. This is the headline number and the closest thing GEO has to "are we visible."',
           "Position - where you land in the list on the runs where you were named. Being named third or fourth of five is a materially weaker outcome than being named first, even though both count toward mention rate.",
           "Share of voice - your mention rate measured against competitors sampled in the exact same runs, which is the only way the number means anything on its own.",
         ],
@@ -122,23 +130,23 @@ export const blogPosts: BlogPost[] = [
         headers: ["Vague (not quotable)", "Specific (quotable)"],
         rows: [
           [
-            "\"Powerful analytics for modern teams\"",
-            "\"Real-time event analytics with a 7-day free trial, from $29/month\"",
+            '"Powerful analytics for modern teams"',
+            '"Real-time event analytics with a 7-day free trial, from $29/month"',
           ],
           [
-            "\"Trusted by companies worldwide\"",
-            "\"Used by 400+ e-commerce teams, per our public customer directory\"",
+            '"Trusted by companies worldwide"',
+            '"Used by 400+ e-commerce teams, per our public customer directory"',
           ],
           [
-            "\"Built for scale\"",
-            "\"Handles 50M events/day on the Team plan; higher tiers remove the cap\"",
+            '"Built for scale"',
+            '"Handles 50M events/day on the Team plan; higher tiers remove the cap"',
           ],
         ],
       },
       { type: "h2", text: "What GEO is not" },
       {
         type: "p",
-        text: "It is not prompt injection, not keyword-stuffing pages with \"best X\" lists about yourself, and not a guarantee. AI answers move as models and their retrieval change. The durable strategy is the boring one: be genuinely well-documented, well-reviewed, and clearly described across the web - and measure often enough to notice when things shift.",
+        text: 'It is not prompt injection, not keyword-stuffing pages with "best X" lists about yourself, and not a guarantee. AI answers move as models and their retrieval change. The durable strategy is the boring one: be genuinely well-documented, well-reviewed, and clearly described across the web - and measure often enough to notice when things shift.',
       },
     ],
   },
@@ -149,9 +157,13 @@ export const blogPosts: BlogPost[] = [
       "A practical, no-hype guide to improving the odds that ChatGPT and other AI assistants name your product when buyers ask for recommendations.",
     category: "Tactics",
     published: "2026-08-14",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 11,
     blocks: [
+      {
+        type: "p",
+        text: "These are practical suggestions, not disclosed ChatGPT ranking factors. [Google's people-first content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) supports clear, useful, attributable information in Search; it does not establish a ranking formula for ChatGPT.",
+      },
       {
         type: "p",
         text: "First, the honest caveat: nobody can guarantee ChatGPT will recommend you. Answers vary between runs, models update, and the ranking logic is not public. What you can do is stack the observable odds in your favour. Everything below is based on how these systems visibly behave, not on secret tricks.",
@@ -159,11 +171,15 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "1. Find out where you stand today" },
       {
         type: "p",
-        text: "Before changing anything, measure. Take the ten questions a real buyer would ask - \"best [category] for [audience]\", \"alternatives to [competitor]\", \"[your brand] vs [competitor]\" - and run them through the providers' APIs multiple times. Record your mention rate, your position when mentioned, and every source the answers cite. This baseline is what makes every later change testable instead of vibes.",
+        text: 'For an unbranded discovery baseline, use buyer questions such as "best [category] for [audience]" and "which tools support [need]?" without naming your brand or a competitor. Record mentions, position, citations, model and sample count. Arcanoris asks each question once per provider per audit; repeated comparable audits provide additional observations. See our [measurement methodology](/methodology).',
       },
       {
         type: "p",
-        text: "Write the questions from the buyer's vocabulary, not yours. \"Best CRM for a five-person agency\" is what someone actually types; \"enterprise-grade customer relationship management platform\" is what your homepage says. If your prompt list reads like your own marketing copy, you're measuring how well you describe yourself, not whether buyers find you.",
+        text: 'Write the questions from the buyer\'s vocabulary, not yours. "Best CRM for a five-person agency" is what someone actually types; "enterprise-grade customer relationship management platform" is what your homepage says. If your prompt list reads like your own marketing copy, you\'re measuring how well you describe yourself, not whether buyers find you.',
+      },
+      {
+        type: "p",
+        text: 'Branded comparison research is a separate exercise: prompts such as "[your brand] vs [competitor]" or "alternatives to [competitor]" can reveal perceived differences. Because they supply brand names, do not mix those results into an unbranded discovery mention rate.',
       },
       { type: "h2", text: "2. Win the sources the answers already cite" },
       {
@@ -180,8 +196,8 @@ export const blogPosts: BlogPost[] = [
         items: [
           "State plainly what you are, who you're for, and what you cost. Models synthesize; give them clean sentences to synthesize from.",
           "Publish an honest comparison page. If you don't describe how you differ from competitors, a third party will do it for you, less favourably.",
-          "Keep pricing public and current. \"Contact us\" pages give an assistant nothing to say when someone asks about cost.",
-          "Use structured data (Organization, Product, FAQ schema) so crawlers parse your facts unambiguously.",
+          'Keep pricing public and current. "Contact us" pages give an assistant nothing to say when someone asks about cost.',
+          "Use accurate structured data where it describes visible content. It does not guarantee that an assistant will use or cite the page.",
         ],
       },
       {
@@ -207,21 +223,21 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "4. Don't block the crawlers" },
       {
         type: "p",
-        text: "Check your robots.txt. GPTBot and OAI-SearchBot (OpenAI), ClaudeBot (Anthropic), PerplexityBot, and Google-Extended all identify themselves. Blocking them while wanting AI visibility is asking to be recommended by systems you've locked out. Also make sure your key pages render without JavaScript - many AI crawlers read plain HTML and never execute your client-side bundle, so anything that only appears after a fetch is invisible to them.",
+        text: "Make separate choices about training, search crawling and user-requested retrieval. ClaudeBot is not Claude-SearchBot or Claude-User, and Google-Extended is not the control for AI Overviews. Server-rendered facts are easier to inspect, but do not assume every crawler has the same JavaScript capabilities. Our [crawler guide](/blog/how-ai-crawlers-work) explains the controls and links to provider documentation.",
       },
       {
         type: "p",
-        text: "This is worth a direct check, not an assumption - bot-protection tools and CDN abuse filters block these crawlers by accident far more often than robots.txt does on purpose. We cover the exact syntax and the common accidental-block causes in a dedicated post on how AI crawlers work.",
+        text: "Check both robots.txt and your CDN or firewall logs. An allowed path can still be blocked at the network edge. The [crawler guide](/blog/how-ai-crawlers-work) includes a diagnostic request and explains why a spoofed user agent is not proof that a verified provider bot can fetch a page.",
       },
       { type: "h2", text: "5. Feed the durable record" },
       {
         type: "p",
-        text: "Search grounding decides today's answers; training data decides the model's baseline instincts. Wikipedia (where you legitimately qualify), Wikidata, GitHub, established review platforms, and long-lived industry publications all persist into future training runs. Mentions there compound in a way your own blog cannot - a blog post you publish this week can influence an answer next week; a Wikipedia mention can influence answers for years, across every future model that trains on a snapshot of the public web.",
+        text: "Keep accurate, attributable information on relevant third-party sites as well as your own. We cannot know whether a particular page will enter a future training set or how much it will affect an answer. Treat this as documentation and discoverability work, not a promise of persistent model memory.",
       },
       { type: "h2", text: "6. Re-measure on a schedule" },
       {
         type: "p",
-        text: "Run the same question set weekly or monthly with the same method. A single scan tells you where you stand; a series tells you whether anything you did worked, and alerts you when a model update quietly drops you from answers you used to win. Treat it like uptime monitoring for your brand's presence in AI.",
+        text: "Repeat the same question set with the same providers and method. A single scan is a snapshot; a series can reveal changes but does not establish that your edits caused them. Model updates, retrieval changes and sampling variation are alternative explanations. Keep branded research separate from the discovery series.",
       },
       { type: "h2", text: "Mistakes that quietly cancel all of this out" },
       {
@@ -242,32 +258,52 @@ export const blogPosts: BlogPost[] = [
       "Generative engine optimization builds on SEO but breaks its core assumptions - rankings, clicks, and determinism. A clear-eyed comparison.",
     category: "Fundamentals",
     published: "2026-08-14",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 8,
     blocks: [
       {
         type: "p",
-        text: "The tempting frame is \"GEO is the new SEO\". It's half right. Most SEO fundamentals still matter, because AI answer engines read the same web Google does. But three assumptions at the heart of SEO break, and they change how you should spend effort.",
+        text: "The distinction is not a clean technical boundary: [Google's AI Search guidance](https://developers.google.com/search/docs/appearance/ai-features) says existing SEO practices still apply. This article compares workflows; it does not claim that every assistant retrieves or ranks sources like Google.",
+      },
+      {
+        type: "p",
+        text: 'The tempting frame is "GEO is the new SEO". It\'s half right. Most SEO fundamentals still matter, because AI answer engines read the same web Google does. But three assumptions at the heart of SEO break, and they change how you should spend effort.',
       },
       {
         type: "table",
         headers: ["", "SEO", "GEO"],
         rows: [
-          ["Unit of success", "Position in a ranked list", "Named or not named"],
+          [
+            "Unit of success",
+            "Position in a ranked list",
+            "Named or not named",
+          ],
           ["Result stability", "Stable for weeks", "Can change run to run"],
-          ["Where the journey ends", "A click to your page", "Often the answer itself"],
-          ["Core metric", "Rank, click-through rate", "Mention rate, share of voice"],
-          ["Measurement method", "Single query, trusted", "Repeated sampling required"],
+          [
+            "Where the journey ends",
+            "A click to your page",
+            "Often the answer itself",
+          ],
+          [
+            "Core metric",
+            "Rank, click-through rate",
+            "Mention rate, share of voice",
+          ],
+          [
+            "Measurement method",
+            "Single query, trusted",
+            "Repeated sampling required",
+          ],
         ],
       },
       { type: "h2", text: "Broken assumption 1: there is a ranking" },
       {
         type: "p",
-        text: "SEO optimizes a position in an ordered list, where position three still earns real traffic. An AI answer typically names two to five options, and everything else earns nothing. The practical consequence: in AI channels, the difference between third and absent is small, and the difference between mentioned and absent is everything. Mention rate, not rank, is the metric.",
+        text: "Search results and AI answers present options differently. An AI answer may contain a short list, a longer comparison or links without a brand recommendation. Track mention rate, position and citations separately, then use referral and conversion data to understand their business value. None of these visibility measures alone proves a customer outcome.",
       },
       {
         type: "p",
-        text: "This changes what \"winning\" even looks like as a target. An SEO roadmap can chase a page from position eight to position four and call that real progress. A GEO roadmap chasing the equivalent - going from \"named in 2 of 10 runs\" to \"named in 3 of 10\" - is directionally similar progress, but the finish line that actually matters commercially is much further out: being named reliably enough that it stops being a coin flip whether a given buyer sees you at all.",
+        text: 'This changes what "winning" even looks like as a target. An SEO roadmap can chase a page from position eight to position four and call that real progress. A GEO roadmap chasing the equivalent - going from "named in 2 of 10 runs" to "named in 3 of 10" - is directionally similar progress, but the finish line that actually matters commercially is much further out: being named reliably enough that it stops being a coin flip whether a given buyer sees you at all.',
       },
       { type: "h2", text: "Broken assumption 2: results are stable" },
       {
@@ -311,9 +347,13 @@ export const blogPosts: BlogPost[] = [
       "AI answers are non-deterministic, so most casual checks mislead. What a defensible AI visibility measurement needs: sampling, provider labels, position, and citations.",
     category: "Measurement",
     published: "2026-08-14",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 10,
     blocks: [
+      {
+        type: "p",
+        text: "Uncertainty matters: [NIST's guide to confidence intervals for proportions](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm) explains why a measured rate is an estimate. Its statistical assumptions need checking; correlated AI answers, changing retrieval and model updates can make a simple independent-sample interval inappropriate.",
+      },
       {
         type: "p",
         text: "The most common way teams check their AI visibility is also the worst: type a question into ChatGPT, screenshot the answer, and draw a conclusion. Run the same question five more times and you'll often get a different list. Measuring a non-deterministic system takes the same discipline as polling - and skipping that discipline produces confident, wrong conclusions.",
@@ -327,22 +367,31 @@ export const blogPosts: BlogPost[] = [
         type: "stats",
         items: [
           { value: "n = 1", label: "one snapshot, not a trend" },
-          { value: "n = 10", label: "more observations; uncertainty still matters" },
-          { value: "n = 20+", label: "more evidence, not a guaranteed stable trend" },
+          {
+            value: "n = 10",
+            label: "more observations; uncertainty still matters",
+          },
+          {
+            value: "n = 20+",
+            label: "more evidence, not a guaranteed stable trend",
+          },
         ],
       },
       {
         type: "p",
-        text: "There's no universal \"correct\" sample size - it trades off against API cost and how fast an answer is to run. What matters is picking a number and holding it constant, because a mention rate computed from 5 runs one month and 50 the next isn't comparable, even if the method is otherwise identical.",
+        text: "There's no universal correct sample size: it trades off against cost and the uncertainty you can accept. Keep the questions, providers and sampling settings comparable, and report the denominator. Rates from 5 and 50 observations can be compared, but they have different uncertainty; a change in rate alone does not establish a trend.",
       },
       { type: "h2", text: "What Arcanoris actually samples" },
-      { type: "p", text: "Within one Arcanoris audit, N = 1: one answer per question per provider. Free uses 5 questions × 1 provider = 5 checks. Plus uses 20 questions × 5 providers = 100 checks, not 100 repetitions of one question. Pro asks 20 questions once per selected provider, up to 10. Each additional audit or monitoring run consumes checks from your plan. Scheduled monitoring repeats selected questions over time; a single audit is a snapshot and should not be presented as evidence of a stable trend." },
+      {
+        type: "p",
+        text: "Within one Arcanoris audit, N = 1: one answer per question per provider. Free uses 5 questions × 1 provider = 5 checks. Plus uses 20 questions × 5 providers = 100 checks, not 100 repetitions of one question. Pro asks 20 questions once per selected provider, up to 10. Each additional audit or monitoring run consumes checks from your plan. Scheduled monitoring repeats selected questions over time; a single audit is a snapshot and should not be presented as evidence of a stable trend.",
+      },
       { type: "h2", text: "Hold the method constant" },
       {
         type: "list",
         items: [
-          "Label the provider and model. \"AI visibility\" isn't one number - GPT-5 with web search, Gemini, and Perplexity behave differently and should be reported separately.",
-          "Keep prompts unbiased. Asking \"is Acme good?\" tells the model the answer you want. Ask what a buyer would ask, with no brand in the prompt.",
+          'Label the provider and model. "AI visibility" isn\'t one number - GPT-5 with web search, Gemini, and Perplexity behave differently and should be reported separately.',
+          'Keep prompts unbiased. Asking "is Acme good?" tells the model the answer you want. Ask what a buyer would ask, with no brand in the prompt.',
           "Version the methodology. When you change prompts, models, or sample size, mark the break - otherwise you'll read a method change as a market change.",
           "Timestamp everything. Answers drift when models update; a number without a date is unusable.",
         ],
@@ -350,7 +399,7 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "Measure more than mentions" },
       {
         type: "p",
-        text: "Whether you're named is the headline, but two other dimensions decide what a mention is worth. Position: first-named products get chosen; fifth-named rarely do. Citations: which sources the answer drew on - because that list is where your visibility actually comes from, and it's the only part you can directly act on.",
+        text: "Alongside mentions, record position and citations. Position describes where a name appeared; it does not establish whether a buyer chose it. Citations identify the sources an answer exposes, not every influence on the model. Use them to inspect supporting evidence and content gaps, and measure actual customer outcomes separately.",
       },
       { type: "h2", text: "Track competitors in the same runs" },
       {
@@ -390,142 +439,212 @@ export const blogPosts: BlogPost[] = [
         type: "table",
         headers: ["Field", "Why it has to be there"],
         rows: [
-          ["Provider + model", "Rates are meaningless averaged across systems that behave differently"],
+          [
+            "Provider + model",
+            "Rates are meaningless averaged across systems that behave differently",
+          ],
           ["Sample size", "n=3 and n=30 don't deserve the same confidence"],
-          ["Position", "Being named last is a much weaker outcome than being named first"],
-          ["Cited sources, ranked", "The only part of the result you can directly act on"],
-          ["Methodology version + date", "Answers drift; an undated number can't be trusted or compared"],
+          [
+            "Position",
+            "Being named last is a much weaker outcome than being named first",
+          ],
+          [
+            "Cited sources, ranked",
+            "The only part of the result you can directly act on",
+          ],
+          [
+            "Methodology version + date",
+            "Answers drift; an undated number can't be trusted or compared",
+          ],
         ],
       },
     ],
   },
   {
     slug: "how-ai-crawlers-work",
-    title: "How AI crawlers actually work (and how to stop blocking them)",
+    title: "How AI crawlers work: training, search and user requests",
     description:
-      "GPTBot, ClaudeBot, PerplexityBot, and Google-Extended fetch your site before an assistant can cite it. Most sites block some of them without ever meaning to.",
+      "Distinguish ClaudeBot, Claude-SearchBot and Claude-User; Googlebot and Google-Extended; and robots.txt specificity from line order.",
     category: "Technical",
     published: "2026-08-18",
-    updated: "2026-08-18",
-    readingMinutes: 9,
+    updated: "2026-09-22",
+    readingMinutes: 6,
     blocks: [
       {
         type: "p",
-        text: "An AI answer engine that searches the live web before responding needs a copy of your page first. That copy comes from a crawler - a separate piece of infrastructure from the model itself, with its own user agent, its own crawl budget, and its own rules for what it's allowed to fetch. If that crawler can't reach your page, no amount of good content on it matters: it was never read.",
+        text: "Training crawlers, search crawlers and user-requested fetchers serve different purposes. Choose access for each purpose independently. Crawl access can enable discovery, but does not guarantee an answer, citation or recommendation.",
       },
-      { type: "h2", text: "The bots worth knowing by name" },
       {
-        type: "list",
-        items: [
-          "GPTBot and OAI-SearchBot (OpenAI) - GPTBot mainly feeds model training; OAI-SearchBot powers ChatGPT's live web search and is the one that matters for being cited in an answer today.",
-          "ClaudeBot (Anthropic) - fetches pages for both training and Claude's web-search tool.",
-          "PerplexityBot - Perplexity's answers are built almost entirely from live retrieval, which makes this one of the highest-leverage crawlers to stay open to.",
-          "Google-Extended - a separate opt-in from classic Googlebot, controlling whether Google's AI features (Gemini, AI Overviews) can use your content.",
-        ],
+        type: "h2",
+        text: "Anthropic: three different agents",
+      },
+      {
+        type: "p",
+        text: "[Anthropic documents three agents](https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler): ClaudeBot collects material for model development; Claude-SearchBot indexes content to improve search results; Claude-User retrieves pages in response to a user request. Their robots.txt controls are separate. Blocking training does not require blocking search or user-requested access.",
+      },
+      {
+        type: "h2",
+        text: "Google Search and Google-Extended are separate controls",
+      },
+      {
+        type: "p",
+        text: "[Google Search AI features](https://developers.google.com/search/docs/appearance/ai-features), including AI Overviews and AI Mode, use Googlebot access and Search controls such as nosnippet, data-nosnippet, max-snippet and noindex. Googlebot must be able to crawl a page to read its preview directives.",
+      },
+      {
+        type: "p",
+        text: "[Google-Extended](https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers#google-extended) is a robots.txt product token, not a separate HTTP crawler identity. It controls use for future Gemini model training and grounding in specified Gemini Apps and Vertex AI services. It does not control inclusion or ranking in Google Search.",
+      },
+      {
+        type: "h2",
+        text: "Choose access by purpose",
       },
       {
         type: "table",
-        headers: ["Bot", "Operator", "Feeds", "Renders JS?"],
+        headers: ["Agent or token", "Purpose", "What to consider"],
         rows: [
-          ["OAI-SearchBot", "OpenAI", "ChatGPT web search citations", "No"],
-          ["GPTBot", "OpenAI", "Model training", "No"],
-          ["ClaudeBot", "Anthropic", "Training + Claude web search", "No"],
-          ["PerplexityBot", "Perplexity", "Live answer retrieval", "No"],
-          ["Google-Extended", "Google", "Gemini + AI Overviews", "No"],
+          [
+            "OAI-SearchBot",
+            "OpenAI search discovery",
+            "Separate from GPTBot training access",
+          ],
+          [
+            "GPTBot",
+            "OpenAI model development",
+            "A training preference, not a Search opt-in",
+          ],
+          [
+            "ClaudeBot",
+            "Anthropic model development",
+            "Independent training control",
+          ],
+          [
+            "Claude-SearchBot",
+            "Anthropic search indexing",
+            "Independent search control",
+          ],
+          [
+            "Claude-User",
+            "Anthropic user-requested retrieval",
+            "Independent retrieval control",
+          ],
+          [
+            "PerplexityBot",
+            "Perplexity search discovery",
+            "Separate from Perplexity-User retrieval",
+          ],
+          [
+            "Googlebot",
+            "Google Search, including its AI features",
+            "Search crawling and preview controls",
+          ],
+          [
+            "Google-Extended",
+            "Specified Gemini training and grounding uses",
+            "Product-use token; no separate HTTP user agent",
+          ],
         ],
       },
-      { type: "h2", text: "The robots.txt that actually allows them" },
       {
         type: "p",
-        text: "This is the explicit version - naming each bot rather than relying on a wildcard, so there's no ambiguity about intent when you or a future teammate reads it back:",
+        text: "Check [OpenAI's crawler documentation](https://platform.openai.com/docs/bots) and [Perplexity's crawler documentation](https://docs.perplexity.ai/docs/resources/perplexity-crawlers) for their current identities and verification guidance. Do not treat permission for model training as a prerequisite for search visibility.",
+      },
+      {
+        type: "h2",
+        text: "A focused robots.txt example",
+      },
+      {
+        type: "p",
+        text: "This example allows Anthropic search and user-requested retrieval while declining ClaudeBot training crawls. Adapt it to your policy and existing private-path restrictions; do not replace an entire robots.txt file blindly.",
       },
       {
         type: "code",
-        label: "robots.txt",
-        code: `User-agent: GPTBot
-Allow: /
-
-User-agent: OAI-SearchBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-Sitemap: https://example.com/sitemap.xml`,
-      },
-      { type: "h2", text: "Why sites block them without deciding to" },
-      {
-        type: "p",
-        text: "Almost nobody sits down and decides to block AI crawlers on purpose while wanting AI visibility - it happens as a side effect of something else. A \"block everything except the search engines we recognize\" robots.txt template written before these bots existed. A bot-protection service (Cloudflare's Bot Fight Mode and similar) that challenges or blocks unrecognized user agents by default. A CDN's abuse detection flagging a crawler's request pattern as scraping. Each of these is a reasonable default that happens to catch AI crawlers in the net meant for something else.",
+        label: "robots.txt example",
+        code: "User-agent: ClaudeBot\nDisallow: /\n\nUser-agent: Claude-SearchBot\nUser-agent: Claude-User\nAllow: /\nDisallow: /account/\n\nSitemap: https://example.com/sitemap.xml",
       },
       {
-        type: "quote",
-        text: "If you want AI visibility, blocking the crawlers that produce it is a direct contradiction - and it's usually accidental.",
-      },
-      { type: "h2", text: "How to actually check" },
-      {
-        type: "p",
-        text: "Read your robots.txt line by line, not just its intent - a broad Disallow at the top can silently override a specific Allow further down depending on how it's ordered. Then check your edge: most bot-protection dashboards let you filter blocked requests by user agent, so search for GPTBot, ClaudeBot, and PerplexityBot in whatever's rejecting traffic before it reaches your app. A robots.txt that welcomes every bot means nothing if a WAF rule is returning 403 first.",
+        type: "h2",
+        text: "Specificity, not line order",
       },
       {
         type: "p",
-        text: "Then confirm it directly, rather than trusting the dashboard - fetch a key page with the bot's real user-agent string and read back what actually comes through:",
+        text: "Under [Google's robots.txt specification](https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec), the most specific matching user-agent group applies. Repeated groups for that agent are combined; the wildcard group is not added to a specific group. Within the applicable rules, the longest matching path wins. An equally specific Allow/Disallow conflict resolves to Allow. Moving a rule earlier or later does not change that priority.",
       },
       {
         type: "code",
-        label: "shell",
-        code: `curl -A "Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)" \\
-  -o - -s https://example.com/pricing | head -50`,
+        label: "Specific-path example",
+        code: "User-agent: ExampleBot\nDisallow: /\nAllow: /public/\n\n# /public/article is allowed; /account is disallowed.\n# Reversing these two rules does not change the result.",
       },
       {
         type: "p",
-        text: "If that comes back with a 403, a CAPTCHA challenge page, or an empty shell instead of your pricing content, you've found the block - and you've found it faster than paging through a WAF's log viewer.",
-      },
-      { type: "h2", text: "It's not only robots.txt" },
-      {
-        type: "p",
-        text: "Googlebot has rendered JavaScript for years. Several AI crawlers still don't - they read the HTML that comes back from the first request and move on. If your pricing, your product description, or your comparison table only appears after a client-side fetch, a crawler that doesn't execute JavaScript sees an empty shell where your facts should be. Server-rendered content isn't just good practice here; for some of these bots, it's the only way they see your page at all.",
+        text: "[RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) defines the Robots Exclusion Protocol and its matching rules. Individual agents can have documented extensions. Robots.txt is a crawl preference, not authentication: protect private data with access controls.",
       },
       {
-        type: "p",
-        text: "This is exactly what the curl command above tests for, and it's worth running against every page you actually want cited - your pricing page, your comparison pages, your documentation - not just your homepage. A homepage that renders fine while your pricing page loads its numbers from a client-side API call is a common, easy-to-miss gap.",
+        type: "h2",
+        text: "Check the network edge too",
       },
       {
         type: "p",
-        text: "None of this requires guessing. Fetch your own key pages with each bot's exact user-agent string and read back what actually comes through - if the facts you want cited aren't in that response, they were never in the running.",
+        text: "A CDN or firewall can return a challenge even when robots.txt allows a request. Inspect verified bot traffic in your logs and test a public page. Sending a bot user-agent string with curl is only a diagnostic: it does not reproduce the provider's IP address, bot verification or rendering behavior.",
+      },
+      {
+        type: "code",
+        label: "Inspect the initial HTML response",
+        code: 'curl -A "Claude-SearchBot" -i https://example.com/pricing',
+      },
+      {
+        type: "p",
+        text: "Look for the expected status and meaningful page content rather than a challenge or empty shell. A successful curl response does not prove that a provider indexed the page. Do not assign a universal JavaScript capability to all AI crawlers; consult current documentation and test your own rendering.",
       },
     ],
   },
   {
     slug: "schema-markup-for-ai-answer-engines",
-    title: "Schema markup that actually helps AI answer engines",
+    title: "Schema markup for clear, machine-readable product facts",
     description:
       "Structured data doesn't make a model trust you more - it removes ambiguity. Which schema.org types are worth adding, and which ones can quietly work against you.",
     category: "Technical",
     published: "2026-08-18",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 9,
     blocks: [
       {
         type: "p",
-        text: "Schema.org markup doesn't persuade a model of anything - it just says something once, unambiguously, in a shape built to be parsed rather than read. A paragraph of prose has to be interpreted; a well-formed Offer with a price and a currency doesn't. For a system that's synthesizing an answer from many pages under time pressure, that difference is exactly what makes markup worth the hour it takes to add.",
+        text: "[Google says its Search AI features need no special schema](https://developers.google.com/search/docs/appearance/ai-features). Treat the examples below as ways to describe visible facts, not established ranking factors. [Structured-data policies](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) also require accurate, relevant markup and do not guarantee a rich result.",
+      },
+      {
+        type: "p",
+        text: "Schema.org markup doesn't persuade a model of anything - it just says something once, unambiguously, in a shape built to be parsed rather than read. An [Offer](https://schema.org/Offer) can label a price and currency explicitly, but a consuming system still decides whether and how to use those fields. For a system that's synthesizing an answer from many pages under time pressure, that difference is exactly what makes markup worth the hour it takes to add.",
       },
       { type: "h2", text: "Start with the types that answer real questions" },
       {
         type: "table",
         headers: ["Type", "Answers", "Priority"],
         rows: [
-          ["Organization", "\"Who makes this?\"", "Add first - every page benefits"],
-          ["Product / Offer", "\"How much does it cost?\"", "High - price questions are constant"],
-          ["FAQPage", "Direct buyer questions", "High - matches how assistants query"],
-          ["BreadcrumbList", "\"Where does this page sit?\"", "Low - cheap, mechanical, do it once"],
-          ["Dataset", "\"What did you measure?\"", "Medium - only if you publish data"],
+          [
+            "Organization",
+            '"Who makes this?"',
+            "Add first - every page benefits",
+          ],
+          [
+            "Product / Offer",
+            '"How much does it cost?"',
+            "High - price questions are constant",
+          ],
+          [
+            "FAQPage",
+            "Direct buyer questions",
+            "Optional - no AI visibility guarantee",
+          ],
+          [
+            "BreadcrumbList",
+            '"Where does this page sit?"',
+            "Low - cheap, mechanical, do it once",
+          ],
+          [
+            "Dataset",
+            '"What did you measure?"',
+            "Medium - only if you publish data",
+          ],
         ],
       },
       {
@@ -550,10 +669,13 @@ Sitemap: https://example.com/sitemap.xml`,
   }
 }`,
       },
-      { type: "h2", text: "FAQPage is the underrated one" },
+      {
+        type: "h2",
+        text: "FAQPage describes content; it does not promise visibility",
+      },
       {
         type: "p",
-        text: "Most teams reach for it last, if at all, but it's arguably the best fit for this specific channel: it forces you to write in question-and-answer form, which is exactly the shape a synthesizing model is trying to fill. A well-written FAQPage entry is close to a pre-written answer with your name already in it.",
+        text: "[Schema.org defines FAQPage](https://schema.org/FAQPage) as a page with frequently asked questions. That vocabulary definition is not a promise that Google will show a rich result or that an assistant will retrieve it. Write useful visible answers first; check current platform eligibility before adding markup for a specific search feature.",
       },
       { type: "h2", text: "Where teams overreach" },
       {
@@ -585,7 +707,7 @@ Sitemap: https://example.com/sitemap.xml`,
       { type: "h2", text: "Validate before you ship it" },
       {
         type: "p",
-        text: "Markup with a typo doesn't degrade gracefully - it just fails silently, and you won't notice unless you check. Run new schema through Google's Rich Results Test or the schema.org validator before it goes live, and again whenever the page it's on changes. This is mechanical, low-risk work; the only way to lose is to skip the validation step.",
+        text: "Markup with a typo doesn't degrade gracefully - it just fails silently, and you won't notice unless you check. Run new schema through Google's Rich Results Test or the schema.org validator before it goes live, and again whenever the page it's on changes. Syntactic validity alone does not establish platform eligibility or factual accuracy; also compare the markup with the visible page.",
       },
     ],
   },
@@ -593,12 +715,16 @@ Sitemap: https://example.com/sitemap.xml`,
     slug: "comparison-pages-ai-answers-cite",
     title: "How to write a comparison page AI answers actually cite",
     description:
-      "\"X vs Y\" is one of the most common questions buyers feed an assistant. If you don't answer it yourself, a less favorable third-party page will.",
+      '"X vs Y" is one of the most common questions buyers feed an assistant. If you don\'t answer it yourself, a less favorable third-party page will.',
     category: "Tactics",
     published: "2026-08-18",
-    updated: "2026-08-18",
+    updated: "2026-09-22",
     readingMinutes: 9,
     blocks: [
+      {
+        type: "p",
+        text: "Our recommendation is to make comparisons useful and verifiable. [Google's people-first content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) is a primary reference for trustworthy content in Search; it does not show that a particular comparison format earns more AI citations.",
+      },
       {
         type: "p",
         text: "\"[Your product] vs [competitor]\" is one of the most common questions a buyer types into an assistant before making a decision - and if you haven't written the answer, someone else has, or the model is stitching one together from scattered reviews and forum threads. A page you didn't write, framing a comparison you don't control, is the default outcome of not having one.",
@@ -606,16 +732,16 @@ Sitemap: https://example.com/sitemap.xml`,
       { type: "h2", text: "Name the competitor, plainly" },
       {
         type: "p",
-        text: "Generic \"why choose us\" copy gives a synthesizing model nothing concrete to extract. A page that names the specific alternative and states specific differences - price, features, deployment model, support - is directly quotable in a way that vague positioning never is.",
+        text: 'Generic "why choose us" copy gives a synthesizing model nothing concrete to extract. A page that names the specific alternative and states specific differences - price, features, deployment model, support - is directly quotable in a way that vague positioning never is.',
       },
       { type: "h2", text: "Concede where you actually lose" },
       {
         type: "quote",
-        text: "A comparison page that wins every category reads as marketing. One that's honest about tradeoffs reads as reliable - and gets cited more.",
+        text: "An honest comparison gives a buyer evidence for choosing either product. That is useful even when an AI answer never cites it.",
       },
       {
         type: "p",
-        text: "A page that claims to win on every axis reads as marketing copy, and both search engines and AI answer engines learn to discount marketing copy in favor of independent-seeming sources. A page that admits a real tradeoff - \"they're cheaper if you only need X; we're built for teams that need Y\" - reads as trustworthy, and trustworthy pages are what grounded answers prefer to cite.",
+        text: "Explain real tradeoffs with dated, verifiable facts: for example, which product costs less for a specific use case and which supports a required workflow. Disclose that you sell one of the products. This helps readers assess the comparison; it is not evidence that an assistant will prefer or cite the page.",
       },
       { type: "h2", text: "Structure it as a real table" },
       {
@@ -630,7 +756,11 @@ Sitemap: https://example.com/sitemap.xml`,
           ["Free plan", "Yes - 1 project", "No"],
           ["Self-hosted option", "No", "Yes"],
           ["Setup time", "Under 10 minutes", "Typically requires onboarding"],
-          ["Best for", "Small teams shipping fast", "Larger orgs needing on-prem"],
+          [
+            "Best for",
+            "Small teams shipping fast",
+            "Larger orgs needing on-prem",
+          ],
         ],
       },
       {
@@ -646,10 +776,22 @@ Sitemap: https://example.com/sitemap.xml`,
         type: "table",
         headers: ["Section", "Purpose"],
         rows: [
-          ["One-line verdict", "Gives an assistant a summary sentence to quote directly"],
-          ["Comparison table", "The extractable core - specific, scannable, structured"],
-          ["Per-difference detail", "The \"why\" behind each row, for the reader who wants it"],
-          ["FAQ block", "Matches the exact question shape buyers ask an assistant"],
+          [
+            "One-line verdict",
+            "Gives an assistant a summary sentence to quote directly",
+          ],
+          [
+            "Comparison table",
+            "The extractable core - specific, scannable, structured",
+          ],
+          [
+            "Per-difference detail",
+            'The "why" behind each row, for the reader who wants it',
+          ],
+          [
+            "FAQ block",
+            "Matches the exact question shape buyers ask an assistant",
+          ],
           ["CTA", "Low-pressure - this page's job is to inform, not to close"],
         ],
       },
@@ -671,23 +813,28 @@ Sitemap: https://example.com/sitemap.xml`,
   },
   {
     slug: "what-is-answer-engine-optimization",
-    title: "What is answer engine optimization (AEO)? And how it relates to GEO",
+    title:
+      "What is answer engine optimization (AEO)? And how it relates to GEO",
     description:
       "AEO didn't start with ChatGPT - it's the older discipline of winning featured snippets and voice answers. Here's where it came from, and where it overlaps with GEO today.",
     category: "Fundamentals",
     published: "2026-08-20",
-    updated: "2026-08-20",
+    updated: "2026-09-22",
     readingMinutes: 9,
     blocks: [
       {
         type: "p",
-        text: "Answer engine optimization is older than the current wave of chatbots, and worth defining properly instead of treating as a synonym someone picked for GEO. Long before ChatGPT, \"AEO\" meant getting your content chosen as the answer - the boxed paragraph Google shows above the links, the sentence Siri reads aloud, the card a voice speaker answers with instead of listing ten websites. The goal was always the same one GEO chases now: be the answer, not one of ten links. What's changed is the machinery doing the choosing.",
+        text: "Terminology varies by author. For the platform rules, distinguish [Google's featured-snippet documentation](https://developers.google.com/search/docs/appearance/featured-snippets) from [its Search AI guidance](https://developers.google.com/search/docs/appearance/ai-features). The editorial practices below do not guarantee either type of appearance.",
+      },
+      {
+        type: "p",
+        text: 'Answer engine optimization is older than the current wave of chatbots, and worth defining properly instead of treating as a synonym someone picked for GEO. Long before ChatGPT, "AEO" meant getting your content chosen as the answer - the boxed paragraph Google shows above the links, the sentence Siri reads aloud, the card a voice speaker answers with instead of listing ten websites. The goal was always the same one GEO chases now: be the answer, not one of ten links. What\'s changed is the machinery doing the choosing.',
       },
       { type: "h2", text: "Where AEO actually came from" },
       {
         type: "list",
         items: [
-          "Featured snippets (\"position zero\") - since around 2014, Google has lifted a single paragraph, list, or table out of a page and displayed it above the normal results, answering the query without a click.",
+          'Featured snippets ("position zero") - since around 2014, Google has lifted a single paragraph, list, or table out of a page and displayed it above the normal results, answering the query without a click.',
           "Voice search - Siri, Alexa, and Google Assistant read back one answer, not a list. There's no scrolling past option two on a smart speaker; you're either the answer or you're nothing.",
           "People Also Ask boxes - expandable question-and-answer pairs pulled from indexed pages, directly rewarding content already written in question-and-answer form.",
         ],
@@ -705,17 +852,33 @@ Sitemap: https://example.com/sitemap.xml`,
         type: "table",
         headers: ["", "AEO (classic)", "GEO"],
         rows: [
-          ["Origin", "Featured snippets, voice search, ~2014 onward", "LLM assistants, named ~2023"],
-          ["Mechanism", "Extracts one passage verbatim", "Synthesizes a new answer from many sources"],
-          ["Example systems", "Google snippets, Siri, Alexa", "ChatGPT, Perplexity, Gemini"],
-          ["What \"winning\" looks like", "Your exact paragraph gets shown", "You get named, with or without a direct quote"],
+          [
+            "Origin",
+            "Featured snippets, voice search, ~2014 onward",
+            "LLM assistants, named ~2023",
+          ],
+          [
+            "Mechanism",
+            "Extracts one passage verbatim",
+            "Synthesizes a new answer from many sources",
+          ],
+          [
+            "Example systems",
+            "Google snippets, Siri, Alexa",
+            "ChatGPT, Perplexity, Gemini",
+          ],
+          [
+            'What "winning" looks like',
+            "Your exact paragraph gets shown",
+            "You get named, with or without a direct quote",
+          ],
           ["Stability", "Same snippet for weeks", "Can vary answer to answer"],
         ],
       },
       { type: "h2", text: "Why the terms are blurring in practice" },
       {
         type: "p",
-        text: "In casual use, most people now say \"AEO\" to mean \"getting cited by ChatGPT\" too - and it's worth being honest that the industry hasn't fully settled the vocabulary. That's a reasonable drift, not a mistake: the on-page work that wins a featured snippet and the on-page work that earns a generative citation overlap heavily. Both reward a short, self-contained, factual passage placed near a clear heading. Both punish content that only makes sense after three paragraphs of setup. A page built well for one is usually most of the way to being built well for the other.",
+        text: 'In casual use, most people now say "AEO" to mean "getting cited by ChatGPT" too - and it\'s worth being honest that the industry hasn\'t fully settled the vocabulary. That\'s a reasonable drift, not a mistake: the on-page work that wins a featured snippet and the on-page work that earns a generative citation overlap heavily. Both reward a short, self-contained, factual passage placed near a clear heading. Both punish content that only makes sense after three paragraphs of setup. A page built well for one is usually most of the way to being built well for the other.',
       },
       {
         type: "quote",
@@ -745,9 +908,13 @@ Sitemap: https://example.com/sitemap.xml`,
       "The single highest-leverage on-page change for both snippets and AI citations: put the direct answer first. A practical guide to writing extraction-friendly pages.",
     category: "Tactics",
     published: "2026-08-20",
-    updated: "2026-08-20",
+    updated: "2026-09-22",
     readingMinutes: 9,
     blocks: [
+      {
+        type: "p",
+        text: "This structure is an editorial recommendation for clarity, not a confirmed AI ranking factor. [Google's people-first content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) emphasizes helpful, trustworthy content; no heading pattern guarantees a featured snippet or an AI citation.",
+      },
       {
         type: "p",
         text: "A featured snippet and a generative AI citation are solved by different machinery, but both are trying to do the same thing to your page: pull out one self-contained answer without reading the whole document. Structure your content for that, and you're optimizing for both at once. This is the practical, on-page half of AEO and GEO - the part that has nothing to do with PR or backlinks and everything to do with how a page is written.",
@@ -762,20 +929,20 @@ Sitemap: https://example.com/sitemap.xml`,
         headers: ["Buried answer", "Direct answer"],
         rows: [
           [
-            "\"There are many factors to consider when choosing a project management tool, and the right fit depends on team size, budget, and workflow. That said, for small agencies...\"",
-            "\"For a small agency, the best project management tool is one with flat per-project pricing and no per-seat fees. [Product] costs $29/month flat, regardless of team size.\"",
+            '"There are many factors to consider when choosing a project management tool, and the right fit depends on team size, budget, and workflow. That said, for small agencies..."',
+            '"For a small agency, the best project management tool is one with flat per-project pricing and no per-seat fees. [Product] costs $29/month flat, regardless of team size."',
           ],
         ],
       },
       { type: "h2", text: "Use question-shaped headings" },
       {
         type: "p",
-        text: "Write the H2 as \"How much does [Product] cost?\" instead of \"Pricing.\" This isn't just an AEO trick - it's literally how both a Google \"People Also Ask\" box and a buyer's prompt to an assistant are phrased. A heading that already matches the question shape is doing half the extraction work before the answer paragraph even starts.",
+        text: 'Write the H2 as "How much does [Product] cost?" instead of "Pricing." This isn\'t just an AEO trick - it\'s literally how both a Google "People Also Ask" box and a buyer\'s prompt to an assistant are phrased. A heading that already matches the question shape is doing half the extraction work before the answer paragraph even starts.',
       },
       { type: "h2", text: "Give every list a real list" },
       {
         type: "p",
-        text: "\"How to\" content needs a real ordered list, not three sentences with \"first,\" \"then,\" and \"finally\" buried in prose. \"What are the features\" content needs a real bulleted list. Structural HTML is what lets a parser lift the list intact - a numbered sequence hidden inside a paragraph has to be inferred, and inference is exactly where extraction fails.",
+        text: '"How to" content needs a real ordered list, not three sentences with "first," "then," and "finally" buried in prose. "What are the features" content needs a real bulleted list. Structural HTML is what lets a parser lift the list intact - a numbered sequence hidden inside a paragraph has to be inferred, and inference is exactly where extraction fails.',
       },
       {
         type: "code",
@@ -790,17 +957,17 @@ Sitemap: https://example.com/sitemap.xml`,
       { type: "h2", text: "Keep each answer self-contained" },
       {
         type: "p",
-        text: "A paragraph that says \"as mentioned above\" or \"see the previous section\" fails at extraction, because both a snippet algorithm and a generative model frequently isolate one chunk of a page without the surrounding context. If an answer only makes sense next to the paragraph before it, rewrite it so it stands alone - repeat the two words of context it needs rather than pointing backward at them.",
+        text: 'A paragraph that says "as mentioned above" or "see the previous section" fails at extraction, because both a snippet algorithm and a generative model frequently isolate one chunk of a page without the surrounding context. If an answer only makes sense next to the paragraph before it, rewrite it so it stands alone - repeat the two words of context it needs rather than pointing backward at them.',
       },
       { type: "h2", text: "Mark it up" },
       {
         type: "p",
-        text: "FAQPage and HowTo schema remove the ambiguity a parser would otherwise have to guess at - we cover the specific JSON-LD for this in more depth in a dedicated post on schema markup for AI answer engines. The short version: if a section of your page is already structured as a direct question and answer, marking it up is a few minutes of mechanical work with no real downside.",
+        text: "Use structured data only when it accurately describes visible content. A Schema.org type does not itself establish eligibility for a Google rich result or improve AI citations. Our [schema markup guide](/blog/schema-markup-for-ai-answer-engines) explains examples and limitations; [Google's structured-data policies](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) set additional requirements.",
       },
       { type: "h2", text: "One answer per section" },
       {
         type: "p",
-        text: "Resist stacking multiple distinct questions under one heading. A section titled \"Pricing and support\" that answers two different questions forces an extraction system to guess which sentence belongs to which question - split it into two headings, two direct answers, and let each stand on its own.",
+        text: 'Resist stacking multiple distinct questions under one heading. A section titled "Pricing and support" that answers two different questions forces an extraction system to guess which sentence belongs to which question - split it into two headings, two direct answers, and let each stand on its own.',
       },
     ],
   },
