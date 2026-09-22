@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { resolveReturnTo, routes } from "@/lib/routes";
-import { signIn, signUp } from "@/lib/auth/client";
+import { authClient, signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -56,9 +56,9 @@ export function LoginForm({
     setLoading(true);
     setError(null);
     try {
-      // Real accounts, real passwords: Better Auth checks the credentials and
-      // sets the session cookie. Only then does /api/auth/complete attach any
-      // claimed report and decide where to land.
+      // Better Auth validates the password account. Verified signups proceed
+      // to the completion route; unverified password signups do not receive
+      // a session and must confirm their inbox first.
       const attempt =
         mode === "signup"
           ? await signUp.email({
@@ -73,6 +73,15 @@ export function LoginForm({
       }
       if (mode === "signup" && emailVerificationEnabled) {
         const destination = returnTo ?? routes.newScan();
+        const verification = await authClient.sendVerificationEmail({
+          email,
+          callbackURL: destination,
+        });
+        if (verification.error) {
+          throw new Error(
+            verification.error.message || "Could not send the confirmation email.",
+          );
+        }
         router.push(
           `${routes.verifyEmail}?returnTo=${encodeURIComponent(destination)}`,
         );
