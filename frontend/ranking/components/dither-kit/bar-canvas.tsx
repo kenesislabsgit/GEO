@@ -1,4 +1,5 @@
 "use client"
+import { runVisibleFrames } from "@/lib/visible-animation"
 
 import { useEffect, useMemo, useRef } from "react"
 import { useChart } from "./chart-context"
@@ -127,7 +128,6 @@ export function BarCanvas() {
       })
     }
 
-    let raf = 0
     let animStart = 0
     let lastProg = -1
     let lastRevision = state.current.revision
@@ -138,7 +138,6 @@ export function BarCanvas() {
     let lastHover: number | null | undefined = Symbol() as never
 
     const draw = (now: number) => {
-      raf = requestAnimationFrame(draw)
       const s = state.current
       if (!s.ready) return
       if (bloomCtx) {
@@ -191,8 +190,7 @@ export function BarCanvas() {
       needsFill = false
     }
 
-    raf = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(raf)
+    return runVisibleFrames(canvas, draw)
   }, [cols, rows, width])
 
   const bloomActive = ctx.bloomOnHover

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2, MailCheck } from "lucide-react";
@@ -15,6 +15,12 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
   const [resent, setResent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!resent) return;
+    const timer = setTimeout(() => setResent(false), 60_000);
+    return () => clearTimeout(timer);
+  }, [resent]);
 
   async function resend() {
     if (!email) return;

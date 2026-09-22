@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 
 type Result =
@@ -114,14 +114,11 @@ export function HeroDemo() {
   const [typed, setTyped] = useState(QUESTIONS[0].text.length);
   const [phase, setPhase] = useState<"typing" | "scan" | "hold">("hold");
   const [resolvedCount, setResolvedCount] = useState<number>(ROWS.length);
-  const started = useRef(false);
 
   const question = QUESTIONS[qi];
   const results = QUESTIONS[resultsQi].results;
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const frame = requestAnimationFrame(() => {
       setQi(0);

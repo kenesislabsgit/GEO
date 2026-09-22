@@ -17,7 +17,7 @@ export const LLM_CONFIG: Record<
   { color: DitherColor; label: string; shortLabel: string }
 > = {
   bedrock_claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
-  bedrock_llama: { color: "purple", label: "Llama", shortLabel: "Llama" },
+  bedrock_llama: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },
   bedrock_mistral: { color: "red", label: "Mistral", shortLabel: "Mistral" },
   bedrock_nova: { color: "blue", label: "Nova", shortLabel: "Nova" },
   openai: { color: "green", label: "ChatGPT", shortLabel: "ChatGPT" },
@@ -25,12 +25,6 @@ export const LLM_CONFIG: Record<
   claude: { color: "orange", label: "Claude", shortLabel: "Claude" },
   gemini: { color: "blue", label: "Gemini", shortLabel: "Gemini" },
   perplexity: { color: "pink", label: "Perplexity", shortLabel: "Perplexity" },
-  grok: { color: "grey", label: "Grok", shortLabel: "Grok" },
-  deepseek: { color: "red", label: "DeepSeek", shortLabel: "DeepSeek" },
-  kimi: { color: "purple", label: "Kimi", shortLabel: "Kimi" },
-  groq: { color: "orange", label: "Groq", shortLabel: "Groq" },
-  minimax: { color: "pink", label: "MiniMax", shortLabel: "MiniMax" },
-  sarvam: { color: "blue", label: "Sarvam", shortLabel: "Sarvam" },
   qwen: { color: "purple", label: "Qwen", shortLabel: "Qwen" },
 };
 

@@ -67,7 +67,7 @@ export default function OpenGraphImage() {
             color: "rgba(255,255,255,0.4)",
           }}
         >
-          Sampled from ChatGPT, Claude, Gemini, Perplexity and more
+          Sampled from ChatGPT, Claude, Gemini, Perplexity, Grok and more
         </div>
       </div>
     ),

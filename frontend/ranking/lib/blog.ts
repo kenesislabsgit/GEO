@@ -272,7 +272,7 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "Broken assumption 2: results are stable" },
       {
         type: "p",
-        text: "The same Google query returns near-identical results for weeks. The same ChatGPT question can name different brands across two consecutive runs. One-off checks are therefore nearly meaningless - you have to sample repeatedly and track rates over time, the way pollsters do, and any tool that shows you a single answer as \"your result\" is misleading you.",
+        text: "The same ChatGPT question can name different brands across consecutive runs. A one-off audit shows what happened in that snapshot; repeated comparable runs are needed to assess a trend. Arcanoris samples each question once per provider per audit. Monitoring or manual re-runs gather later observations, using the plan's check allowance.",
       },
       { type: "h2", text: "Broken assumption 3: the click is the prize" },
       {
@@ -321,20 +321,22 @@ export const blogPosts: BlogPost[] = [
       { type: "h2", text: "Sample, don't spot-check" },
       {
         type: "p",
-        text: "A single answer is an anecdote. Ask the same question many times and the noise averages into a signal: appearing in 8 of 10 runs versus 1 of 10 is a real, stable difference even though any individual run varies. Every credible number downstream - trends, competitor gaps, the effect of your changes - depends on this.",
+        text: "A single answer describes one observation. Repeating the same question helps estimate how often a brand appears, but even 8 of 10 runs versus 1 of 10 is a sample estimate, not proof of a stable difference. Trends and the effect of changes need repeated comparable measurements and an honest account of uncertainty.",
       },
       {
         type: "stats",
         items: [
-          { value: "n = 1", label: "a screenshot - tells you nothing repeatable" },
-          { value: "n = 10", label: "enough to separate signal from a single unlucky run" },
-          { value: "n = 20+", label: "stable enough to trust a week-over-week trend" },
+          { value: "n = 1", label: "one snapshot, not a trend" },
+          { value: "n = 10", label: "more observations; uncertainty still matters" },
+          { value: "n = 20+", label: "more evidence, not a guaranteed stable trend" },
         ],
       },
       {
         type: "p",
         text: "There's no universal \"correct\" sample size - it trades off against API cost and how fast an answer is to run. What matters is picking a number and holding it constant, because a mention rate computed from 5 runs one month and 50 the next isn't comparable, even if the method is otherwise identical.",
       },
+      { type: "h2", text: "What Arcanoris actually samples" },
+      { type: "p", text: "Within one Arcanoris audit, N = 1: one answer per question per provider. Free uses 5 questions × 1 provider = 5 checks. Plus uses 20 questions × 5 providers = 100 checks, not 100 repetitions of one question. Pro asks 20 questions once per selected provider, up to 10. Each additional audit or monitoring run consumes checks from your plan. Scheduled monitoring repeats selected questions over time; a single audit is a snapshot and should not be presented as evidence of a stable trend." },
       { type: "h2", text: "Hold the method constant" },
       {
         type: "list",

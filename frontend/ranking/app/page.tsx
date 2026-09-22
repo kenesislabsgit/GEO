@@ -1,14 +1,17 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { ArrowRight, Check, Sparkles } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
 import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { LandingHero } from "@/components/site/hero";
+import { MonitoringChart } from "@/components/site/monitoring-chart";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
 import { PricingPlans } from "@/components/site/pricing-plans";
+import { FeatureCheck } from "@/components/site/feature-check";
+import { PLAN_CONFIG, plusModelNames } from "@/lib/billing/entitlements";
 import {
   APP_NAME,
   APP_TAGLINE,
@@ -18,15 +21,22 @@ import {
 import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { SITE_URL } from "@/lib/site";
+import { publicPageMetadata } from "@/lib/public-metadata";
 
-export const metadata = {
-  alternates: { canonical: "/" },
-};
+export const metadata = publicPageMetadata(
+  APP_TAGLINE,
+  "Does AI recommend your company? Run a free ChatGPT visibility audit with Arcanoris. See your score, top competitor, and first fix. No card required.",
+  "/",
+);
+
+const CATALOG_COUNT = ALL_PROVIDERS.length;
+const PLUS_MODELS = plusModelNames();
+const PRO_PROVIDERS_PER_AUDIT = PLAN_CONFIG.agency.features.providersPerScan;
 
 const faqs = [
   {
     q: "Is this the same as ChatGPT or Perplexity.com?",
-    a: "No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across five AIs; Pro picks any ten from the full provider catalog.",
+    a: `No. We query provider APIs and label the exact provider used. The free audit uses ChatGPT with web search. Plus compares the same questions across ${PLUS_MODELS}. Pro picks any ${PRO_PROVIDERS_PER_AUDIT} from a catalog of ${CATALOG_COUNT}.`,
   },
   {
     q: "Can results change between runs?",
@@ -70,6 +80,12 @@ function InlineProviderName({
  * company that piloted this tool): the buyer's question, the products the
  * model named, and the row that hurts - Kenesis, absent.
  */
+const EXAMPLE_RANKED = [
+  { name: "Witvix", note: "recommended first", source: "witvix.com" },
+  { name: "viAct", note: "runner up", source: "viact.ai" },
+  { name: "Triya", note: "also recommended", source: "triya.ai" },
+] as const;
+
 function AnswerCard() {
   return (
     <div className="relative mx-auto w-full max-w-md">
@@ -93,11 +109,7 @@ function AnswerCard() {
             access to restricted zones in industrial facilities?
           </div>
           <div className="space-y-2">
-            {[
-              { name: "Witvix", note: "recommended first" },
-              { name: "viAct", note: "runner up" },
-              { name: "Triya", note: "also recommended" },
-            ].map((item, index) => (
+            {EXAMPLE_RANKED.map((item, index) => (
               <div
                 key={item.name}
                 className="arc-rise flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5"
@@ -134,7 +146,7 @@ function AnswerCard() {
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
               Cited
             </span>
-            {["triya.ai", "witvix.com", "viact.ai"].map((source) => (
+            {EXAMPLE_RANKED.map(({ source }) => (
               <span
                 key={source}
                 className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground"
@@ -251,18 +263,10 @@ function SectionFrame({
 /* -------------------------------------------------- feature mini-visuals -- */
 
 /** Green check bullet for feature lists. */
-function CheckItem({
-  children,
-  delay = 0,
-}: {
-  children: ReactNode;
-  delay?: number;
-}) {
+function CheckItem({ children }: { children: ReactNode }) {
   return (
-    <li className="arc-rise flex items-start gap-3" style={delayStyle(delay)}>
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#3ecf7a]">
-        <Check className="size-3 text-white" strokeWidth={3} aria-hidden />
-      </span>
+    <li className="flex items-start gap-3">
+      <FeatureCheck className="mt-0.5" />
       <span className="text-sm md:text-[15px]">{children}</span>
     </li>
   );
@@ -297,24 +301,24 @@ function FloatChip({
 /** Share of voice: who wins the answers in your category. */
 function ShareOfVoicePanel() {
   const rows = [
-    { name: "Avigilon", value: 48, tone: "bg-[#52a8ff]" },
-    { name: "Witvix", value: 32, tone: "bg-[color:var(--arc-accent)]" },
-    { name: "Triya", value: 20, tone: "bg-[#ff6ea9]" },
-    { name: "Kenesis", value: 0, tone: "bg-foreground/20", you: true },
+    { name: "Avigilon", value: 46, tone: "bg-[#52a8ff]" },
+    { name: "Kenesis", value: 34, tone: "bg-[color:var(--arc-accent)]", you: true },
+    { name: "Triya", value: 12, tone: "bg-[#ff6ea9]" },
+    { name: "Everyone else", value: 8, tone: "bg-foreground/20" },
   ];
   return (
     <div className="relative">
       <FloatChip className="-top-4 -right-2 sm:-right-6">
         <span aria-hidden className="size-1.5 rounded-full bg-[#3ecf7a]" />
-        Example audit
+        Kenesis, up 6 pts
       </FloatChip>
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Share of voice · how often each brand is named
+          Share of voice
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          20 questions · 5 AIs · Plus
+          20 questions · {PLUS_MODELS}
         </p>
       </div>
       <div className="mt-5 space-y-4">
@@ -339,7 +343,8 @@ function ShareOfVoicePanel() {
         ))}
       </div>
       <p className="mt-5 text-xs text-muted-foreground">
-        Broken down per question, per provider, per market.
+        Share of voice is how often AI names you versus rivals, broken down
+        per question, per provider, and per market.
       </p>
       </div>
     </div>
@@ -374,7 +379,7 @@ function ActionListPanel() {
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Action centre · prioritized fixes
+          Action centre
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">3 open</p>
       </div>
@@ -406,7 +411,8 @@ function ActionListPanel() {
         ))}
       </div>
       <p className="mt-5 text-xs text-muted-foreground">
-        Each fix is tied to the exact prompts and sources behind it.
+        Action centre is this fix list, each item tied to the prompts and
+        sources behind it.
       </p>
       </div>
     </div>
@@ -424,7 +430,7 @@ function EvidencePanel() {
       <div className="rounded-2xl border border-black/[0.04] bg-card p-6 shadow-[0_32px_64px_-28px_rgba(23,58,110,0.4)] md:p-7 dark:border-white/10">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-          Example evidence
+          Evidence
         </p>
         <p className="font-mono text-[11px] text-muted-foreground">
           Stored per answer
@@ -438,7 +444,7 @@ function EvidencePanel() {
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           &ldquo;Recommended:{" "}
           <mark className="arc-highlight-sweep rounded bg-transparent px-1 py-0.5 font-medium text-foreground">
-            Avigilon
+            Kenesis
           </mark>{" "}
           , an on-prem edge platform where everything runs on your own
           hardware, from camera to alert&hellip;&rdquo;
@@ -465,9 +471,16 @@ function EvidencePanel() {
 
 const PROVIDER_STRIP = ALL_PROVIDERS;
 
-// What a Pro audit actually reports on - real feature names, not
-// filler. Two rows moving opposite ways so they don't read as one mechanical
-// strip; each is doubled at render time so its own loop has no visible seam.
+/* ---------------------------------------------------- bento mini-visuals -- */
+
+/** One mark per catalog provider, placed on an ellipse around the dial. */
+const RADAR_BLIPS = ALL_PROVIDERS.map((id, index) => {
+  const angle = (index / ALL_PROVIDERS.length) * Math.PI * 2 - Math.PI / 2;
+  const left = 50 + Math.cos(angle) * 40;
+  const top = 50 + Math.sin(angle) * 38;
+  return { id, left, top };
+});
+
 /* ----------------------------------------------------------------- page -- */
 
 export default async function HomePage() {
@@ -575,8 +588,9 @@ export default async function HomePage() {
           {/* Provider strip */}
           <Reveal className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:px-6">
             <p className="text-center text-xs text-muted-foreground">
-              Catalog of {ALL_PROVIDERS.length} providers. Plus runs 5 per
-              audit; Pro picks any 10.
+              Catalog of {PROVIDER_STRIP.length} providers. Plus runs{" "}
+              {PLUS_MODELS} on every audit; Pro picks any{" "}
+              {PRO_PROVIDERS_PER_AUDIT}.
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
               {PROVIDER_STRIP.map((id, index) => (
@@ -593,6 +607,160 @@ export default async function HomePage() {
           </Reveal>
           </div>
         </section>
+        {/* Bento - the evidence grid */}
+        <section className="relative bg-[color:var(--arc-mist)] dark:bg-background">
+          <SectionFrame />
+          <div className="relative mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
+            <Reveal className="max-w-2xl">
+              <p className="arc-eyebrow">The evidence</p>
+              <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
+                Evidence, not vibes
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                See where you appear, how often you win, and the answers and
+                sources behind every result.
+              </p>
+            </Reveal>
+
+            <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {/* Visibility score - stat + bars */}
+              <Reveal className="sm:col-span-2">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 sm:p-6 md:p-8 arc-card-hover">
+                <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                  Visibility score
+                </p>
+                <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
+                  A score that moves when you do
+                </h3>
+                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                  Mentions (65%), position (30%) and evidence quality (5%)
+                  form a 0–100 score. Citations are diagnostic, with no score weight.
+                </p>
+                <div className="mt-6 flex items-end justify-between gap-3 sm:mt-8 sm:gap-4">
+                  <p className="arc-tabular font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
+                    62<span className="text-foreground/35">.4</span>
+                  </p>
+                  <p className="text-xs font-medium text-[color:var(--arc-green)] sm:text-sm">
+                    +6.2 this month
+                  </p>
+                </div>
+                <div className="mt-4 flex h-14 items-stretch gap-1 sm:h-20 sm:gap-1.5">
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={`flex-1 rounded-full ${i < 15 ? "arc-light-up bg-[color:var(--arc-accent)]" : "bg-[color:var(--arc-accent)]/15"}`}
+                      style={delayStyle(200 + i * 18)}
+                    />
+                  ))}
+                </div>
+              </div>
+              </Reveal>
+
+              {/* Providers - floating pills */}
+              <Reveal delay={150}>
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
+                <div className="relative min-h-52 flex-1 sm:min-h-72">
+                  {/* The radar dial: rings, crosshair, and a sweeping beam. */}
+                  <div aria-hidden className="absolute inset-0 grid place-items-center">
+                    <div className="relative aspect-square w-[72%] sm:w-[86%]">
+                      <div className="absolute inset-0 rounded-full border border-border" />
+                      <div className="absolute inset-[17%] rounded-full border border-border" />
+                      <div className="absolute inset-[34%] rounded-full border border-border" />
+                      <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
+                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
+                      <div className="arc-radar-sweep absolute inset-0" />
+                      <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
+                    </div>
+                  </div>
+                  {RADAR_BLIPS.map((blip, index) => (
+                    <span
+                      key={blip.id}
+                      className="arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm"
+                      style={{
+                        ...delayStyle(index * 280),
+                        left: `calc(${blip.left}% - 16px)`,
+                        top: `calc(${blip.top}% - 16px)`,
+                      }}
+                    >
+                      <ProviderLogo provider={blip.id} className="size-3.5" />
+                    </span>
+                  ))}
+                </div>
+                <div className="p-5 sm:p-6 md:p-8">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                    Providers
+                  </p>
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
+                    One method, every provider
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    Plus compares the same buyer questions across {PLUS_MODELS}.
+                    Pro picks any {PRO_PROVIDERS_PER_AUDIT} from a catalog of{" "}
+                    {CATALOG_COUNT}.
+                  </p>
+                </div>
+              </div>
+              </Reveal>
+
+              {/* Big stat card */}
+              <Reveal delay={100}>
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
+                <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
+                  200
+                </p>
+                <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
+                  provider answers per Pro audit - 20 questions × 10 selected providers
+                </p>
+              </div>
+              </Reveal>
+
+              {/* Monitoring - trend chart */}
+              <Reveal delay={150} className="sm:col-span-2">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
+                <div className="relative px-2 pt-12 sm:pt-14">
+                  <span
+                    className="arc-fade-late absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:left-[31%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
+                    style={delayStyle(900)}
+                  >
+                    <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
+                    Avg 62.4
+                  </span>
+                  <span
+                    className="arc-fade-late absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[11px] font-medium whitespace-nowrap text-foreground/80 shadow-sm sm:top-4 sm:right-auto sm:left-[69%] sm:-translate-x-1/2 sm:px-2.5 sm:text-xs"
+                    style={delayStyle(1100)}
+                  >
+                    <span aria-hidden className="size-1.5 rounded-full bg-[#ff6166]" />
+                    Low 41.2
+                  </span>
+                  <span
+                    aria-hidden
+                    className="arc-fade-late absolute top-12 bottom-0 left-[31%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
+                  />
+                  <span
+                    aria-hidden
+                    className="arc-fade-late absolute top-12 bottom-0 left-[69%] hidden w-px border-l border-dashed border-foreground/20 sm:block sm:top-14"
+                  />
+                  <MonitoringChart />
+                </div>
+                <div className="p-5 pt-4 sm:p-6 md:p-8 md:pt-4">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                    Monitoring
+                  </p>
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
+                    Catch the moves that matter
+                  </h3>
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                    Scheduled re-scans chart your visibility across providers and
+                    email you when it shifts.
+                  </p>
+                </div>
+              </div>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <div aria-hidden className="arc-hatch h-8 border-b border-border" />
 
         {/* What you get - the report turned into moves */}
         <section className="relative bg-background">
@@ -624,14 +792,14 @@ export default async function HomePage() {
                     you&rsquo;re losing buyers to.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
-                      Share of voice against every rival
+                    <CheckItem>
+                      Share of voice: how often AI names you versus each rival
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Question-by-question breakdown
                     </CheckItem>
-                    <CheckItem delay={400}>
-                      Split by provider. Country markets on Pro.
+                    <CheckItem>
+                      Split by provider
                     </CheckItem>
                   </ul>
                 </Reveal>
@@ -651,17 +819,17 @@ export default async function HomePage() {
                     Leave with a fix list, not a grade
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    The to-do list is written from your results, prioritized
-                    by how many answers each fix can move.
+                    Action centre is the to-do list written from your results,
+                    prioritized by how many answers each fix can move.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
+                    <CheckItem>
                       Pages to publish, ranked by impact
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Sources worth getting cited on
                     </CheckItem>
-                    <CheckItem delay={400}>
+                    <CheckItem>
                       Every fix tied to its exact prompts
                     </CheckItem>
                   </ul>
@@ -679,23 +847,31 @@ export default async function HomePage() {
                     Monitor and share
                   </span>
                   <h3 className="font-heading mt-5 max-w-md text-3xl font-semibold tracking-tight md:text-4xl">
-                    Track progress and share the proof
+                    Track progress over time
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    Scheduled scans flag meaningful changes, while shareable
-                    audits keep the underlying answers one click away.
+                    Scheduled scans flag meaningful changes while keeping the
+                    underlying answers available in your dashboard.
                   </p>
                   <ul className="mt-6 space-y-3.5">
-                    <CheckItem delay={200}>
+                    <CheckItem>
                       Weekly monitoring on Plus; daily on Pro
                     </CheckItem>
-                    <CheckItem delay={300}>
+                    <CheckItem>
                       Email alerts when visibility shifts
                     </CheckItem>
-                    <CheckItem delay={400}>
-                      Shareable links on Plus; PDF and CSV on Pro
+                    <CheckItem>
+                      Saved audit history and CSV exports on Pro
                     </CheckItem>
                   </ul>
+                  <p className="mt-5">
+                    <Link
+                      href={routes.reporting}
+                      className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      Monitoring, alerts, and exports
+                    </Link>
+                  </p>
                 </Reveal>
                 <Reveal direction="left" className="lg:order-1">
                   <VisualTile>
@@ -723,6 +899,21 @@ export default async function HomePage() {
                   No black boxes. Every score decomposes across prompts and
                   providers, and every claim links to its evidence.
                 </p>
+                <p className="mt-5">
+                  <Link
+                    href={routes.gettingStarted}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Getting started in the browser
+                  </Link>
+                  {" · "}
+                  <Link
+                    href={routes.providers}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Provider coverage
+                  </Link>
+                </p>
               </Reveal>
               <Reveal delay={120}>
               <ol className="relative space-y-8 border-l border-border pl-8">
@@ -737,7 +928,7 @@ export default async function HomePage() {
                   },
                   {
                     title: "Every answer becomes evidence",
-                    body: "Mentions, positions, citations and competitor patterns - scored into one number and a prioritized fix list.",
+                    body: "Mentions (65%), position (30%) and evidence quality (5%) form the score. Citations and competitor patterns are diagnostic information used to guide your fixes.",
                   },
                 ].map((step, index) => (
                   <li
@@ -772,13 +963,13 @@ export default async function HomePage() {
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                Start with a free ChatGPT audit. Plus adds a 7-day trial,
-                ChatGPT, Claude, Grok, Llama Search, Mistral, and weekly monitoring.
+                Start with a free ChatGPT audit. Plus adds a 7-day trial and
+                weekly monitoring across {PLUS_MODELS}.
               </p>
             </Reveal>
 
             <div className="mt-12">
-              <PricingPlans variant="teaser" signedIn={Boolean(user)} />
+              <PricingPlans variant="full" signedIn={Boolean(user)} />
             </div>
 
             <div className="mt-8 text-center">
@@ -829,38 +1020,28 @@ export default async function HomePage() {
 
         {/* Final CTA */}
         <section className="relative bg-card">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_120%,color-mix(in_srgb,var(--arc-accent)_35%,transparent),transparent_60%)]"
-          />
-          <div aria-hidden className="arc-noise pointer-events-none absolute inset-0 opacity-[0.12]" />
-          <SectionFrame marks="both" />
-          <Reveal className="relative mx-auto max-w-6xl px-4 py-16 text-center md:px-6 md:py-20">
-            <p className="arc-rise inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="arc-pulse-soft size-3" aria-hidden />
-              Two minutes for the free ChatGPT audit
-            </p>
+          <Reveal className="relative mx-auto max-w-6xl px-4 py-14 text-center md:px-6 md:py-16">
             <h2
-              className="arc-rise font-heading mx-auto mt-6 max-w-2xl text-4xl font-semibold tracking-[-0.03em] leading-[1.05] text-balance text-foreground md:text-5xl"
+              className="arc-rise font-heading mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-balance text-foreground md:text-4xl"
               style={delayStyle(100)}
             >
               Find out before your competitors do.
             </h2>
             <p
-              className="arc-rise mx-auto mt-4 max-w-lg text-muted-foreground"
+              className="arc-rise mx-auto mt-3 max-w-lg text-sm text-muted-foreground"
               style={delayStyle(200)}
             >
-              Run a free AI visibility audit. No card. Confirm your email,
-              then saved ChatGPT results in about two minutes.
+              Your score, top competitor, and first fix in one free ChatGPT audit.
+              No card required.
             </p>
             <div
-              className="arc-rise mt-9 flex flex-wrap items-center justify-center gap-3"
+              className="arc-rise mt-6 flex justify-center"
               style={delayStyle(300)}
             >
               <Button
                 asChild
                 size="lg"
-                className="group h-10 px-5 shadow-none"
+                className="group h-10 px-5"
               >
                 <Link href={routes.freeAuditSignup}>
                   Run free audit

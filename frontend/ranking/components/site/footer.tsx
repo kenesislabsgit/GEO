@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/site/logo";
+import { PRODUCT_PAGES } from "@/lib/product-pages";
 import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 
@@ -9,6 +10,8 @@ const columns = [
     links: [
       { href: routes.freeAuditSignup, label: "Free audit" },
       { href: routes.pricing, label: "Pricing" },
+      ...PRODUCT_PAGES.map((page) => ({ href: page.href, label: page.label })),
+      { href: routes.dashboard, label: "Dashboard" },
     ],
   },
   {
@@ -27,9 +30,6 @@ const columns = [
 
 export async function SiteFooter() {
   const user = await getSessionUser();
-  const productLinks = user
-    ? [...columns[0].links, { href: routes.dashboard, label: "Dashboard" }]
-    : columns[0].links;
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
@@ -38,8 +38,8 @@ export async function SiteFooter() {
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Measure whether AI answer engines recommend your brand before
-              your competitors do. Plus samples ChatGPT, Claude, Grok,
-              Llama Search and Mistral. Pro adds Gemini, Perplexity and more.
+              your competitors do. Sampled from ChatGPT, Claude, Gemini,
+              Perplexity, Grok, DeepSeek and more.
             </p>
           </div>
           <div className="flex gap-16">
@@ -49,11 +49,11 @@ export async function SiteFooter() {
                   {column.title}
                 </p>
                 <ul className="mt-4 flex flex-col gap-2.5">
-                  {(column.title === "Product" ? productLinks : column.links).map((link) => (
+                  {column.links.filter((link) => link.href !== routes.dashboard || user).map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline hover:underline-offset-4"
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
                         {link.label}
                       </Link>

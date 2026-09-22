@@ -7,26 +7,9 @@ export function roundForDisplay(value: number, digits = 1): number {
   return Math.round(value * factor) / factor;
 }
 
-function finiteScore(value: unknown): number | null {
-  const n = Number(value);
-  return Number.isFinite(n) ? roundForDisplay(n) : null;
-}
+export const SCORE_DISPLAY_MAX = 100;
 
-/** Mention, position, and evidence-quality pieces stored with a snapshot. */
-export function scoreBreakdownParts(snapshot: {
-  mention_score?: unknown;
-  position_score?: unknown;
-  breakdown?: unknown;
-}): { mention: number | null; position: number | null; evidence: number | null } {
-  let evidence: number | null = null;
-  const breakdown = snapshot.breakdown;
-  if (breakdown && typeof breakdown === "object") {
-    const record = breakdown as Record<string, unknown>;
-    evidence = finiteScore(record.data_confidence_score);
-  }
-  return {
-    mention: finiteScore(snapshot.mention_score),
-    position: finiteScore(snapshot.position_score),
-    evidence,
-  };
+/** Clamp visual fills without changing the stored or displayed score. */
+export function scoreFillPercent(value: number): number {
+  return Number.isFinite(value) ? Math.min(SCORE_DISPLAY_MAX, Math.max(0, value)) : 0;
 }

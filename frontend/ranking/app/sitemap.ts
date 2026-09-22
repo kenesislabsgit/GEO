@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blog";
 import { getPublicReportSitemapEntries } from "@/lib/db/repository";
+import { PRODUCT_PAGES } from "@/lib/product-pages";
 import { SITE_URL } from "@/lib/site";
 
 // This has no dynamic APIs (no cookies/headers), so Next prerenders it once
@@ -24,6 +25,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE_URL}/pricing`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/methodology`, changeFrequency: "monthly", priority: 0.7 },
+    ...PRODUCT_PAGES.map((page) => ({
+      url: `${SITE_URL}${page.href}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     {
       url: `${SITE_URL}/blog`,
       changeFrequency: "weekly",

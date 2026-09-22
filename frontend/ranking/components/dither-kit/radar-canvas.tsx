@@ -1,4 +1,5 @@
 "use client"
+import { runVisibleFrames } from "@/lib/visible-animation"
 
 import { useEffect, useRef } from "react"
 import {
@@ -53,7 +54,6 @@ export function RadarCanvas() {
     const reduce = prefersReducedMotion()
     const animate = state.current.animate && !reduce
     const duration = state.current.animationDuration
-    let raf = 0
     let animStart = 0
     let lastProg = -1
     let lastRevision = state.current.revision
@@ -154,7 +154,6 @@ export function RadarCanvas() {
     }
 
     const draw = (now: number) => {
-      raf = requestAnimationFrame(draw)
       const s = state.current
       if (!s.ready || !s.radar) return
       if (bloomCtx) {
@@ -203,8 +202,7 @@ export function RadarCanvas() {
       needsFill = false
     }
 
-    raf = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(raf)
+    return runVisibleFrames(canvas, draw)
   }, [cols, rows, width, height])
 
   const bloom = bloomLayerStyle(

@@ -56,6 +56,8 @@ export function BrandMonitoringForm({
 }) {
   const [data, setData] = useState<MonitoringResponse | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [selectedScanId, setSelectedScanId] = useState("");
   const [choosingQuestions, setChoosingQuestions] = useState(false);
   const [form, setForm] = useState({
@@ -72,10 +74,13 @@ export function BrandMonitoringForm({
   });
 
   useEffect(() => {
+    const controller = new AbortController();
     void (async () => {
-      const res = await fetch(`/api/brands/${brandId}/monitoring`);
-      if (!res.ok) return;
+      try {
+      const res = await fetch(`/api/brands/${brandId}/monitoring`, { signal: controller.signal });
+      if (!res.ok) throw new Error("Could not load monitoring settings.");
       const payload = (await res.json()) as MonitoringResponse;
+      if (controller.signal.aborted) return;
       setData(payload);
       const s = payload.settings;
       const hasSavedQuestions = s?.monitoringQuestions?.length === 5;
@@ -107,8 +112,12 @@ export function BrandMonitoringForm({
           citation: s?.alerts?.citation ?? false,
         },
       });
+      } catch (error) {
+        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Could not load monitoring settings.");
+      }
     })();
-  }, [brandId]);
+    return () => controller.abort();
+  }, [brandId, attempt]);
 
   async function save() {
     setSaving(true);
@@ -153,7 +162,10 @@ export function BrandMonitoringForm({
   if (!data) {
     return (
       <div className="arc-panel flex items-center gap-2 p-6 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading settings…
+        {loadError ? <>
+          <span role="alert">{loadError}</span>
+          <Button variant="outline" size="sm" onClick={() => { setLoadError(null); setAttempt((value) => value + 1); }}>Retry</Button>
+        </> : <><Loader2 className="size-4 animate-spin" /> Loading settings…</>}
       </div>
     );
   }
@@ -220,6 +232,7 @@ export function BrandMonitoringForm({
             </p>
           </div>
           <Switch
+            aria-label="Scheduled monitoring"
             checked={form.enabled}
             disabled={!canEdit && !form.enabled}
             onCheckedChange={(enabled) => setForm((p) => ({ ...p, enabled }))}
@@ -311,6 +324,7 @@ export function BrandMonitoringForm({
                 {form.monitoringQuestions.map((question, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <textarea
+                      aria-label={`Monitoring question ${index + 1}`}
                       disabled={!canEdit}
                       className="min-h-16 flex-1 resize-y rounded-md border border-border bg-background px-3 py-2 text-sm"
                       value={question}

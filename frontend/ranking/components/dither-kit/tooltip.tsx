@@ -90,7 +90,7 @@ export function Tooltip({
                 />
                 <span className="text-muted-foreground">{item.label}</span>
                 <span className="ml-auto pl-2 text-foreground">
-                  {valueFormatter
+                  {!Number.isFinite(item.value) ? "Not tested" : valueFormatter
                     ? valueFormatter(item.value, item.name)
                     : item.value.toLocaleString()}
                 </span>

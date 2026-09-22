@@ -8,6 +8,7 @@ import {
 } from "react"
 import type { ChartConfig, Margins } from "./chart-context"
 import { CommonChartContext } from "./common-context"
+import { ChartData, chartKeyboardIndex } from "./chart-data"
 import type { BloomInput } from "./dither-paint"
 import { cn } from "./lib"
 import { axisAtAngle, sliceAtAngle } from "./polar"
@@ -123,6 +124,12 @@ export function PolarRoot<TData extends Row>({
     }
     ctx.setCursor(clientX - rect.left, clientY - rect.top)
   }
+  const chartLabel = `${Object.entries(config).map(([key, value]) => value.label ?? key).join(", ")} ${chartType} chart`
+  const selectPoint = (index: number | null) => {
+    ctx.setHoverIndex(index)
+    ctx.setMouseInChart(index !== null)
+    ctx.setCursor(margins.left + ctx.center.x, margins.top + ctx.center.y)
+  }
 
   return (
     <PolarChartContext value={ctx}>
@@ -130,6 +137,18 @@ export function PolarRoot<TData extends Row>({
         <div
           ref={ref}
           className={cn("relative h-full w-full", className)}
+          role="group"
+          aria-label={chartLabel}
+          tabIndex={data.length ? 0 : undefined}
+          onFocus={(event) => { if (event.target === event.currentTarget) selectPoint(0) }}
+          onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) selectPoint(null) }}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return
+            const index = chartKeyboardIndex(event.key, ctx.hoverIndex, data.length)
+            if (index === undefined) return
+            event.preventDefault()
+            selectPoint(index)
+          }}
           onPointerEnter={() => ctx.setMouseInChart(true)}
           onPointerMove={(e) => onMove(e.clientX, e.clientY)}
           onPointerLeave={() => {
@@ -157,8 +176,7 @@ export function PolarRoot<TData extends Row>({
               width={size.width}
               height={size.height}
               className="absolute inset-0 overflow-visible"
-              role="img"
-              aria-label="Chart"
+              aria-hidden
             >
               <g transform={`translate(${margins.left},${margins.top})`}>
                 {svgChildren}
@@ -166,6 +184,7 @@ export function PolarRoot<TData extends Row>({
             </svg>
           )}
           {domChildren}
+          <ChartData data={data} config={chartType === "pie" ? { [dataKey]: { label: dataKey, color: "blue" } } : config} labelKey={nameKey} label={chartLabel} activeIndex={ctx.hoverIndex} />
         </div>
       </CommonChartContext>
     </PolarChartContext>

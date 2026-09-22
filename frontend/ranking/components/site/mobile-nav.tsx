@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,46 +12,55 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { routes } from "@/lib/routes";
 
-const links = [
-  { href: routes.pricing, label: "Pricing" },
-  { href: routes.methodology, label: "Methodology" },
-  { href: routes.blog, label: "Blog" },
-];
+export function MobileNav({
+  links,
+  signedIn,
+}: {
+  links: readonly { href: string; label: string }[];
+  signedIn: boolean;
+}) {
+  const [open, setOpen] = useState(false);
 
-export function MobileNav({ signedIn }: { signedIn: boolean }) {
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="md:hidden">
-          <Menu aria-hidden />
-          <span className="sr-only">Open menu</span>
+        <Button variant="ghost" size="icon" className="size-10 md:hidden" aria-label="Open menu">
+          <Menu className="size-5" aria-hidden />
         </Button>
       </SheetTrigger>
-      <SheetContent className="p-2 md:hidden">
+      <SheetContent aria-describedby={undefined} className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Menu</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col px-2">
-          {links.map((item) => (
-            <SheetClose key={item.href} asChild>
-              <Link href={item.href} className="rounded-lg px-3 py-3 text-base">
+        <nav aria-label="Mobile navigation" className="flex flex-col gap-1 px-4">
+          {[
+            ...links,
+            signedIn
+              ? { href: routes.dashboard, label: "Dashboard" }
+              : { href: routes.login({ mode: "signin" }), label: "Sign in" },
+          ].map((item) => (
+            <SheetClose asChild key={item.href}>
+              <Link href={item.href} className="rounded-md px-3 py-3 text-base font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
                 {item.label}
               </Link>
             </SheetClose>
           ))}
-          {signedIn ? (
-            <SheetClose asChild>
-              <Link href={routes.dashboard} className="rounded-lg px-3 py-3 text-base">
-                Dashboard
-              </Link>
-            </SheetClose>
-          ) : null}
         </nav>
-        <div className="mt-auto flex items-center justify-between border-t border-border p-4">
-          <span className="text-sm text-muted-foreground">Appearance</span>
-          <ThemeToggle />
+        <div className="mx-4 flex items-center justify-between border-t border-border px-3 pt-4">
+          <span className="text-sm font-medium">Theme</span>
+          <ThemeToggle className="size-11" />
         </div>
       </SheetContent>
     </Sheet>

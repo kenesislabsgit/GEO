@@ -18,6 +18,10 @@ const sections = [
     body: "Every query is scoped to the owning account on the server. Secrets never ship to the browser. Private audit results reveal nothing on public surfaces, including preview images.",
   },
   {
+    title: "Audit visibility",
+    body: "Audit details and complete results are scoped to the owning account. Public pages expose only the information explicitly intended for public viewing.",
+  },
+  {
     title: "How long we keep things",
     body: "Audit data (answers, scores, citations, actions) is kept while your account exists. Operational data ages out automatically: live progress events after 30 days, hashed-IP abuse records after 90 days, billing webhook payload bodies after 90 days (the processed-event record itself is kept for billing integrity), and raw crawl artifacts on audit machines after 14 days. When you delete your account, billing usage records are kept in anonymized form only, as required for financial accuracy.",
   },

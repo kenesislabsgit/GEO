@@ -86,7 +86,7 @@ export default async function MarketsPage({
         (100 * globalResults.filter((r) => r.brand_mentioned).length) /
           globalResults.length,
       )
-    : 0;
+    : null;
 
   // Per-country rollup across every provider's answers.
   const byCountry = new Map<
@@ -125,7 +125,7 @@ export default async function MarketsPage({
     const mentioned = rows.reduce((sum, entry) => sum + entry.mentioned, 0);
     return {
       continent,
-      rate: total ? Math.round((100 * mentioned) / total) : 0,
+      rate: total ? Math.round((100 * mentioned) / total) : null,
     };
   });
 
@@ -147,10 +147,10 @@ export default async function MarketsPage({
             </span>
             <div>
               <h2 className="text-sm font-semibold">
-                Geographic market search is on Pro and Growth
+                Geographic market search is a Pro feature
               </h2>
               <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-                Pro and Growth audits ask up to half their questions the way buyers in
+                Pro audits ask up to half their questions the way buyers in
                 India, the US, Europe and other markets would - with web search
                 located in each country - and map where you get recommended.
               </p>
@@ -172,7 +172,7 @@ export default async function MarketsPage({
           <Globe className="mx-auto size-5 text-muted-foreground" aria-hidden />
           <p className="mt-3 font-medium">No market answers yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Run an audit - Pro and Growth audits spread a slice of their questions across
+            Run an audit - Pro+ audits spread a slice of their questions across
             world markets automatically. Pick a home market in audit settings
             to lead the sweep.
           </p>
@@ -216,7 +216,7 @@ export default async function MarketsPage({
             <div className="lg:pl-5">
               <p className="arc-eyebrow">Global mention rate</p>
               <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
-                {globalRate}%
+                {globalRate === null ? "Not tested" : `${globalRate}%`}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 non-located questions, for comparison

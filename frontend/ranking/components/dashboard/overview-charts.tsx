@@ -1,6 +1,5 @@
 "use client";
 
-import { PALETTE, rgb } from "@/components/dither-kit/palette";
 import { Area } from "@/components/dither-kit/area";
 import { AreaChart } from "@/components/dither-kit/area-chart";
 import { Bar } from "@/components/dither-kit/bar";
@@ -22,39 +21,30 @@ export type ProviderBarRow = {
   label: string;
   openai: number;
   claude: number;
-  gemini: number;
-  perplexity: number;
   others: number;
 };
 
 const BAR_CONFIG = {
-  openai: { label: "ChatGPT", color: "green" },
-  claude: { label: "Claude", color: "orange" },
-  gemini: { label: "Gemini", color: "blue" },
-  perplexity: { label: "Perplexity", color: "pink" },
-  others: { label: "Other AIs", color: "grey" },
+  openai: { label: "ChatGPT", color: "blue" },
+  claude: { label: "Claude", color: "purple" },
+  others: { label: "Other AIs", color: "pink" },
 } satisfies ChartConfig;
 
-const LEGEND: Array<{ key: keyof typeof BAR_CONFIG; fill: string }> = [
-  { key: "openai", fill: rgb(PALETTE.green.line) },
-  { key: "claude", fill: rgb(PALETTE.orange.line) },
-  { key: "gemini", fill: rgb(PALETTE.blue.line) },
-  { key: "perplexity", fill: rgb(PALETTE.pink.line) },
-  { key: "others", fill: rgb(PALETTE.grey.line) },
+const LEGEND: Array<{ key: keyof typeof BAR_CONFIG; dot: string }> = [
+  { key: "openai", dot: "bg-[#3b9eff]" },
+  { key: "claude", dot: "bg-[#a78bfa]" },
+  { key: "others", dot: "bg-[#f472c8]" },
 ];
 
 export function ProviderAnswersLegend() {
   return (
     <div className="flex items-center gap-4">
-      {LEGEND.map(({ key, fill }) => (
+      {LEGEND.map(({ key, dot }) => (
         <span
           key={key}
           className="flex items-center gap-1.5 text-[13px] text-muted-foreground"
         >
-          <span
-            className="size-2 rounded-full"
-            style={{ background: fill }}
-          />
+          <span className={`size-2 rounded-full ${dot}`} />
           {BAR_CONFIG[key].label}
         </span>
       ))}
@@ -79,8 +69,6 @@ export function ProviderAnswersChart({ data }: { data: ProviderBarRow[] }) {
         <Tooltip labelKey="label" />
         <Bar dataKey="openai" variant="gradient" />
         <Bar dataKey="claude" variant="gradient" />
-        <Bar dataKey="gemini" variant="gradient" />
-        <Bar dataKey="perplexity" variant="gradient" />
         <Bar dataKey="others" variant="gradient" />
       </BarChart>
     </div>

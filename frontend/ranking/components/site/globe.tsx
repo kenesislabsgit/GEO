@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import createGlobe, { type COBEOptions } from "cobe";
 import { useMotionValue, useSpring } from "motion/react";
 import { cn } from "@/lib/utils";
+import { runVisibleFrames } from "@/lib/visible-animation";
 
 const MOVEMENT_DAMPING = 1400;
 const AUTOROTATE_SPEED = 0.004;
@@ -55,24 +56,36 @@ export function Globe({
       height: widthRef.current * 2,
     });
 
-    let frameId = 0;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const renderFrame = () => {
-      if (pointerInteracting.current === null) phiRef.current += AUTOROTATE_SPEED;
+      if (!media.matches && pointerInteracting.current === null) phiRef.current += AUTOROTATE_SPEED;
       globe.update({
         phi: phiRef.current + rs.get(),
         width: widthRef.current * 2,
         height: widthRef.current * 2,
       });
-      frameId = requestAnimationFrame(renderFrame);
     };
-    frameId = requestAnimationFrame(renderFrame);
-
-    requestAnimationFrame(() => {
+    let stopFrames: (() => void) | undefined;
+    const syncMotion = () => {
+      stopFrames?.();
+      if (media.matches) renderFrame();
+      else stopFrames = runVisibleFrames(canvas, renderFrame);
+    };
+    syncMotion();
+    media.addEventListener("change", syncMotion);
+    const unsubscribe = rs.on("change", () => { if (media.matches) renderFrame(); });
+    const resizeObserver = new ResizeObserver(() => { onResize(); renderFrame(); });
+    resizeObserver.observe(canvas);
+    const opacityFrame = requestAnimationFrame(() => {
       canvas.style.opacity = "1";
     });
 
     return () => {
-      cancelAnimationFrame(frameId);
+      stopFrames?.();
+      cancelAnimationFrame(opacityFrame);
+      resizeObserver.disconnect();
+      unsubscribe();
+      media.removeEventListener("change", syncMotion);
       globe.destroy();
       window.removeEventListener("resize", onResize);
     };

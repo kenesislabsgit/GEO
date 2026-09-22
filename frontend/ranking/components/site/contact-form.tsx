@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,6 @@ import {
   type ContactInterestId,
 } from "@/lib/contact/schema";
 import { SUPPORT_EMAIL } from "@/lib/constants";
-import { routes } from "@/lib/routes";
 
 type FormState = Omit<ContactInquiry, "companySize"> & {
   companySize: ContactInquiry["companySize"] | "";
@@ -326,11 +324,7 @@ export function ContactForm({
           className="underline underline-offset-4 hover:text-foreground"
         >
           {SUPPORT_EMAIL}
-        </a>{" "}
-        or read the{" "}
-        <Link href={routes.methodology} className="underline underline-offset-4 hover:text-foreground">
-          methodology
-        </Link>
+        </a>
         .
       </p>
     </form>

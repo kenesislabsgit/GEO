@@ -71,18 +71,12 @@ function HeroAiStack() {
 }
 
 /**
- * Cinematic landing hero: copy sits over a walking crowd.
+ * Mobile stacks copy above the crowd; desktop keeps the full hero backdrop.
  */
 export function LandingHero() {
   return (
-    <section className="relative isolate min-h-[100svh] overflow-hidden bg-background text-foreground">
-      <div aria-hidden className="absolute inset-0 bg-background">
-        <HeroCrowd />
-        <div className="absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-background via-background/50 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
-      </div>
-
-      <div className="relative z-30 mx-auto flex min-h-[100svh] max-w-5xl flex-col items-center justify-start px-6 pt-16 pb-20 text-center md:pt-20">
+    <section className="relative isolate overflow-hidden bg-background text-foreground md:min-h-[100svh]">
+      <div className="relative z-30 mx-auto flex max-w-5xl flex-col items-center justify-start px-6 pt-8 pb-8 text-center sm:pt-12 md:min-h-[100svh] md:pt-20 md:pb-20">
         <p className="arc-fade-up inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-background/50 px-2.5 py-1 text-xs text-foreground/80 backdrop-blur-sm">
           <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-background uppercase">
             New
@@ -106,8 +100,8 @@ export function LandingHero() {
         </h1>
 
         <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-lg text-sm text-pretty text-foreground/65 sm:text-base md:text-lg">
-          The free audit checks ChatGPT. Plus compares ChatGPT, Claude, Grok,
-          Llama Search, and Mistral so you see who outranks you and what to fix.
+          The free audit checks ChatGPT. Plus and Pro add Claude, Gemini and
+          more, so you see who outranks you and what to fix.
         </p>
 
         {/* A GET form ignores any query string already on `action`
@@ -126,22 +120,29 @@ export function LandingHero() {
           <div className="flex h-12 select-none items-center rounded-xl border border-foreground/25 bg-background px-3.5 shadow-sm [-webkit-tap-highlight-color:transparent] focus-within:border-foreground/50">
             <span
               aria-hidden
-              className="mr-2 shrink-0 select-none font-mono text-xs text-foreground/40"
+              className="shrink-0 select-none font-mono text-xs text-foreground/40"
             >
               https://
             </span>
             <HeroDomainInput />
           </div>
-          <div>
-            <RainbowButton type="submit" className="h-12 w-full shadow-md">
-              Run free audit
-              <ArrowRight className="size-4" aria-hidden />
-            </RainbowButton>
-          </div>
+          <RainbowButton type="submit" className="h-12 w-full shadow-md">
+            Run free audit
+            <ArrowRight className="size-4" aria-hidden />
+          </RainbowButton>
         </form>
         <p className="arc-fade-up arc-fade-up-delay-3 mt-4 text-xs text-foreground/45">
-          Free account · no card · confirm email · ~2 min on ChatGPT
+          Free account · no card · ~2 min on ChatGPT
         </p>
+      </div>
+      <div
+        aria-hidden
+        data-hero-illustration
+        className="relative isolate h-72 overflow-hidden bg-background md:absolute md:inset-0 md:h-auto"
+      >
+        <HeroCrowd />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-background via-background/50 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
       </div>
     </section>
   );
