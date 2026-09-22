@@ -60,9 +60,8 @@ export const auth = betterAuth({
     })(),
   emailAndPassword: {
     enabled: true,
-    // Sign-in stays open to unverified accounts so nobody is locked out of
-    // an account they just made; running an audit is what requires a
-    // verified address, and that is enforced at the audit door.
+    // Pending accounts keep an onboarding session so they can resend mail.
+    // getSessionUser excludes them from all protected pages and API routes.
     requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
       const sent = await sendAlertEmail({
