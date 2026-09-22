@@ -1,5 +1,30 @@
 import { expect, test } from "@playwright/test";
 
+test("signup requires agreement while sign-in stays clear", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto("/login?mode=signup");
+  const agreement = page.getByRole("checkbox", { name: "I agree to the Terms and Conditions." });
+  const createAccount = page.getByRole("button", { name: "Create account", exact: true });
+  const google = page.getByRole("button", { name: "Continue with Google" });
+  await expect(agreement).not.toBeChecked();
+  await expect(createAccount).toBeDisabled();
+  if (await google.count()) await expect(google).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Terms and Conditions", exact: true })).toHaveAttribute("href", "/terms");
+  await expect(page.getByRole("link", { name: "Privacy Policy", exact: true })).toHaveAttribute("href", "/privacy");
+  await agreement.check();
+  await expect(createAccount).toBeEnabled();
+  if (await google.count()) await expect(google).toBeEnabled();
+  await agreement.uncheck();
+  await expect(createAccount).toBeDisabled();
+  if (await google.count()) await expect(google).toBeDisabled();
+  await page.screenshot({ path: test.info().outputPath("signup-agreement-mobile.png"), fullPage: true });
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(agreement).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeEnabled();
+  if (await google.count()) await expect(google).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Report visibility and data handling" })).toHaveCount(0);
+});
+
 for (const interval of ["monthly", "yearly"] as const) {
   test(`trial signup explains ${interval} selection before credentials`, async ({ page }) => {
     await page.goto("/pricing");
@@ -14,7 +39,7 @@ for (const interval of ["monthly", "yearly"] as const) {
     await expect(trial).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
     await expect(trial).toContainText("Cancel in Billing before your 7-day trial ends");
     await expect(page.getByText(/New reports are public by default/)).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Report visibility and data handling" })).toHaveAttribute("href", "/data-handling");
+    await expect(page.getByRole("link", { name: "Report visibility and data handling" })).toHaveCount(0);
     await expect(page.locator('a[href="/terms"]').first()).toBeVisible();
     await expect(page.locator('a[href="/privacy"]').first()).toBeVisible();
     await page.getByRole("link", { name: "Sign in", exact: true }).click();

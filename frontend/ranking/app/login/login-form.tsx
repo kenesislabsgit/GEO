@@ -13,10 +13,6 @@ import { signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
 import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
 
-function SignupPolicies() {
-  return <p className="mt-2 text-xs leading-relaxed text-muted-foreground">By creating an account, including with Google, you agree to the <Link href={routes.terms} className="underline underline-offset-4">Terms</Link>. Read our <Link href={routes.privacy} className="underline underline-offset-4">Privacy Policy</Link> before continuing.</p>;
-}
-
 /** The address the hero already showed, kept as text so a bad paste cannot become a link. */
 function typedAuditUrl(raw: string): string {
   const host = raw
@@ -47,6 +43,8 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const needsAgreement = mode === "signup" && !termsAccepted;
   const modeHref = (nextMode: "signin" | "signup") =>
     routes.login({
       mode: nextMode,
@@ -56,7 +54,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
     });
 
   async function submit() {
-    if (loading) return;
+    if (loading || needsAgreement) return;
     setLoading(true);
     setError(null);
     try {
@@ -123,11 +121,6 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{trialCommitment(trial.interval)}</p>
         <p className="mt-2 text-xs text-muted-foreground">Your trial starts after checkout, not when you create this account.</p>
       </section> : null}
-      <p className="mt-3 text-xs text-muted-foreground">
-        <Link href={routes.dataHandling} className="underline underline-offset-4">
-          Report visibility and data handling
-        </Link>
-      </p>
 
       <div className="mt-5 grid grid-cols-2 rounded-xl bg-muted p-1">
         <Link
@@ -156,13 +149,32 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         </div>
       ) : null}
 
+      {mode === "signup" ? (
+        <div className="mt-5 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+          <input
+            id="signup-terms"
+            type="checkbox"
+            form="login-form"
+            required
+            checked={termsAccepted}
+            onChange={(event) => setTermsAccepted(event.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-foreground"
+          />
+          <div>
+            <label htmlFor="signup-terms">
+              I agree to the <Link href={routes.terms} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Terms and Conditions</Link>.
+            </label>
+            <span className="block mt-1">Read our <Link href={routes.privacy} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Privacy Policy</Link>.</span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Above the email fields on purpose: most people who have a Google
           account will use it, and putting it under the form makes them fill
           in a password first and find the shortcut afterwards. */}
       {googleEnabled ? (
         <div className="mt-6">
-          <GoogleButton claim={claim} returnTo={returnTo} />
-          {mode === "signup" ? <SignupPolicies /> : null}
+          <GoogleButton claim={claim} returnTo={returnTo} disabled={needsAgreement || loading} />
           <div className="mt-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs text-muted-foreground">or</span>
@@ -172,6 +184,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       ) : null}
 
       <form
+        id="login-form"
         className="mt-6"
         onSubmit={(e) => {
           e.preventDefault();
@@ -227,7 +240,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           <Button
             type="submit"
             className="w-full"
-            disabled={loading}
+            disabled={loading || needsAgreement}
           >
             {loading ? (
               <>
@@ -242,7 +255,6 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           </Button>
         </FieldGroup>
       </form>
-      {mode === "signup" ? <SignupPolicies /> : null}
 
       <p className="mt-5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
