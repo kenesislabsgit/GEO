@@ -62,10 +62,10 @@ export const auth = betterAuth({
     })(),
   emailAndPassword: {
     enabled: true,
-    // Sign-in stays open to unverified accounts so nobody is locked out of
-    // an account they just made; running an audit is what requires a
-    // verified address, and that is enforced at the audit door.
-    requireEmailVerification: false,
+    // A password account proves ownership of its email before Better Auth
+    // creates a session. This prevents anyone from claiming an inbox they do
+    // not control and then using that account in the product.
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       const sent = await sendAlertEmail({
         to: user.email,
@@ -82,6 +82,7 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: true,
+    sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
       const sent = await sendAlertEmail({
@@ -147,11 +148,9 @@ export const auth = betterAuth({
       // refused with account_not_linked and the person is locked out of
       // half their own login.
       trustedProviders: ["google"],
-      // Nothing sends verification email yet, so every password account is
-      // unverified and the default (only link to verified accounts) would
-      // refuse everybody. Accepted trade-off until email verification
-      // exists: Google's own check that you own the inbox is the proof.
-      requireLocalEmailVerified: false,
+      // Linking a password account to another provider must also require
+      // proof that the person controls the local email address.
+      requireLocalEmailVerified: true,
     },
   },
   socialProviders: googleConfigured
