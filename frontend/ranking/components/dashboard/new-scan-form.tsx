@@ -600,13 +600,14 @@ export function NewScanForm({
             </div>
             {geoEnabled ? (
               <div>
-                <p className="text-sm font-medium">Geographic market</p>
+                <label htmlFor="audit-geographic-market" className="text-sm font-medium">Geographic market</label>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   A slice of the questions is asked the way a buyer in this
                   market would (&ldquo;best X in India&rdquo;), with web search
                   located there. Auto reads the market from your website.
                 </p>
                 <select
+                  id="audit-geographic-market"
                   value={market}
                   onChange={(event) => setMarket(event.target.value)}
                   className="mt-2.5 h-9 w-full max-w-xs rounded-lg border border-border bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"

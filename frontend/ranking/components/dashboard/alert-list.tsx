@@ -79,7 +79,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <FilterField label="Search alerts" wide>
           <input
             aria-label="Search alerts"
@@ -110,7 +110,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
             type="date"
             value={after}
             onChange={(event) => setAfter(event.target.value)}
-            className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
+            className="h-11 min-w-0 rounded-md border border-border bg-background px-3 text-sm"
           />
         </FilterField>
         <label className="inline-flex min-h-11 items-center gap-2 text-sm">
@@ -123,7 +123,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
         </label>
       </div>
       <p className="text-xs text-muted-foreground">
-        {performanceAlerts.length} alerts shown
+        {performanceAlerts.length} {performanceAlerts.length === 1 ? "alert" : "alerts"} shown
       </p>
       {unread > 0 ? (
         <div className="flex justify-end">

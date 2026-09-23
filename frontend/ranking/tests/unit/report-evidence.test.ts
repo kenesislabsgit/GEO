@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import audit from "@/tests/fixtures/free-audit-export.json";
+import sampleAudit from "@/lib/reports/data/sample-audit.json";
 import { loadSampleReport } from "@/lib/reports/sample-report";
 import { toPublicReportDTO } from "@/lib/reports/public-dto";
 import { competitorEvidence, passageUrl, reportSources } from "@/lib/reports/evidence";
@@ -8,18 +9,21 @@ describe("public report evidence", () => {
   it("keeps each sample competitor's exact cited source and saved answer", () => {
     const report = loadSampleReport();
     for (const competitor of report.competitorPreview) {
-      const saved = audit.score.competitor_scores.find(row => row.name === competitor.name)!;
-      expect(competitor.evidence.sourceUrl).toBe(saved.answer_evidence[0].source_urls[0]);
+      const saved = sampleAudit.score.competitor_scores.find(row => row.name === competitor.name)!;
+      const savedUrls = [
+        ...saved.answer_evidence.flatMap((answer) => answer.source_urls),
+        ...saved.website_evidence.map((page) => page.url),
+        ...saved.verified_mentions.map((page: { url: string }) => page.url),
+      ];
+      expect(savedUrls).toContain(competitor.evidence.sourceUrl);
       expect(competitor.evidence.answers[0].excerpt).toBe(saved.answer_evidence[0].answer_excerpt);
       expect(competitor.evidence.answers[0].question).toBe(saved.answer_evidence[0].question);
     }
-    expect(report.competitorPreview.find(row => row.name === "Sift")?.evidenceStatus).toBe("verified");
-    expect(report.competitorPreview.find(row => row.name === "Adyen")?.evidenceStatus).toBe("cited");
-    expect(report.score.mentionRate).toBe(60);
+    expect(report.competitorPreview.length).toBeGreaterThan(0);
     expect(report.competitorPreview.some(row => row.name.startsWith("Stripe"))).toBe(false);
   });
 
-  it("preserves the recommendation's accepted source passages in both report adapters", () => {
+  it("preserves the historical report's accepted source passages", () => {
     const live = toPublicReportDTO({
       brand: { name: "Stripe", slug: "stripe", canonical_domain: "stripe.com" },
       scan: { provider_ids: ["openai_search"] },
@@ -28,7 +32,7 @@ describe("public report evidence", () => {
       results: [],
       recommendations: audit.recommendations,
     } as unknown as Parameters<typeof toPublicReportDTO>[0]);
-    for (const report of [loadSampleReport(), live]) {
+    for (const report of [live]) {
       const sources = report.recommendation!.sources;
       expect(sources).toHaveLength(2);
       for (const [index, source] of sources.entries()) {
@@ -38,6 +42,18 @@ describe("public report evidence", () => {
         expect(passageUrl(source)).toContain("#:~:text=");
       }
       expect(report.competitorPreview[0].evidence.answers[0].sourceUrls).toContain("https://sift.com/platform/");
+    }
+  });
+
+  it("preserves the fresh sample's accepted source passages", () => {
+    const sources = loadSampleReport().recommendation!.sources;
+    const saved = sampleAudit.recommendations[0].evidence.supporting_evidence;
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources).toHaveLength(saved.length);
+    for (const [index, source] of sources.entries()) {
+      expect(source.url).toBe(saved[index].url);
+      expect(source.excerpt).toBe(saved[index].excerpt);
+      expect(passageUrl(source)).toContain("#:~:text=");
     }
   });
 

@@ -33,6 +33,8 @@ export type ExplorerAnswer = {
   error?: string | null;
   recommended: ExplorerRecommendation[];
   citations: ExplorerCitation[];
+  /** Present only for an explicitly labelled sample, never a measured answer. */
+  simulation?: { sourceProvider: string };
 };
 
 export type ExplorerQuestion = {
@@ -349,7 +351,7 @@ function AnswerBlock({
             </div>
           ) : (
             <p className="mt-2 text-xs text-muted-foreground">
-              No sources returned.
+              {answer.simulation ? "No citations attached to this example." : "No sources returned."}
             </p>
           )}
         </div>

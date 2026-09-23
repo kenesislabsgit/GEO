@@ -19,11 +19,13 @@ describe("historical report presentation", () => {
     expect(sampling.repetitions).toContain("1–2 saved answers");
     expect(sampling.models).toEqual([{ provider: "openai", model: "gpt-test" }]);
   });
-  it("exposes the sample's stored model and labels its export timestamp honestly", () => {
+  it("exposes all measured models without counting the simulated provider", () => {
     const sample = loadSampleReport();
-    expect(sample.scan.sampling.answerCount).toBe(5);
-    expect(sample.scan.sampling.models[0].model).toBe("gpt-5-mini-2025-08-07");
-    expect(sample.scan.sampling.timestampLabel).toContain("Export generated");
+    expect(sample.scan.sampling.answerCount).toBe(80);
+    expect(new Set(sample.scan.sampling.models.map((row) => row.provider)).size).toBe(4);
+    expect(sample.scan.sampling.models.every((row) => Boolean(row.model) && row.provider !== "perplexity")).toBe(true);
+    expect(sample.scan.sampling.timestampLabel).toBe("Scan created");
+    expect(Date.parse(sample.scan.completedAt!)).toBeGreaterThan(Date.parse(sample.scan.createdAt));
   });
 });
 

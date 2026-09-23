@@ -12,6 +12,7 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
 import { SITE_URL } from "@/lib/site";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+import "./form-controls.css";
 
 const sans = Geist({
   variable: "--font-sans",

@@ -157,7 +157,7 @@ export function ContactForm({
         >
           <SelectTrigger
             id="interest"
-            className="mt-1.5 h-9 w-full rounded-xl"
+            className="mt-1.5 w-full rounded-xl"
             aria-invalid={Boolean(errors.interest)}
             aria-describedby={errors.interest ? "interest-error" : undefined}
           >
@@ -187,7 +187,7 @@ export function ContactForm({
           >
             <SelectTrigger
               id="companySize"
-              className="mt-1.5 h-9 w-full rounded-xl"
+              className="mt-1.5 w-full rounded-xl"
               aria-invalid={Boolean(errors.companySize)}
             aria-describedby={errors.companySize ? "companySize-error" : undefined}
             >

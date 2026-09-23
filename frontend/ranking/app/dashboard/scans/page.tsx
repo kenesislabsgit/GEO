@@ -92,7 +92,7 @@ export default async function ScansPage({
         </Button>
       </div>
 
-      <form className="flex flex-wrap gap-2" role="search">
+      <form className="flex flex-wrap items-end gap-2" role="search">
         <FilterField label="Search audit history" wide><input
           aria-label="Search audit history"
           name="q"
@@ -129,9 +129,9 @@ export default async function ScansPage({
           type="date"
           name="after"
           defaultValue={filters.after}
-          className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
+          className="h-11 min-w-0 rounded-md border border-border bg-background px-3 text-sm"
         /></FilterField>
-        <Button type="submit" variant="outline">
+        <Button type="submit" variant="outline" className="h-11">
           Filter
         </Button>
         <Link

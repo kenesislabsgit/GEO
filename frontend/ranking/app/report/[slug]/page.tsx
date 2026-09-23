@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AnswerExplorer } from "@/components/dashboard/answer-explorer";
 import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -36,6 +38,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import {
   loadSampleReport,
+  loadSampleQuestions,
   SAMPLE_REPORT_SLUG,
 } from "@/lib/reports/sample-report";
 import { SITE_URL } from "@/lib/site";
@@ -347,7 +350,7 @@ export default async function ReportPage({
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-[color:var(--arc-accent)] text-white hover:bg-[color:var(--arc-accent)]">
                 {isSample
-                  ? "Sample report"
+                  ? "Plus sample report"
                   : brand?.visibility === "private"
                     ? "Private report"
                     : "Public report"}
@@ -382,6 +385,11 @@ export default async function ReportPage({
                   {report.brand.domain}
                   {report.brand.category ? ` · ${report.brand.category}` : ""}
                 </p>
+                {isSample ? (
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70">
+                    See how {report.brand.name} appears across AI answers, which sources are cited, and where there’s room to improve.
+                  </p>
+                ) : null}
                 <div className="mt-8 grid grid-cols-2 gap-6 md:grid-cols-3 md:gap-8">
                   <div>
                     <p className="text-[11px] font-medium tracking-wide text-white/50 uppercase">
@@ -453,7 +461,16 @@ export default async function ReportPage({
               </p>
             </div>
           </div>
-          <div className="mt-6 overflow-hidden rounded-xl border border-border">
+          {isSample ? (
+            <div className="mt-6">
+              <p className="mb-5 text-xs leading-relaxed text-muted-foreground">
+                Demo note: Perplexity examples use saved ChatGPT answers and don’t contribute to scores.
+              </p>
+              <Suspense fallback={<p className="text-sm text-muted-foreground">Loading saved answers…</p>}>
+                <AnswerExplorer questions={loadSampleQuestions()} brandName={report.brand.name} />
+              </Suspense>
+            </div>
+          ) : <div className="mt-6 overflow-hidden rounded-xl border border-border">
             <div className="divide-y divide-border">
               {report.promptMatrix.map((row) => (
                 <div
@@ -499,7 +516,7 @@ export default async function ReportPage({
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </section>
 
         {/* Competitor preview */}
@@ -791,14 +808,14 @@ export default async function ReportPage({
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
                 {isSample
-                  ? "A real audit, not a mockup"
+                  ? "See what AI says about your business"
                   : isOwner
                     ? "Public report preview"
                     : "Is this your company?"}
               </h2>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                 {isSample
-                  ? `This is a completed ChatGPT audit of ${report.brand.domain}. The score, the questions, and the sources are from that run.`
+                  ? "Explore your own visibility, competitor mentions, and evidence in one report."
                   : isOwner
                     ? "This is the shareable preview. Your complete provider answers, competitors, sources, improvements, and history remain in the dashboard."
                     : "Claim this report to attach it to your account. Plus adds private-report controls, history, and the full action centre — your prioritized fix list."}

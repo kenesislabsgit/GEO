@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/repository";
 import { reportShareImage } from "@/lib/reports/share-image";
 import { routes } from "@/lib/routes";
+import { loadSampleReport } from "@/lib/reports/sample-report";
 
 const id = "11111111-1111-4111-8111-111111111111";
 beforeEach(() => {
@@ -31,6 +32,23 @@ beforeEach(() => {
 });
 
 describe("historical report sharing", () => {
+  it("shares the saved sample's real score without looking up a customer report", async () => {
+    const report = loadSampleReport();
+    const image = await reportShareImage("sample", "sample");
+    const html = renderToStaticMarkup((image as unknown as { element: ReactElement }).element);
+    expect(html).toContain(report.brand.name);
+    expect(html).toContain(String(report.score.overall));
+    expect(html).toContain(`${report.score.mentionRate}%`);
+    expect(html).toContain("score uses live providers only");
+    expect(getBrandBySlug).not.toHaveBeenCalled();
+    expect(getScanRun).not.toHaveBeenCalled();
+
+    const { ImageResponse } = await vi.importActual<typeof import("next/og")>("next/og");
+    const rendered = new ImageResponse((image as unknown as { element: ReactElement }).element, { width: 1200, height: 630 });
+    const png = new Uint8Array(await rendered.arrayBuffer());
+    expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  });
+
   it("pins both links and images to the selected audit", async () => {
     vi.mocked(getBrandBySlug).mockResolvedValue({
       id: "brand-1",
