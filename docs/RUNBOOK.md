@@ -44,9 +44,12 @@ so a missed webhook heals within a day.
 ## Emails not arriving
 
 Alert emails set `emailed_at` only on confirmed acceptance; check worker
-logs for `alert_email_failed`. Verify `RESEND_API_KEY` and that `EMAIL_FROM`
-uses a verified domain in Resend. Verification/reset mail failures surface
-in the web logs the same way.
+logs for `alert_email_failed`. Verify `BREVO_API_KEY` and that `EMAIL_FROM`
+uses a verified sender. Retryable Brevo failures fall back to AWS SES in
+`AWS_REGION`; its sending identity and application-role permissions must be
+configured too. Check `email_provider_failed` and `email_delivery_failed`
+in web/worker logs. Verification and password-reset failures are returned
+to the caller instead of being reported as successful delivery.
 
 ## Database incident
 

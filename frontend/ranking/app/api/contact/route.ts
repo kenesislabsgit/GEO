@@ -4,7 +4,7 @@ import {
   labelForCompanySize,
   labelForInterest,
 } from "@/lib/contact/schema";
-import { sendContactEmail } from "@/lib/email/smtp";
+import { sendAlertEmail } from "@/lib/email/delivery";
 import { SUPPORT_EMAIL } from "@/lib/constants";
 import { limitAction } from "@/lib/rate-limit";
 import { normalizeDomain, UrlValidationError } from "@/lib/security/url";
@@ -82,8 +82,8 @@ export async function POST(request: Request) {
     inquiry.needs || "(no extra notes)",
   ].join("\n");
 
-  const sent = await sendContactEmail({
-    to: SUPPORT_EMAIL,
+  const sent = await sendAlertEmail({
+    to: process.env.CONTACT_TO_EMAIL?.trim() || SUPPORT_EMAIL,
     replyTo: inquiry.workEmail,
     subject: `${labelForInterest(inquiry.interest)}: ${inquiry.companyName || inquiry.firstName || "Customer request"}`,
     body,

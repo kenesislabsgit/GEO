@@ -109,23 +109,25 @@ export async function enqueueScan(
       [input.brand.id],
     );
     if (active) {
-      const queuedAt = new Date(active.queued_at ?? active.created_at).getTime();
       const staleQueued =
-        active.status === "queued" && Date.now() - queuedAt > STALE_QUEUED_MS;
+        active.status === "queued"
+          ? await one<{ id: string }>(
+              `update scan_runs set
+                 status = 'cancelled', step = 'cancelled',
+                 cancel_requested_at = now(),
+                 cancelled_at = now(),
+                 completed_at = now(),
+                 error_summary = 'Cancelled because the audit sat in queue too long.',
+                 failure_reason = 'stale_queue'
+               where id = $1 and status = 'queued'
+                 and coalesce(queued_at, created_at) < now() - ($2 * interval '1 millisecond')
+               returning id`,
+              [active.id, STALE_QUEUED_MS],
+            )
+          : null;
       if (!staleQueued) {
         return { ok: true, scan: active, alreadyRunning: true };
       }
-      await exec(
-        `update scan_runs set
-           status = 'cancelled', step = 'cancelled',
-           cancel_requested_at = now(),
-           cancelled_at = now(),
-           completed_at = now(),
-           error_summary = 'Cancelled because the audit sat in queue too long.',
-           failure_reason = 'stale_queue'
-         where id = $1 and status = 'queued'`,
-        [active.id],
-      );
     }
 
     const reserve = estimatedChecks(input.snapshot);

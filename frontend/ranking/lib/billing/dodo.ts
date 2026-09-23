@@ -39,11 +39,43 @@ export function mapDodoSubscriptionStatus(status: string): SubscriptionStatus {
     case "active":
       return "active";
     case "on_hold":
+    case "past_due":
       return "past_due";
+    case "paused":
+      return "paused";
     case "cancelled":
       return "canceled";
     default:
       return "inactive";
+  }
+}
+
+export function mapDodoEventStatus(
+  eventType: string,
+  providerStatus?: string | null,
+): SubscriptionStatus | null {
+  switch (eventType) {
+    case "subscription.active":
+    case "subscription.renewed":
+    case "subscription.plan_changed":
+    case "subscription.unpaused":
+    case "payment.succeeded":
+      return "active";
+    case "subscription.on_hold":
+    case "subscription.past_due":
+    case "payment.failed":
+      return "past_due";
+    case "subscription.paused":
+      return "paused";
+    case "subscription.failed":
+    case "subscription.expired":
+      return "inactive";
+    case "subscription.cancelled":
+      return "canceled";
+    case "subscription.updated":
+      return providerStatus ? mapDodoSubscriptionStatus(providerStatus) : null;
+    default:
+      return null;
   }
 }
 

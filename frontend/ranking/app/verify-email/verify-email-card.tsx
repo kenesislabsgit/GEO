@@ -1,22 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, MailCheck } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 import { routes, safeReturnTo } from "@/lib/routes";
 
 export function VerifyEmailCard({ email }: { email: string | null }) {
   const params = useSearchParams();
-  const verified = params.get("verified") === "1";
+  const returnTo = safeReturnTo(params.get("returnTo")) ?? routes.newScan();
   const linkError = params.get("error");
   const [resent, setResent] = useState(false);
   const [sending, setSending] = useState(false);
-  const returnTo = safeReturnTo(params.get("returnTo")) ?? routes.newScan();
-  const callbackURL = `${routes.verifyEmail}?verified=1&returnTo=${encodeURIComponent(returnTo)}`;
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!resent) return;
@@ -25,34 +23,18 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
   }, [resent]);
 
   async function resend() {
-    if (!email || sending) return;
+    if (!email || sending || resent) return;
     setSending(true);
+    setSendError(null);
     try {
-      const result = await authClient.sendVerificationEmail({ email, callbackURL });
-      if (result.error) throw new Error(result.error.message || "Could not send confirmation email.");
+      const result = await authClient.sendVerificationEmail({ email, callbackURL: returnTo });
+      if (result.error) throw new Error(result.error.message || "Could not send confirmation.");
       setResent(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send confirmation email. Please try again.");
+      setSendError(error instanceof Error ? error.message : "Could not send confirmation. Try again.");
     } finally {
       setSending(false);
     }
-  }
-
-  if (verified) {
-    return (
-      <div className="text-center">
-        <CheckCircle2 className="mx-auto size-8 text-[color:var(--arc-accent)]" aria-hidden />
-        <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
-          Email confirmed
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          You&apos;re all set - run your first audit.
-        </p>
-        <Button asChild className="mt-6 w-full">
-          <Link href={returnTo}>Start your audit</Link>
-        </Button>
-      </div>
-    );
   }
 
   if (linkError) {
@@ -70,6 +52,7 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
           sending={sending}
           onSend={resend}
         />
+        {sendError ? <p role="alert" className="mt-3 text-sm text-destructive">{sendError}</p> : null}
       </div>
     );
   }
@@ -92,12 +75,14 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
         sending={sending}
         onSend={resend}
       />
-      <p className="mt-4 text-xs text-muted-foreground">
-        Wrong address?{" "}
-        <Link href={routes.settings} className="underline hover:text-foreground">
-          Change it in settings
-        </Link>
-      </p>
+      {sendError ? <p role="alert" className="mt-3 text-sm text-destructive">{sendError}</p> : null}
+      {email ? (
+        <form action="/api/auth/signout" method="post" className="mt-4">
+          <button type="submit" className="text-xs text-muted-foreground underline hover:text-foreground">
+            Sign out and use a different account
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -108,6 +108,26 @@ describe("the durable scan queue", () => {
     });
   });
 
+  it.each(["Asia/Calcutta", "America/New_York"])("only replaces genuinely stale queued audits in %s", async (timezone) => {
+    const { enqueueScan } = await import("@/lib/scans/queue");
+    const { exec, one, withTransaction } = await import("@/lib/db/pg");
+    const user = await makeUser("queue-stale-timezone");
+    const brand = await makeBrand(user, "queue-stale-timezone.example");
+    const input = { brand, initiatedBy: user, scanType: "manual" as const, snapshot: snapshot(brand.canonical_domain), checksLimit: 400 };
+    await withTransaction(async () => {
+      await exec("select set_config('TimeZone', $1, true)", [timezone]);
+      const first = await enqueueScan(input);
+      if (!first.ok) throw new Error(first.error);
+      const fresh = await enqueueScan(input);
+      expect(fresh).toMatchObject({ ok: true, alreadyRunning: true, scan: { id: first.scan.id } });
+      await exec("update scan_runs set queued_at = now() - interval '20 minutes' where id = $1", [first.scan.id]);
+      const replacement = await enqueueScan(input);
+      expect(replacement).toMatchObject({ ok: true, alreadyRunning: false });
+      if (replacement.ok) expect(replacement.scan.id).not.toBe(first.scan.id);
+      expect(await one("select status, failure_reason from scan_runs where id = $1", [first.scan.id])).toEqual({ status: "cancelled", failure_reason: "stale_queue" });
+    });
+  });
+
   it("returns the same scan for the same idempotency key", async () => {
     const { enqueueScan } = await import("@/lib/scans/queue");
     const user = await makeUser("queue-user-2");

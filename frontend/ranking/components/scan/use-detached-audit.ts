@@ -40,6 +40,7 @@ export function useDetachedAudit(options: {
   storageKey: string;
   userId: string;
   onDone: (brandId: string) => void;
+  onEmailUnverified?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function useDetachedAudit(options: {
   const lastSeq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDoneRef = useRef(options.onDone);
+  const onEmailUnverifiedRef = useRef(options.onEmailUnverified);
   const storageKey = auditStorageKey(options.storageKey, options.userId);
   const alive = useRef(false);
   const generation = useRef(0);
@@ -56,7 +58,8 @@ export function useDetachedAudit(options: {
   const starting = useRef(false);
   useEffect(() => {
     onDoneRef.current = options.onDone;
-  }, [options.onDone]);
+    onEmailUnverifiedRef.current = options.onEmailUnverified;
+  }, [options.onDone, options.onEmailUnverified]);
 
   const stopPolling = useCallback(() => {
     generation.current += 1;
@@ -199,6 +202,11 @@ export function useDetachedAudit(options: {
         // A started job survives navigation; retain its ID for the next visit.
         if (res.ok && data.scanRunId) storeAuditRun(storageKey, data.scanRunId);
         if (!alive.current || generation.current !== run) return;
+        if (data.code === "email_unverified" && onEmailUnverifiedRef.current) {
+          setLoading(false);
+          onEmailUnverifiedRef.current();
+          return;
+        }
         if (!res.ok || !data.scanRunId) {
           throw new Error(data.error || "Could not start audit");
         }

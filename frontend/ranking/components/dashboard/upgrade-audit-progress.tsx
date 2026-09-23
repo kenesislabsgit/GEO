@@ -28,6 +28,7 @@ export function UpgradeAuditProgress({
   const { loading, error, progress, step, events, start } = useDetachedAudit({
     userId,
     storageKey: `rbai_audit_upgrade_${brandId}`,
+    onEmailUnverified: () => router.push(`${routes.verifyEmail}?returnTo=${encodeURIComponent(routes.brandUpgrade(brandId))}`),
     onDone: (doneBrandId) => {
       router.replace(`${routes.brand(doneBrandId)}?completed=1`);
       router.refresh();

@@ -140,6 +140,7 @@ export function NewScanForm({
   } = useDetachedAudit({
     userId,
     storageKey: "rbai_audit_new_scan",
+    onEmailUnverified: () => router.push(`${routes.verifyEmail}?returnTo=${encodeURIComponent(routes.newScan(brandId ?? undefined))}`),
     onDone: (doneBrandId) =>
       router.push(`${routes.brand(doneBrandId)}?completed=1`),
   });

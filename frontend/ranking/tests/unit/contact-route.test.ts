@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/rate-limit", () => ({
   limitAction: vi.fn(async () => ({ success: true })),
 }));
-vi.mock("@/lib/email/smtp", () => ({
-  sendContactEmail: vi.fn(async () => ({ ok: true })),
+vi.mock("@/lib/email/delivery", () => ({
+  sendAlertEmail: vi.fn(async () => ({ ok: true })),
 }));
 import { POST } from "@/app/api/contact/route";
-import { sendContactEmail } from "@/lib/email/smtp";
+import { sendAlertEmail } from "@/lib/email/delivery";
 
 const send = (body: unknown) =>
   POST(
@@ -28,7 +28,7 @@ describe("support inquiry endpoint", () => {
         })
       ).status,
     ).toBe(200);
-    expect(sendContactEmail).toHaveBeenCalledWith(
+    expect(sendAlertEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         replyTo: "customer@example.com",
         subject: expect.stringContaining("Account or billing support"),
@@ -55,6 +55,6 @@ describe("support inquiry endpoint", () => {
         })
       ).status,
     ).toBe(400);
-    expect(sendContactEmail).not.toHaveBeenCalled();
+    expect(sendAlertEmail).not.toHaveBeenCalled();
   });
 });

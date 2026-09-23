@@ -59,15 +59,17 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
     setError(null);
     try {
       // Real accounts, real passwords: Better Auth checks the credentials and
-      // sets the session cookie. Only then does /api/auth/complete attach any
-      // claimed report and decide where to land.
+      // sets the session cookie. /api/auth/complete then checks verification
+      // and preserves the selected checkout, claim, or audit destination.
       const attempt =
         mode === "signup"
           ? await signUp.email({
               email,
               password,
               name: email.split("@")[0] || email,
-              callbackURL: `${routes.verifyEmail}?verified=1&returnTo=${encodeURIComponent(returnTo ?? routes.newScan())}`,
+              callbackURL: claim
+                ? routes.claim(claim)
+                : returnTo ?? routes.newScan(),
             })
           : await signIn.email({ email, password });
       if (attempt.error) {
@@ -111,8 +113,8 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
       <p className="mt-1 text-sm text-muted-foreground">
         {trial ? "Create an account or sign in to continue to your selected trial." : mode === "signup"
           ? auditUrl
-            ? "We'll run this site as soon as you sign up."
-            : "Create an account to save your audits."
+            ? "We'll run this site as soon as you confirm your email."
+            : "Confirm your email to start saving your audits."
           : "Sign in to your dashboard."}
       </p>
 

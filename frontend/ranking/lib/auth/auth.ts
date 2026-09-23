@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
-import { sendAlertEmail } from "@/lib/email/resend";
+import { sendAlertEmail } from "@/lib/email/delivery";
 
 /**
  * Login, owned by this application.
@@ -60,33 +60,37 @@ export const auth = betterAuth({
     })(),
   emailAndPassword: {
     enabled: true,
-    // Sign-in stays open to unverified accounts so nobody is locked out of
-    // an account they just made; running an audit is what requires a
-    // verified address, and that is enforced at the audit door.
+    // Pending accounts keep an onboarding session so they can resend mail.
+    // getSessionUser excludes them from all protected pages and API routes.
     requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
-      await sendAlertEmail({
+      const sent = await sendAlertEmail({
         to: user.email,
         subject: "Reset your password",
+        actionLabel: "Reset password",
+        actionUrl: url,
         body:
           `Someone asked to reset the password for this address. If it was you, ` +
-          `open this link within the hour:\n\n${url}\n\nIf it was not you, ` +
+          `use the button below within the hour.\n\nIf it was not you, ` +
           `ignore this email - nothing changes without the link.`,
       });
+      if (!sent.ok) throw new Error("Could not send the password reset email.");
     },
   },
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await sendAlertEmail({
+      const sent = await sendAlertEmail({
         to: user.email,
         subject: "Confirm your email address",
+        actionLabel: "Confirm email",
+        actionUrl: url,
         body:
-          `Welcome. Your audit can start now. Confirm this address when you ` +
-          `have a moment so we know the inbox is yours:\n\n${url}\n\n` +
+          `Welcome to Arcanoris. Confirm this address to unlock your first audit.\n\n` +
           `If you did not create an account, ignore this email.`,
       });
+      if (!sent.ok) throw new Error("Could not send the confirmation email.");
     },
   },
   user: {
@@ -100,16 +104,19 @@ export const auth = betterAuth({
       // inbox first. Without this, a hijacked session could quietly move
       // the account to an address the real owner doesn't control.
       sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-        await sendAlertEmail({
+        const sent = await sendAlertEmail({
           to: user.email,
           subject: "Confirm your email change",
+          actionLabel: "Confirm email change",
+          actionUrl: url,
           body:
             `Someone asked to change the sign-in address on this account ` +
             `from ${user.email} to ${newEmail}. If it was you, confirm ` +
-            `within the hour:\n\n${url}\n\nIf it was not you, ignore this ` +
+            `within the hour.\n\nIf it was not you, ignore this ` +
             `email - nothing changes without the link, and your password ` +
             `still works.`,
         });
+        if (!sent.ok) throw new Error("Could not send the email-change confirmation.");
       },
     },
   },
@@ -137,10 +144,8 @@ export const auth = betterAuth({
       // refused with account_not_linked and the person is locked out of
       // half their own login.
       trustedProviders: ["google"],
-      // Nothing sends verification email yet, so every password account is
-      // unverified and the default (only link to verified accounts) would
-      // refuse everybody. Accepted trade-off until email verification
-      // exists: Google's own check that you own the inbox is the proof.
+      // A verified Google identity can link a pending password account with
+      // the same address: Google has already proved ownership of that inbox.
       requireLocalEmailVerified: false,
     },
   },

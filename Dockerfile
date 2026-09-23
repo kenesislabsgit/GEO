@@ -30,6 +30,9 @@ WORKDIR /app/frontend/ranking
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgres://postgres:postgres@localhost:5432/geo_dev"
 ENV BETTER_AUTH_SECRET="geo-build-secret-1234567890-key-build"
+# Next inlines public URLs during the build; never bake in a local checkout URL.
+ARG NEXT_PUBLIC_APP_URL="https://app.arcanoris.in"
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 RUN npm run build
 
 # Configure runtime environment

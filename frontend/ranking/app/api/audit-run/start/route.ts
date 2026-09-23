@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { getSessionUser } from "@/lib/auth/session";
+import { getOnboardingUser } from "@/lib/auth/session";
 import { authorizeAudit } from "@/lib/billing/enforce";
 import { FREE_AUDIT_PROVIDER } from "@/lib/constants";
 import {
@@ -62,12 +62,18 @@ const requestSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   const body = requestSchema.parse(await request.json());
-  const user = await getSessionUser();
+  const user = await getOnboardingUser(request.headers);
   // Every audit costs real money to run, so nobody runs one without an account.
   if (!user) {
     return NextResponse.json(
       { error: "Sign in to run an audit." },
       { status: 401 },
+    );
+  }
+  if (!user.emailVerified) {
+    return NextResponse.json(
+      { error: "Confirm your email address before running an audit.", code: "email_unverified" },
+      { status: 403 },
     );
   }
 
@@ -82,11 +88,6 @@ export async function POST(request: NextRequest) {
       { status: 429 },
     );
   }
-
-  // Confirmation email still goes out at signup. It does not hold the first
-  // audit: the homepage promises a result in about two minutes, and a person
-  // who just typed a domain should see that scan start while the inbox
-  // catches up. Rate limiting above is what stops a flood of throwaway runs.
 
   const existingBrand = body.brandId ? await getBrandById(body.brandId) : null;
   if (body.brandId && (!existingBrand || existingBrand.owner_id !== user.id)) {

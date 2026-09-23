@@ -116,7 +116,14 @@ function assertColumns(keys: string[]): void {
 // jsonb columns must receive JSON text: handed a plain JS array, the driver
 // would try to write a Postgres array instead and the insert fails.
 function toParam(value: unknown): unknown {
-  if (value !== null && typeof value === "object") return JSON.stringify(value);
+  // PostgreSQL rejects NUL characters in both text and JSON strings. Clean
+  // values before serialization so literal text such as "\\u0000" stays intact.
+  if (typeof value === "string") return value.replaceAll("\u0000", "");
+  if (value !== null && typeof value === "object") {
+    return JSON.stringify(value, (_key, item: unknown) =>
+      typeof item === "string" ? item.replaceAll("\u0000", "") : item,
+    );
+  }
   return value;
 }
 

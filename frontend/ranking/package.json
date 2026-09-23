@@ -16,6 +16,7 @@
     "worker": "tsx worker/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1136.0",
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "^3.1.0",
     "@upstash/ratelimit": "^2.0.8",
@@ -40,7 +41,6 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.0",
     "redis": "^5.12.1",
-    "resend": "^6.17.2",
     "shadcn": "^4.13.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",

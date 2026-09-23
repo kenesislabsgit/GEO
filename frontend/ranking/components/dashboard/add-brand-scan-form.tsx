@@ -39,6 +39,7 @@ export function AddBrandScanForm({
   const { loading, error, progress, step, events, start } = useDetachedAudit({
     userId,
     storageKey: STORAGE_KEY,
+    onEmailUnverified: () => router.push(`${routes.verifyEmail}?returnTo=${encodeURIComponent(routes.addWebsite)}`),
     onDone: (brandId) => router.push(`${routes.brand(brandId)}?completed=1`),
   });
 

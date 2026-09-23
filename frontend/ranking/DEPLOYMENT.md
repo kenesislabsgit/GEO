@@ -48,6 +48,17 @@ version before it runs the build.
 - Health: `GET /api/health` (DB reachability, worker recency, queue depth).
 - Point the Dodo webhook at `https://<domain>/api/billing/webhook` and set
   `DODO_PAYMENTS_WEBHOOK_KEY` to its signing secret.
+- Set both `DODO_FOUNDER_MONTHLY_PRODUCT_ID` and
+  `DODO_FOUNDER_YEARLY_PRODUCT_ID`. A Growth product is not required.
+- The container builds public checkout URLs with `NEXT_PUBLIC_APP_URL`,
+  defaulting to `https://app.arcanoris.in`. Override the build argument for
+  other deployments; changing only the runtime variable cannot change an
+  already-built client bundle.
+- Email uses `BREVO_API_KEY` first, with AWS SES fallback in `AWS_REGION`.
+  Set `EMAIL_FROM` to a sender verified with both providers and give the
+  application's AWS role permission to send through SES. Set
+  `CONTACT_TO_EMAIL` to override the support inbox. Verification is required
+  before dashboard/API access, so configure delivery before enabling signup.
 
 ## 3. Worker
 

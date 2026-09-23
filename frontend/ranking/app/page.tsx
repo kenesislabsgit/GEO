@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { LandingHero } from "@/components/site/hero";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
+import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -473,13 +474,39 @@ const PROVIDER_STRIP = ALL_PROVIDERS;
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
-/** One mark per catalog provider, placed on an ellipse around the dial. */
-const RADAR_BLIPS = ALL_PROVIDERS.map((id, index) => {
-  const angle = (index / ALL_PROVIDERS.length) * Math.PI * 2 - Math.PI / 2;
-  const left = 50 + Math.cos(angle) * 40;
-  const top = 50 + Math.sin(angle) * 38;
-  return { id, left, top };
-});
+const STAT_CHIPS_ROWS = [
+  [
+    `${CATALOG_COUNT} providers available`,
+    "Cited sources",
+    "Share of voice",
+    "Position tracking",
+    "Competitor benchmarking",
+    "Citation gaps",
+  ],
+  [
+    "Full answer text",
+    "Scheduled monitoring",
+    "Action centre",
+    "Email alerts",
+    "Country comparisons",
+    "CSV exports",
+  ],
+] as const;
+
+// Vary the distance from the centre, like signals picked up by a radar.
+// Every mark is an actual provider in the current catalog.
+const RADAR_BLIPS = [
+  { id: "openai_search", left: 48, top: 10 },
+  { id: "bedrock_claude", left: 76, top: 25 },
+  { id: "gemini", left: 20, top: 26 },
+  { id: "perplexity", left: 10, top: 51 },
+  { id: "grok", left: 86, top: 51 },
+  { id: "deepseek", left: 22, top: 75 },
+  { id: "groq", left: 76, top: 76 },
+  { id: "bedrock_mistral", left: 49, top: 88 },
+  { id: "kimi", left: 38, top: 43 },
+  { id: "bedrock_nova", left: 63, top: 62 },
+] as const;
 
 /* ----------------------------------------------------------------- page -- */
 
@@ -656,35 +683,55 @@ export default async function HomePage() {
               </div>
               </Reveal>
 
-              {/* Providers - floating pills */}
-              <Reveal delay={150}>
+              {/* Regional growth - the tall globe balances the staggered grid. */}
+              <Reveal delay={100} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative min-h-52 flex-1 sm:min-h-72">
+                <div className="relative flex min-h-60 flex-1 items-center justify-center sm:min-h-72" aria-hidden>
+                  <div className="arc-glow absolute inset-0" />
+                  <RegionalGlobe className="relative aspect-square w-full max-w-[280px] sm:max-w-[380px]" />
+                </div>
+                <div className="p-5 sm:p-6 md:p-8">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                    Regional growth · Pro
+                  </p>
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
+                    See where your brand travels
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    Compare country-specific buyer questions and discover where
+                    your brand gets named. Geographic markets are available on Pro.
+                  </p>
+                </div>
+              </div>
+              </Reveal>
+
+              {/* Providers - floating pills */}
+              <Reveal delay={150} className="lg:row-span-2">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
+                <div className="relative grid min-h-72 flex-1 place-items-center py-5 sm:min-h-80" aria-hidden>
                   {/* The radar dial: rings, crosshair, and a sweeping beam. */}
-                  <div aria-hidden className="absolute inset-0 grid place-items-center">
-                    <div className="relative aspect-square w-[72%] sm:w-[86%]">
-                      <div className="absolute inset-0 rounded-full border border-border" />
-                      <div className="absolute inset-[17%] rounded-full border border-border" />
-                      <div className="absolute inset-[34%] rounded-full border border-border" />
-                      <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
-                      <div className="arc-radar-sweep absolute inset-0" />
-                      <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
-                    </div>
+                  <div className="relative aspect-square w-[86%] max-w-[360px]">
+                    <div className="absolute inset-0 rounded-full border border-border" />
+                    <div className="absolute inset-[17%] rounded-full border border-border" />
+                    <div className="absolute inset-[34%] rounded-full border border-border" />
+                    <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
+                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
+                    <div className="arc-radar-sweep absolute inset-0" />
+                    <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
+                    {RADAR_BLIPS.map((blip, index) => (
+                      <span
+                        key={blip.id}
+                        className="arc-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-[0_3px_12px_-4px_rgba(0,0,0,0.25)]"
+                        style={{
+                          ...delayStyle(index * 550),
+                          left: `calc(${blip.left}% - 18px)`,
+                          top: `calc(${blip.top}% - 18px)`,
+                        }}
+                      >
+                        <ProviderLogo provider={blip.id} className="size-4" />
+                      </span>
+                    ))}
                   </div>
-                  {RADAR_BLIPS.map((blip, index) => (
-                    <span
-                      key={blip.id}
-                      className="arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm"
-                      style={{
-                        ...delayStyle(index * 280),
-                        left: `calc(${blip.left}% - 16px)`,
-                        top: `calc(${blip.top}% - 16px)`,
-                      }}
-                    >
-                      <ProviderLogo provider={blip.id} className="size-3.5" />
-                    </span>
-                  ))}
                 </div>
                 <div className="p-5 sm:p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
@@ -703,7 +750,7 @@ export default async function HomePage() {
               </Reveal>
 
               {/* Big stat card */}
-              <Reveal delay={100}>
+              <Reveal delay={100} className="min-w-0 sm:col-span-2 lg:col-span-1">
               <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
                 <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                   200
@@ -711,6 +758,23 @@ export default async function HomePage() {
                 <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
                   provider answers per Pro audit - 20 questions × 10 selected providers
                 </p>
+                <div className="mt-6 flex flex-col gap-2">
+                  {STAT_CHIPS_ROWS.map((chips, row) => (
+                    <div key={row} className="arc-marquee-mask -mx-5 sm:-mx-6 md:-mx-8">
+                      <div className={`arc-marquee flex w-max items-center${row === 1 ? " arc-marquee--reverse" : ""}`}>
+                        {[0, 1].map((copy) => (
+                          <div key={copy} aria-hidden={copy === 1 ? true : undefined} className="flex shrink-0 items-center gap-2 pr-2">
+                            {chips.map((chip) => (
+                              <span key={chip} className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               </Reveal>
 

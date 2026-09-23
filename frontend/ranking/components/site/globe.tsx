@@ -17,7 +17,7 @@ export function Globe({
   config: COBEOptions;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const phiRef = useRef(0);
+  const phiRef = useRef(config.phi);
   const widthRef = useRef(0);
   const pointerInteracting = useRef<number | null>(null);
 
@@ -76,6 +76,12 @@ export function Globe({
     const unsubscribe = rs.on("change", () => { if (media.matches) renderFrame(); });
     const resizeObserver = new ResizeObserver(() => { onResize(); renderFrame(); });
     resizeObserver.observe(canvas);
+    // COBE loads its map texture asynchronously. Refresh on entry so a static,
+    // reduced-motion globe includes the land detail once it scrolls into view.
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting && media.matches) renderFrame();
+    });
+    visibilityObserver.observe(canvas);
     const opacityFrame = requestAnimationFrame(() => {
       canvas.style.opacity = "1";
     });
@@ -84,6 +90,7 @@ export function Globe({
       stopFrames?.();
       cancelAnimationFrame(opacityFrame);
       resizeObserver.disconnect();
+      visibilityObserver.disconnect();
       unsubscribe();
       media.removeEventListener("change", syncMotion);
       globe.destroy();

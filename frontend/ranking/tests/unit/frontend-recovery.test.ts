@@ -18,7 +18,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/client", () => ({
   authClient: { sendVerificationEmail: vi.fn() },
 }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { HeroDomainInput } from "@/components/site/hero-domain-input";
 import { VerifyEmailCard } from "@/app/verify-email/verify-email-card";
@@ -28,7 +27,6 @@ import {
   chartKeyboardIndex,
 } from "@/components/dither-kit/chart-data";
 import { authClient } from "@/lib/auth/client";
-import { toast } from "sonner";
 
 afterEach(() => {
   cleanup();
@@ -72,7 +70,7 @@ describe("frontend recovery without layout changes", () => {
         screen.getByRole("button", { name: "Resend confirmation email" }),
       );
     });
-    expect(toast.error).toHaveBeenCalledWith("Rate limited");
+    expect(screen.getByRole("alert").textContent).toBe("Rate limited");
     const retry = screen.getByRole("button", {
       name: "Resend confirmation email",
     }) as HTMLButtonElement;
@@ -90,9 +88,7 @@ describe("frontend recovery without layout changes", () => {
     const callback = vi
       .mocked(authClient.sendVerificationEmail)
       .mock.calls.at(-1)![0].callbackURL!;
-    expect(
-      new URL(callback, "http://localhost").searchParams.get("returnTo"),
-    ).toBe("/dashboard/scans/new?domain=example.com");
+    expect(callback).toBe("/dashboard/scans/new?domain=example.com");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });

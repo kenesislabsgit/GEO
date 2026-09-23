@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import "../../worker/env";
+import { Pool } from "pg";
 
 async function signUp(
   page: import("@playwright/test").Page,
@@ -18,6 +20,13 @@ async function signUp(
     if (!ok) await page.waitForTimeout(3_000 * (attempt + 1));
   }
   expect(ok).toBeTruthy();
+  // This suite exercises verified users; delivery is covered separately.
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    await pool.query(`update "user" set "emailVerified" = true where email = $1`, [email]);
+  } finally {
+    await pool.end();
+  }
   const complete = await page.request.post("/api/auth/complete", {
     data: { returnTo },
   });
