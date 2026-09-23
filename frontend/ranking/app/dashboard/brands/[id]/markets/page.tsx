@@ -147,21 +147,17 @@ export default async function MarketsPage({
             </span>
             <div>
               <h2 className="text-sm font-semibold">
-                Geographic market search is a Pro feature
+                Compare target markets with Pro
               </h2>
               <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-                Pro audits ask up to half their questions the way buyers in
-                India, the US, Europe and other markets would - with web search
-                located in each country - and map where you get recommended.
+                See where AI recommends your company across your target markets.
               </p>
+              <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">How market testing works</summary><p>Up to half the questions use local buyer wording and web search located in the selected countries.</p></details>
             </div>
           </div>
           <Button asChild size="sm">
             <Link
-              href={routes.billing({
-                plan: "agency",
-                returnTo: routes.brandSection(brand.id, "markets"),
-              })}
+              href="/contact?intent=pro&feature=markets"
             >
               Upgrade to Pro
             </Link>

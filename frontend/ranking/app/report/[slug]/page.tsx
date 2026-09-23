@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -101,7 +102,7 @@ async function loadReport(
     created_at: question.created_at,
   }));
   const stableResults: QueryResult[] = results.map((result) =>
-    result.question_position
+    result.question_position != null
       ? {
           ...result,
           tracked_prompt_id: `scan-question-${result.question_position}`,
@@ -120,6 +121,7 @@ async function loadReport(
     score: score ?? cached.score,
     prompts,
     results: stableResults,
+    scanQuestions: frozenQuestions,
     recommendations,
   });
 }
@@ -193,7 +195,7 @@ export default async function ReportPage({
     return (
       <>
         <SiteHeader />
-        <main className="mx-auto max-w-2xl flex-1 px-4 py-24 text-center">
+        <main id="main-content" tabIndex={-1} className="mx-auto max-w-2xl flex-1 px-4 py-24 text-center">
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
             Audit unavailable
           </h1>
@@ -300,7 +302,7 @@ export default async function ReportPage({
       <div className="print:hidden">
         <SiteHeader />
       </div>
-      <main className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1">
         {/* Score header */}
         <section className="relative overflow-hidden border-b border-border bg-[color:var(--arc-ink)]">
           <div className="arc-grid-dark absolute inset-0 [mask-image:radial-gradient(ellipse_70%_80%_at_50%_0%,black,transparent)]" />
@@ -330,8 +332,7 @@ export default async function ReportPage({
                 </Badge>
               ) : null}
               <span className="text-xs text-white/50">
-                Scanned {new Date(report.scan.createdAt).toLocaleDateString()} ·
-                methodology {report.scan.methodologyVersion}
+                Audited {new Date(report.scan.createdAt).toLocaleDateString()}
               </span>
             </div>
 
@@ -373,16 +374,24 @@ export default async function ReportPage({
               </div>
               <div className="shrink-0 md:max-w-64">
                 <ScoreRing score={report.score.overall} />
-                <p className="mt-4 max-w-sm text-xs leading-relaxed text-white/70">
-                  {report.score.mentionRate === 0 ? "No brand mentions were found. Any score points come from evidence completeness, not recommendations of this brand. " : ""}
-                  Score weights: mentions 65%, position 30%, evidence completeness up to 5 points. Citations are diagnostic and add no points.
-                </p>
+                <div className="mt-4 max-w-sm text-xs leading-relaxed text-white/70">
+                  {report.score.mentionRate === 0 ? <p>Not mentioned in this audit. The score includes completeness points.</p> : null}
+                  <details className="mt-2">
+                    <summary className="cursor-pointer py-2">How this score is calculated</summary>
+                    <p>Mentions contribute 65%, position 30%, and evidence completeness up to 5 points. Citations do not add points.</p>
+                  </details>
+                </div>
               </div>
             </div>
 
           </div>
         </section>
 
+        {report.scan.coverage ? (
+          <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6">
+            <AuditCoverageNotice coverage={report.scan.coverage} />
+          </div>
+        ) : null}
         {/* Prompt matrix */}
         <section className="mx-auto max-w-6xl px-4 py-14 md:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -455,7 +464,7 @@ export default async function ReportPage({
                 Companies the AI recommended
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open a name to visit its source, or inspect its saved answer
+                Open a name to visit its source, or inspect its AI answer
                 and evidence below. AI citations and fetched page passages are labelled separately.
               </p>
             </div>
@@ -540,12 +549,10 @@ export default async function ReportPage({
           <section className="border-y border-border bg-[color:var(--arc-mist)]">
             <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
               <h2 className="text-xl font-semibold tracking-tight">
-                The competitor we looked into
+                Competitor website analysis
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                The most-recommended company had its website found from the
-                sources the AI cited, and one relevant page read. The action
-                below is built on it.
+                Website pages collected for a competitor that appeared in this audit.
               </p>
 
               <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -613,7 +620,7 @@ export default async function ReportPage({
             <div className="flex items-center gap-2">
               <Lightbulb className="size-4 text-muted-foreground" />
               <h2 className="text-xl font-semibold tracking-tight">
-                Your best next action
+                Suggested next action
               </h2>
             </div>
             {report.recommendation ? (
@@ -622,15 +629,17 @@ export default async function ReportPage({
                   {report.recommendation.title}
                 </h3>
                 {report.recommendation.reason ? (
-                  <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-                    {report.recommendation.reason}
-                  </p>
+                  <details className="mt-3 text-sm leading-relaxed text-foreground/80">
+                    <summary className="cursor-pointer py-2">Why this is suggested</summary>
+                    <p>{report.recommendation.reason}</p>
+                  </details>
                 ) : null}
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   {report.recommendation.explanation}
                 </p>
                 <div className="mt-6 border-t border-border pt-5">
-                  <h4 className="text-sm font-semibold">Supporting passages</h4>
+                  <h4 className="text-sm font-semibold">Related website excerpts</h4>
+                  {!report.recommendation.sources.length || report.recommendation.sources.some((source) => !source.excerpt?.trim()) ? <p className="mt-2 text-sm text-muted-foreground">Supporting website evidence is incomplete. Treat this action as a suggestion.</p> : null}
                   <p className="mt-1 text-xs text-muted-foreground">Saved during this audit. Open the original page or jump to the quoted passage.</p>
                   {report.recommendation.sources.length ? (
                     <div className="mt-4 space-y-6">

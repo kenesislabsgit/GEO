@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth/session";
 import { getAccountEntitlements } from "@/lib/billing/account";
 import { isPaidSubscription } from "@/lib/billing/is-paid";
-import { getBrandById, scoresForBrand } from "@/lib/db/repository";
+import { getBrandById, scoresForBrand, listScanHistoryForBrands } from "@/lib/db/repository";
 import { ScoreHistoryChart } from "@/components/dashboard/score-history-chart";
 import { roundForDisplay } from "@/lib/scores/format";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
@@ -19,25 +21,19 @@ export default async function HistoryPage({
   const { id } = await params;
   const brand = await getBrandById(id);
   if (!brand || brand.owner_id !== user.id) notFound();
-  const [scores, entitlements] = await Promise.all([
+  const [scores, entitlements, history] = await Promise.all([
     scoresForBrand(brand.id),
     getAccountEntitlements(user.id),
+    listScanHistoryForBrands([brand.id]),
   ]);
   const isPaid = isPaidSubscription(entitlements);
-  const chartData = scores
-    .slice()
-    .reverse()
-    .map((s) => ({
-      date: new Date(s.created_at).toLocaleDateString(),
-      score: roundForDisplay(Number(s.overall_score)),
-    }));
-  // Scores from different methodology versions are not directly comparable;
-  // when history spans a version change, say so instead of drawing one
-  // silent line through both.
-  const versions = Array.from(
-    new Set(scores.map((s) => s.methodology_version ?? "unversioned")),
-  );
-  const mixedVersions = versions.length > 1;
+  const chartData = scores.slice().reverse().map((score) => ({
+    id: score.scan_run_id,
+    date: new Date(score.created_at).toLocaleDateString(),
+    score: roundForDisplay(Number(score.overall_score)),
+    sampleKey: history.find((run) => run.id === score.scan_run_id)?.sample_key ?? null,
+    href: routes.brandSection(brand.id, "prompts") + "?scan=" + encodeURIComponent(score.scan_run_id),
+  }));
 
   return (
     <div className="space-y-6">
@@ -45,7 +41,7 @@ export default async function HistoryPage({
         brandId={brand.id}
         brandName={brand.name}
         title="Score history"
-        description="How your AI Visibility Score has moved across scans. AI answers are non-deterministic, so single runs vary - judge the trend, not one audit."
+        description="Your scores over time. AI answers can vary between audits."
         isPaid={isPaid}
         newAudit
       />
@@ -64,32 +60,23 @@ export default async function HistoryPage({
       ) : (
         <>
           <BrandExportLinks brandId={brand.id} />
-          {mixedVersions ? (
-            <div className="rounded-lg border border-[color:var(--arc-amber)]/40 bg-[color:var(--arc-amber)]/10 px-4 py-3 text-sm">
-              This history spans methodology versions ({versions.join(", ")}).
-              Scores are comparable within a version; treat changes across the
-              boundary as a new baseline, not a movement.
-            </div>
-          ) : null}
           <div className="arc-panel p-5">
             <ScoreHistoryChart data={chartData} />
+            <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">About comparisons</summary><p>Lines connect complete audits with matching questions, assistants, market and scoring method. Separate points mark results that cannot be compared. Open an audit to see its coverage.</p></details>
           </div>
           <div className="arc-list">
             <div className="divide-y divide-border">
               {scores.map((s) => (
-                <div
+                <Link
                   key={s.id}
-                  className="flex items-center justify-between bg-card px-5 py-3 text-sm"
+                  href={`${routes.brandSection(brand.id, "prompts")}?scan=${encodeURIComponent(s.scan_run_id)}`}
+                  className="flex flex-wrap items-center justify-between gap-3 bg-card px-5 py-3 text-sm hover:bg-muted/50"
                 >
                   <span className="text-muted-foreground">
                     {new Date(s.created_at).toLocaleString()}
                   </span>
                   <div className="flex items-center gap-4">
-                    {mixedVersions ? (
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {s.methodology_version ?? "unversioned"}
-                      </span>
-                    ) : null}
+
                     <span className="font-mono text-xs text-muted-foreground">
                       mention {roundForDisplay(Number(s.mention_rate) * 100)}%
                     </span>
@@ -97,7 +84,7 @@ export default async function HistoryPage({
                       {roundForDisplay(Number(s.overall_score))}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

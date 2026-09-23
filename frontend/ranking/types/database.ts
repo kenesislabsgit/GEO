@@ -285,6 +285,9 @@ export type FreeScanRequest = {
 export type Alert = {
   id: string;
   user_id: string;
+  scan_run_id?: string | null;
+  comparison_notice?: string;
+  website_name?: string;
   brand_id: string | null;
   type: string;
   title: string;

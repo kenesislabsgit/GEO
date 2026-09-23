@@ -159,7 +159,7 @@ export async function enqueueScan(
          ) values (
            $1, $2, $3, 'queued', $4,
            $5, 0, 'pending', false,
-           $6, $7, 'queued', 0, timezone('utc', now()), 0,
+           $6, $7, 'queued', 0, now(), 0,
            $8, $9, $10, $11, $12
          ) returning *`,
         [

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
@@ -136,14 +138,18 @@ export default async function CompetitorsPage({
               <div className="lg:pr-5">
                 <p className="arc-eyebrow">Your position</p>
                 <p className="arc-tabular mt-1.5 text-2xl font-semibold tracking-tight">
-                  #{brandRankPosition}
+                  {brandMentions > 0
+                    ? `#${brandRankPosition}`
+                    : "Not mentioned"}
                   <span className="text-sm font-normal text-muted-foreground">
                     {" "}
-                    of {rankedTotal}
+                    {brandMentions > 0 ? `of ${rankedTotal}` : ""}
                   </span>
                 </p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  among companies AI named with evidence
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {brandMentions > 0
+                    ? "among companies AI named with evidence"
+                    : "Unranked in the saved answers"}
                 </p>
               </div>
               <div className="lg:px-5">
@@ -165,9 +171,11 @@ export default async function CompetitorsPage({
                   {brandAverageRank ? `#${brandAverageRank}` : " - "}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {aheadOfBrand > 0
-                    ? `${aheadOfBrand} ${aheadOfBrand === 1 ? "company" : "companies"} ahead of you`
-                    : "nobody recommended more often"}
+                  {brandMentions === 0
+                    ? "No recommendation position"
+                    : aheadOfBrand > 0
+                      ? `${aheadOfBrand} ${aheadOfBrand === 1 ? "company" : "companies"} ahead of you`
+                      : "nobody recommended more often"}
                 </p>
               </div>
               <div className="lg:pl-5">
@@ -199,6 +207,7 @@ export default async function CompetitorsPage({
                     signal={signal}
                     rank={index + 1}
                     maxMentions={maxMentions}
+                    answersHref={`${routes.brandSection(brand.id, "prompts")}?${new URLSearchParams({ scan: latestScan?.id ?? "", q: signal.name ?? "" })}`}
                   />
                 ))}
               </div>
@@ -247,16 +256,16 @@ function CompetitorEvidencePanel({
   signal,
   rank,
   maxMentions,
+  answersHref,
 }: {
   signal: CompetitorSignal;
   rank: number;
   maxMentions: number;
+  answersHref: string;
 }) {
   const answerEvidence = signal.answer_evidence ?? [];
   const websiteEvidence = cleanWebsiteEvidence(signal.website_evidence ?? []);
   const verifiedMentions = signal.verified_mentions ?? [];
-  const evidenceCount =
-    answerEvidence.length + websiteEvidence.length + verifiedMentions.length;
 
   return (
     <details className="group">
@@ -267,7 +276,7 @@ function CompetitorEvidencePanel({
               {String(rank).padStart(2, "0")}
             </span>
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <p className="truncate text-sm font-semibold">{signal.name}</p>
                 {/* Which assistants named them, at a glance. */}
                 <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
@@ -296,12 +305,13 @@ function CompetitorEvidencePanel({
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="arc-tabular font-mono text-xs text-muted-foreground">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 sm:w-auto">
+            <span className="arc-tabular min-w-0 flex-1 font-mono text-xs text-muted-foreground">
               {signal.mentions ?? 0} mention
               {(signal.mentions ?? 0) !== 1 ? "s" : ""}
-              {signal.average_rank ? ` · avg #${signal.average_rank}` : ""}
-              {` · ${evidenceCount} evidence`}
+              {signal.average_rank
+                ? ` · average position ${signal.average_rank}`
+                : ""}
             </span>
             <span className="text-xs text-[color:var(--arc-accent)] group-open:hidden">
               Evidence
@@ -335,7 +345,23 @@ function CompetitorEvidencePanel({
         </div>
 
         <div className="mt-5 grid gap-6 xl:grid-cols-2">
-          <AnswerEvidenceList rows={answerEvidence} />
+          <div className="min-w-0">
+            <p className="mb-3 text-xs text-muted-foreground">
+              {answerEvidence.length} supporting excerpts for {signal.mentions ?? 0}{" "}
+              AI mentions. Excerpts may cover fewer answers than the
+              mention count.
+            </p>
+            <Link
+              href={answersHref}
+              className="mb-3 inline-flex min-h-11 items-center text-sm underline"
+            >
+              View all matching answers
+            </Link>
+            <AnswerEvidenceList
+              rows={answerEvidence}
+              answersHref={answersHref}
+            />
+          </div>
           {websiteEvidence.length || verifiedMentions.length ? (
             <div className="space-y-6">
               {websiteEvidence.length ? (
@@ -352,15 +378,29 @@ function CompetitorEvidencePanel({
   );
 }
 
-function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
+function evidenceAnswerHref(base: string, evidence: AnswerEvidence) {
+  const [path, query] = base.split("?");
+  const params = new URLSearchParams(query);
+  if (evidence.question) params.set("q", evidence.question);
+  if (evidence.provider) params.set("provider", evidence.provider);
+  return `${path}?${params}`;
+}
+
+function AnswerEvidenceList({
+  rows,
+  answersHref,
+}: {
+  rows: AnswerEvidence[];
+  answersHref: string;
+}) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase text-muted-foreground">
-        Why AI selected them
+        What the AI said
       </h3>
       {rows.length ? (
         <div className="mt-3 space-y-4">
-          {rows.slice(0, 4).map((evidence, index) => (
+          {rows.map((evidence, index) => (
             <div
               key={`${evidence.question}-${index}`}
               className="border-l-2 border-[color:var(--arc-accent)]/30 pl-3"
@@ -384,6 +424,12 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
               <p className="mt-1 text-sm font-medium leading-relaxed">
                 {evidence.question}
               </p>
+              <Link
+                href={evidenceAnswerHref(answersHref, evidence)}
+                className="inline-flex min-h-11 items-center text-xs underline underline-offset-4"
+              >
+                View AI answer
+              </Link>
               {evidence.answer_excerpt ? (
                 <>
                   <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
@@ -397,7 +443,7 @@ function AnswerEvidenceList({ rows }: { rows: AnswerEvidence[] }) {
               {evidence.reason ? (
                 <>
                   <p className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">
-                    Why it was recommended
+                    AI explanation
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {evidence.reason}

@@ -26,6 +26,7 @@ export function SecuritySettings({
   hasPassword,
   hasGoogle,
   sessions,
+  sessionsNeedSignIn = false,
 }: {
   name: string;
   email: string;
@@ -33,6 +34,7 @@ export function SecuritySettings({
   hasPassword: boolean;
   hasGoogle: boolean;
   sessions: SessionRow[];
+  sessionsNeedSignIn?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,6 +58,23 @@ export function SecuritySettings({
   const [pwNote, setPwNote] = useState<string | null>(null);
 
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [signingInAgain, setSigningInAgain] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  async function signInAgain() {
+    setSigningInAgain(true);
+    setSessionError(null);
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Couldn’t sign out. Try again.");
+      window.location.assign(
+        routes.login({ mode: "signin", returnTo: routes.settings }),
+      );
+    } catch {
+      setSessionError("Couldn’t sign out. Try again.");
+      setSigningInAgain(false);
+    }
+  }
 
   async function saveName() {
     setSavingName(true);
@@ -341,8 +360,8 @@ export function SecuritySettings({
           <p className="text-sm font-medium">Password</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
             This account signs in with Google only, so there is no password to
-            change. Use &ldquo;Forgot password&rdquo; on the sign-in page if
-            you ever want to add one.
+            change. Use &ldquo;Forgot password&rdquo; on the sign-in page if you
+            ever want to add one.
           </p>
         </div>
       )}
@@ -363,6 +382,29 @@ export function SecuritySettings({
           ) : null}
         </div>
         <div className="divide-y divide-border">
+          {sessions.length === 0 ? (
+            <div className="space-y-3 px-5 py-4 text-sm text-muted-foreground">
+              <p>
+                {sessionsNeedSignIn
+                  ? "Sign in again to view your sessions."
+                  : "Couldn’t load your sessions. Try again."}
+              </p>
+              <Button
+                variant="outline"
+                disabled={signingInAgain}
+                onClick={() =>
+                  sessionsNeedSignIn ? void signInAgain() : router.refresh()
+                }
+              >
+                {sessionsNeedSignIn
+                  ? signingInAgain
+                    ? "Redirecting…"
+                    : "Sign in again"
+                  : "Try again"}
+              </Button>
+              {sessionError ? <p role="alert">{sessionError}</p> : null}
+            </div>
+          ) : null}
           {sessions.map((s) => (
             <div
               key={s.token}

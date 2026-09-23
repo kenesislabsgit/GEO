@@ -1,5 +1,7 @@
 "use client";
 
+import { FilterField } from "@/components/ui/filter-field";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,6 +22,23 @@ function alertIcon(type: string) {
 export function AlertList({ alerts }: { alerts: Alert[] }) {
   const router = useRouter();
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState("");
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [after, setAfter] = useState("");
+  const filtered = alerts.filter(
+    (alert) =>
+      (!type || alert.type === type) &&
+      (!onlyUnread || (!alert.read_at && !readIds.has(alert.id))) &&
+      (!after || alert.created_at.slice(0, 10) >= after) &&
+      `${alert.website_name ?? ""} ${alert.title} ${alert.body}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  const comparisonHistory = filtered.filter((alert) => alert.comparison_notice);
+  const performanceAlerts = filtered.filter(
+    (alert) => !alert.comparison_notice,
+  );
   const unread = alerts.filter(
     (a) => !a.read_at && !readIds.has(a.id),
   ).length;
@@ -51,8 +70,8 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
         <p className="mt-3 font-medium">No alerts yet</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
           Scheduled monitoring creates alerts when your score moves, a
-          competitor appears or drops out, a cited source appears or
-          disappears, your mentions stop, or a scan fails.
+          competitor appears or drops out, a cited source appears or disappears,
+          your mentions stop, or a scan fails.
         </p>
       </div>
     );
@@ -60,6 +79,52 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterField label="Search alerts" wide>
+          <input
+            aria-label="Search alerts"
+            placeholder="Search website or alert"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm"
+          />
+        </FilterField>
+        <FilterField label="Type">
+          <select
+            aria-label="Filter alert type"
+            value={type}
+            onChange={(event) => setType(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">All types</option>
+            {[...new Set(alerts.map((alert) => alert.type))].map((value) => (
+              <option key={value} value={value}>
+                {value.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label="Alerts on or after">
+          <input
+            aria-label="Alerts on or after"
+            type="date"
+            value={after}
+            onChange={(event) => setAfter(event.target.value)}
+            className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </FilterField>
+        <label className="inline-flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={onlyUnread}
+            onChange={(event) => setOnlyUnread(event.target.checked)}
+          />
+          Unread only
+        </label>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {performanceAlerts.length} alerts shown
+      </p>
       {unread > 0 ? (
         <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void markAll()}>
@@ -70,7 +135,7 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
       ) : null}
       <div className="arc-list">
         <div className="divide-y divide-border">
-          {alerts.map((alert) => {
+          {performanceAlerts.map((alert) => {
             const Icon = alertIcon(alert.type);
             const isRead = Boolean(alert.read_at) || readIds.has(alert.id);
             return (
@@ -100,15 +165,23 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
                       />
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{alert.body}</p>
-                  <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {alert.body}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span>{new Date(alert.created_at).toLocaleString()}</span>
                     {alert.brand_id ? (
                       <Link
-                        href={routes.brand(alert.brand_id)}
-                        className="underline hover:text-foreground"
+                        href={
+                          alert.scan_run_id
+                            ? `${routes.brandSection(alert.brand_id, "prompts")}?scan=${encodeURIComponent(alert.scan_run_id)}`
+                            : routes.brandSection(alert.brand_id, "history")
+                        }
+                        className="inline-flex min-h-11 items-center underline hover:text-foreground"
                       >
-                        View website
+                        {alert.scan_run_id
+                          ? "View audit"
+                          : "View audit history"}
                       </Link>
                     ) : null}
                     {!isRead ? (
@@ -127,6 +200,46 @@ export function AlertList({ alerts }: { alerts: Alert[] }) {
           })}
         </div>
       </div>
+      {performanceAlerts.length === 0 ? (
+        <p className="p-4 text-sm text-muted-foreground">No matching alerts.</p>
+      ) : null}
+      {comparisonHistory.length ? (
+        <details className="arc-panel p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            Previous results ({comparisonHistory.length})
+          </summary>
+          <div className="mt-3 divide-y divide-border">
+            {comparisonHistory.map((alert) => (
+              <div key={alert.id} className="py-3 text-sm">
+                <p className="font-medium">
+                  {alert.website_name ?? "Audit"}: Comparison unavailable
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  These audits used different settings, or there isn’t enough
+                  information to compare them.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(alert.created_at).toLocaleString()}
+                </p>
+                {alert.brand_id ? (
+                  <Link
+                    className="inline-flex min-h-11 items-center underline"
+                    href={
+                      alert.scan_run_id
+                        ? routes.brandSection(alert.brand_id, "prompts") +
+                          "?scan=" +
+                          encodeURIComponent(alert.scan_run_id)
+                        : routes.brandSection(alert.brand_id, "history")
+                    }
+                  >
+                    View audit
+                  </Link>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

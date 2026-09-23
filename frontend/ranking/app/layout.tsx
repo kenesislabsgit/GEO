@@ -88,6 +88,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col antialiased">
+        <a href="#main-content" className="arc-skip-link">Skip to content</a>
         <script
           id="theme-init"
           dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
