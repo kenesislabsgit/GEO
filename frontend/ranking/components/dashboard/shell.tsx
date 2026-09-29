@@ -27,6 +27,13 @@ import {
 import { Emblem, Logo, Wordmark } from "@/components/site/logo";
 import { NavLink } from "@/components/dashboard/nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { APP_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -518,24 +525,32 @@ export function DashboardShell({
         <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 [view-transition-name:dash-main]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
             {brands.length > 1 ? (
-              <label className="mb-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                Website
-                <select
-                  aria-label="Website"
-                  value={activeBrand?.id ?? ""}
-                  onChange={(event) => {
-                    setRememberedBrand(event.target.value);
-                    router.push(routes.brand(event.target.value));
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Website
+                </span>
+                <Select
+                  value={activeBrand?.id ?? undefined}
+                  onValueChange={(brandId) => {
+                    setRememberedBrand(brandId);
+                    router.push(routes.brand(brandId));
                   }}
-                  className="h-11 max-w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
                 >
-                  {brands.map((brand) => (
-                    <option value={brand.id} key={brand.id}>
-                      {websiteLabel(brand)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <SelectTrigger
+                    aria-label="Select website"
+                    className="h-9 w-full min-w-48 max-w-sm bg-background sm:w-72"
+                  >
+                    <SelectValue placeholder="Select website" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    {brands.map((brand) => (
+                      <SelectItem value={brand.id} key={brand.id}>
+                        {websiteLabel(brand)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             ) : null}
             {children}
           </div>
