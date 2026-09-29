@@ -9,6 +9,9 @@ import { providerDisplayName } from "@/lib/constants";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 
 type MonitoringResponse = {
+  availableProviders?: string[];
+  blockingReasons?: string[];
+  lastSuccessfulAt?: string | null;
   settings: {
     enabled?: boolean;
     monitoringFrequency: "daily" | "weekly";
@@ -77,43 +80,61 @@ export function BrandMonitoringForm({
     const controller = new AbortController();
     void (async () => {
       try {
-      const res = await fetch(`/api/brands/${brandId}/monitoring`, { signal: controller.signal });
-      if (!res.ok) throw new Error("Could not load monitoring settings.");
-      const payload = (await res.json()) as MonitoringResponse;
-      if (controller.signal.aborted) return;
-      setData(payload);
-      const s = payload.settings;
-      const hasSavedQuestions = s?.monitoringQuestions?.length === 5;
-      setChoosingQuestions(!hasSavedQuestions);
-      const matchingSet = payload.questionSets.find((set) =>
-        (s?.monitoringQuestions ?? []).some((question) =>
-          set.questions.includes(question),
-        ),
-      );
-      setSelectedScanId(
-        matchingSet?.scanId ?? payload.questionSets[0]?.scanId ?? "",
-      );
-      setForm({
-        enabled: s?.enabled ?? true,
-        frequency: s?.monitoringFrequency ?? "weekly",
-        dayOfWeek: s?.dayOfWeek ?? 0,
-        hourLocal: s?.hourLocal ?? 9,
-        timezone:
-          s?.timezone ??
-          Intl.DateTimeFormat().resolvedOptions().timeZone ??
-          "UTC",
-        providers: s?.providers ?? [],
-        monitoringQuestions: hasSavedQuestions ? s.monitoringQuestions : [],
-        country: (s?.country ?? payload.brand.country ?? "us").toLowerCase(),
-        language: (s?.language ?? payload.brand.language ?? "en").toLowerCase(),
-        alerts: {
-          scoreDrop: s?.alerts?.scoreDrop ?? true,
-          competitor: s?.alerts?.competitor ?? true,
-          citation: s?.alerts?.citation ?? false,
-        },
-      });
+        const res = await fetch(`/api/brands/${brandId}/monitoring`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("Could not load monitoring settings.");
+        const payload = (await res.json()) as MonitoringResponse;
+        if (controller.signal.aborted) return;
+        setData(payload);
+        const s = payload.settings;
+        const available = payload.availableProviders ?? payload.plan.providers;
+        const selected = (s?.providers ?? []).filter((provider) =>
+          available.includes(provider),
+        );
+        const hasSavedQuestions = s?.monitoringQuestions?.length === 5;
+        setChoosingQuestions(!hasSavedQuestions);
+        const matchingSet = payload.questionSets.find((set) =>
+          (s?.monitoringQuestions ?? []).some((question) =>
+            set.questions.includes(question),
+          ),
+        );
+        setSelectedScanId(
+          matchingSet?.scanId ?? payload.questionSets[0]?.scanId ?? "",
+        );
+        setForm({
+          enabled: s?.enabled ?? true,
+          frequency: s?.monitoringFrequency ?? "weekly",
+          dayOfWeek: s?.dayOfWeek ?? 0,
+          hourLocal: s?.hourLocal ?? 9,
+          timezone:
+            s?.timezone ??
+            Intl.DateTimeFormat().resolvedOptions().timeZone ??
+            "UTC",
+          providers: (selected.length ? selected : available).slice(
+            0,
+            payload.plan.providersPerScan,
+          ),
+          monitoringQuestions: hasSavedQuestions ? s.monitoringQuestions : [],
+          country: (s?.country ?? payload.brand.country ?? "us").toLowerCase(),
+          language: (
+            s?.language ??
+            payload.brand.language ??
+            "en"
+          ).toLowerCase(),
+          alerts: {
+            scoreDrop: s?.alerts?.scoreDrop ?? true,
+            competitor: s?.alerts?.competitor ?? true,
+            citation: s?.alerts?.citation ?? false,
+          },
+        });
       } catch (error) {
-        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Could not load monitoring settings.");
+        if (!controller.signal.aborted)
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Could not load monitoring settings.",
+          );
       }
     })();
     return () => controller.abort();
@@ -141,6 +162,7 @@ export function BrandMonitoringForm({
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error || "Could not save settings");
       setChoosingQuestions(false);
+      setAttempt((value) => value + 1);
       toast.success("Monitoring settings saved.");
     } catch (error) {
       toast.error(
@@ -162,10 +184,25 @@ export function BrandMonitoringForm({
   if (!data) {
     return (
       <div className="arc-panel flex items-center gap-2 p-6 text-sm text-muted-foreground">
-        {loadError ? <>
-          <span role="alert">{loadError}</span>
-          <Button variant="outline" size="sm" onClick={() => { setLoadError(null); setAttempt((value) => value + 1); }}>Retry</Button>
-        </> : <><Loader2 className="size-4 animate-spin" /> Loading settings…</>}
+        {loadError ? (
+          <>
+            <span role="alert">{loadError}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              Retry
+            </Button>
+          </>
+        ) : (
+          <>
+            <Loader2 className="size-4 animate-spin" /> Loading settings…
+          </>
+        )}
       </div>
     );
   }
@@ -183,6 +220,20 @@ export function BrandMonitoringForm({
 
   const selectClass =
     "h-9 rounded-md border border-border bg-background px-2 text-sm";
+  const availableProviders = data.availableProviders ?? data.plan.providers;
+  const selectedAvailable = form.providers.filter((provider) =>
+    availableProviders.includes(provider),
+  );
+  const effectiveProviders = selectedAvailable.slice(
+    0,
+    data.plan.providersPerScan,
+  );
+  const validQuestions =
+    form.monitoringQuestions.length === 5 &&
+    form.monitoringQuestions.every((question) => question.trim().length >= 5) &&
+    new Set(
+      form.monitoringQuestions.map((question) => question.trim().toLowerCase()),
+    ).size === 5;
 
   const selectedQuestionSet = data.questionSets.find(
     (set) => set.scanId === selectedScanId,
@@ -224,6 +275,47 @@ export function BrandMonitoringForm({
         </p>
       ) : null}
       <section className="arc-panel space-y-5 p-6">
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+          <p className="font-semibold">
+            {!form.enabled
+              ? "Monitoring off"
+              : !validQuestions || form.providers.length === 0
+                ? "Finish setup"
+                : data.blockingReasons?.length
+                  ? "Monitoring paused"
+                  : "Monitoring scheduled"}
+          </p>
+          {!validQuestions && form.enabled ? (
+            <p className="mt-1">Choose five questions to start monitoring.</p>
+          ) : null}
+          {form.enabled && form.providers.length === 0 ? (
+            <p className="mt-1">Choose at least one AI assistant.</p>
+          ) : null}
+          {data.blockingReasons?.map((reason) => (
+            <p key={reason} className="mt-1">
+              {reason}
+            </p>
+          ))}
+          <p className="mt-2 text-xs text-muted-foreground">
+            AI assistants:{" "}
+            {effectiveProviders.map(providerDisplayName).join(", ") ||
+              "None available"}
+            .
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Last completed audit:{" "}
+            {data.lastSuccessfulAt
+              ? new Date(data.lastSuccessfulAt).toLocaleString()
+              : "Monitoring hasn’t started"}
+            .
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {form.enabled && validQuestions && !data.blockingReasons?.length
+              ? `Scheduled for: ${form.frequency === "daily" ? "daily" : DAYS[form.dayOfWeek]}, from ${String(form.hourLocal).padStart(2, "0")}:00 ${form.timezone}.`
+              : "Next run: finish setup or resolve the pause shown above."}{" "}
+            Changes take effect after Save settings.
+          </p>
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Scheduled monitoring</p>
@@ -430,11 +522,11 @@ export function BrandMonitoringForm({
       <section className="arc-panel space-y-4 p-6">
         <div>
           <p className="text-sm font-medium">
-            Providers ({form.providers.length} of {data.plan.providersPerScan})
+            AI assistants ({form.providers.length} of{" "}
+            {data.plan.providersPerScan})
           </p>
           <p className="text-xs text-muted-foreground">
-            Which AI providers scheduled audits ask. Empty means the plan
-            default.
+            Choose the AI assistants for each monitoring audit.
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -445,7 +537,7 @@ export function BrandMonitoringForm({
             >
               <input
                 type="checkbox"
-                disabled={!canEdit}
+                disabled={!canEdit || !availableProviders.includes(provider)}
                 checked={form.providers.includes(provider)}
                 onChange={() => toggleProvider(provider)}
               />
@@ -494,7 +586,7 @@ export function BrandMonitoringForm({
         disabled={
           saving ||
           (form.enabled && !canEdit) ||
-          (form.enabled && form.monitoringQuestions.length !== 5)
+          (form.enabled && (!validQuestions || form.providers.length === 0))
         }
       >
         {saving ? (

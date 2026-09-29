@@ -45,8 +45,8 @@ export function DataRecipients() {
       </h2>
       <p className="mt-3 leading-relaxed text-muted-foreground">
         An audit sends data to service providers; it is not processed entirely
-        in your browser. Private-report settings restrict public access to the
-        report, but do not prevent the processing below. Do not put confidential
+        in your browser. Access settings do not prevent the processing below.
+        Do not put confidential
         or personal information in buyer questions unless you are authorized to
         send it for analysis.
       </p>
@@ -68,8 +68,8 @@ export function DataRecipients() {
       </dl>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         Provider retention, processing locations and data-use terms vary by
-        service and configuration. Making a report private does not change those
-        providers&apos; terms. Public previews can also be accessed by visitors and
+        service and configuration. Access settings do not change those
+        providers&apos; terms. Public pages can also be accessed by visitors and
         search engines.
       </p>
     </section>

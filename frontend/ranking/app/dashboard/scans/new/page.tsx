@@ -44,11 +44,17 @@ export default async function NewScanPage({
   const plan = PLAN_CONFIG[entitlements.plan];
   if (params.domain?.trim() && brands.length > 0) {
     let domain = params.domain.trim();
-    try { domain = normalizeDomain(domain); } catch { /* The add form shows validation errors. */ }
+    try {
+      domain = normalizeDomain(domain);
+    } catch {
+      /* The add form shows validation errors. */
+    }
     const existing = brands.find((brand) => brand.canonical_domain === domain);
-    redirect(existing
-      ? routes.newScan(existing.id)
-      : `${routes.addWebsite}?domain=${encodeURIComponent(params.domain)}`);
+    redirect(
+      existing
+        ? routes.newScan(existing.id)
+        : `${routes.addWebsite}?domain=${encodeURIComponent(params.domain)}`,
+    );
   }
   const isPaid = isPaidSubscription(entitlements);
   const brandLimitReached =
@@ -77,6 +83,20 @@ export default async function NewScanPage({
         category: brand.category,
         slug: brand.slug,
         visibility: brand.visibility,
+        activeScan: (() => {
+          const active = scans.find(
+            (scan) =>
+              scan.brand_id === brand.id &&
+              ["queued", "running", "cancel_requested"].includes(scan.status),
+          );
+          return active
+            ? {
+                id: active.id,
+                status: active.status,
+                createdAt: active.created_at,
+              }
+            : null;
+        })(),
         questionSets: questionSets
           .filter((set) => set.brandId === brand.id)
           .map((set) => ({
@@ -121,7 +141,9 @@ export default async function NewScanPage({
           isPaid={isPaid}
           brandLimitReached={false}
           providers={
-            isPaid ? defaultScanProviders(entitlements.plan) : [FREE_AUDIT_PROVIDER]
+            isPaid
+              ? defaultScanProviders(entitlements.plan)
+              : [FREE_AUDIT_PROVIDER]
           }
           initialDomain={params.domain}
         />
@@ -143,7 +165,6 @@ export default async function NewScanPage({
               checksUsed: entitlements.providerChecksUsed,
             }}
           />
-
         </>
       )}
     </div>

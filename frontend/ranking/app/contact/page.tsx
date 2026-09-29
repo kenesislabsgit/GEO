@@ -14,10 +14,13 @@ export const metadata = publicPageMetadata(
 export default async function ContactPage({
   searchParams,
 }: {
-  searchParams: Promise<{ intent?: string }>;
+  searchParams: Promise<{ intent?: string; feature?: string }>;
 }) {
   const [user, params] = await Promise.all([getSessionUser(), searchParams]);
-  const defaultInterest = isContactIntent(params.intent) ? params.intent : "pro";
+  const defaultInterest = isContactIntent(params.intent)
+    ? params.intent
+    : "pro";
+  const marketsInquiry = params.feature === "markets";
   return (
     <MarketingShell>
       <div className="grid items-start gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
@@ -31,17 +34,57 @@ export default async function ContactPage({
             within one business day.
           </p>
           <dl className="mt-8 space-y-6 text-sm leading-relaxed">
-            <div><dt className="font-semibold">Account or billing support</dt><dd className="mt-2 text-muted-foreground">Your account email and a description of the issue are enough to start.</dd></div>
-            <div><dt className="font-semibold">Plans and Pro inquiries</dt><dd className="mt-2 text-muted-foreground">Tell us about your websites and requirements so we can suggest the right next step.</dd></div>
-            <div><dt className="font-semibold">Corrections and other questions</dt><dd className="mt-2 text-muted-foreground">Include the relevant page and the details we should review.</dd></div>
+            {marketsInquiry ? (
+              <div className="rounded-lg border border-border p-4">
+                <dt className="font-semibold">
+                  Your inquiry: geographic markets
+                </dt>
+                <dd className="mt-2 text-muted-foreground">
+                  Pro adds country-specific buyer questions and market
+                  comparisons. We will confirm the markets, providers and
+                  allowance included in your quote.
+                </dd>
+              </div>
+            ) : null}
+            <div>
+              <dt className="font-semibold">Account or billing support</dt>
+              <dd className="mt-2 text-muted-foreground">
+                Your account email and a description of the issue are enough to
+                start. No company size, phone number, or website required.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold">Plans and Pro inquiries</dt>
+              <dd className="mt-2 text-muted-foreground">
+                Tell us about your websites and requirements so we can suggest a
+                package and explain the next step.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold">Corrections and other questions</dt>
+              <dd className="mt-2 text-muted-foreground">
+                Include the relevant page URL and the details we should review.
+              </dd>
+            </div>
           </dl>
           <p className="mt-8 text-sm text-muted-foreground">
-            Prefer email? <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-4">{SUPPORT_EMAIL}</a>
+            Prefer email?{" "}
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="underline underline-offset-4"
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </p>
         </div>
         <ContactForm
           defaultEmail={user?.email ?? ""}
           defaultInterest={defaultInterest}
+          defaultNeeds={
+            marketsInquiry
+              ? "I would like Pro geographic market comparisons. Please explain the supported markets, providers and included audit allowance."
+              : ""
+          }
         />
       </div>
     </MarketingShell>

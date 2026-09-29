@@ -261,7 +261,7 @@ export function HeroDemo() {
           {STATS.map(([label, value], i) => (
             <div
               key={label}
-              className={`px-3 py-3 text-center transition-all duration-500 sm:px-4 ${
+              className={`px-3 py-3 text-center transition-[color,background-color,opacity] duration-500 sm:px-4 ${
                 complete ? "opacity-100" : "opacity-40"
               }`}
               style={{ transitionDelay: complete ? `${i * 90}ms` : "0ms" }}

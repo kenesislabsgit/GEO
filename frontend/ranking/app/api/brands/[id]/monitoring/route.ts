@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/repository";
 import { SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants";
 import type { ProviderId } from "@/types/database";
+import { one, q } from "@/lib/db/pg";
 
 function validTimezone(value: string): boolean {
   try {
@@ -77,8 +78,49 @@ export async function GET(
   const entitlements = await getAccountEntitlements(auth.user.id);
   const features = PLAN_CONFIG[entitlements.plan].features;
   const questionSets = await listQuestionSetsForBrands([id]);
+  const [runtimeSettings, lastRun, rank] = await Promise.all([
+    q<{ key: string; value: unknown }>(
+      "select key, value from app_settings where key in ('maintenance_mode', 'providers_disabled')",
+    ),
+    one<{ completed_at: string }>(
+      "select completed_at from scan_runs where brand_id = $1 and status = 'completed' and trigger_source = 'scheduled' order by completed_at desc limit 1",
+      [id],
+    ),
+    one<{ position: number }>(
+      "select count(*)::int as position from brands b join brand_monitoring bm on bm.brand_id = b.id and bm.enabled = true where b.owner_id = $1 and b.created_at <= (select created_at from brands where id = $2)",
+      [auth.user.id, id],
+    ),
+  ]);
+  const disabledValue = runtimeSettings.find(
+    (row) => row.key === "providers_disabled",
+  )?.value;
+  const disabledProviders = new Set(
+    Array.isArray(disabledValue) ? disabledValue : [],
+  );
+  const availableProviders = features.providers.filter(
+    (provider) => !disabledProviders.has(provider),
+  );
+  const blockingReasons = [
+    runtimeSettings.some(
+      (row) => row.key === "maintenance_mode" && row.value === true,
+    )
+      ? "Audits are temporarily paused for maintenance."
+      : null,
+    (rank?.position ?? 1) > features.brands
+      ? "This website is outside the plan’s scheduled-monitoring slots."
+      : null,
+    entitlements.providerChecksUsed >= features.providerChecksPerMonth
+      ? "Monthly check allowance is exhausted."
+      : null,
+    availableProviders.length === 0
+      ? "No providers are currently available."
+      : null,
+  ].filter(Boolean);
   return NextResponse.json({
     settings,
+    availableProviders,
+    blockingReasons,
+    lastSuccessfulAt: lastRun?.completed_at ?? null,
     brand: {
       country: auth.brand.default_country,
       language: auth.brand.default_language,

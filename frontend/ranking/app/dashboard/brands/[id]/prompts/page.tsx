@@ -7,12 +7,17 @@ import {
   getBrandById,
   getLatestCompletedScanForBrand,
   getQueryResults,
+  getScanQuestions,
+  getScanRun,
   listAllPrompts,
 } from "@/lib/db/repository";
 import { providerDisplayName } from "@/lib/constants";
 import { assistantNames } from "@/lib/audit/progress-copy";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { ProviderStack } from "@/components/providers/provider-logo";
+import { auditCoverage, questionKey } from "@/lib/audit/coverage";
+import { sourceLabel } from "@/lib/audit/source-links";
+import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import {
   AnswerExplorer,
   type ExplorerQuestion,
@@ -32,8 +37,10 @@ type Citation = {
 
 export default async function AIAnswersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ scan?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) return null;
@@ -41,12 +48,31 @@ export default async function AIAnswersPage({
   const brand = await getBrandById(id);
   if (!brand || brand.owner_id !== user.id) notFound();
 
+  const query = await searchParams;
+  if (
+    query.scan &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      query.scan,
+    )
+  )
+    notFound();
   const [entitlements, prompts, latestScan] = await Promise.all([
     getAccountEntitlements(user.id),
     listAllPrompts(brand.id),
-    getLatestCompletedScanForBrand(brand.id),
+    query.scan
+      ? getScanRun(query.scan)
+      : getLatestCompletedScanForBrand(brand.id),
   ]);
+  if (
+    (query.scan && !latestScan) ||
+    (latestScan && latestScan.brand_id !== brand.id)
+  )
+    notFound();
   const results = latestScan ? await getQueryResults(latestScan.id) : [];
+  const scanQuestions = latestScan ? await getScanQuestions(latestScan.id) : [];
+  const coverage = latestScan
+    ? auditCoverage(latestScan, results, scanQuestions)
+    : null;
   const isPaid = isPaidSubscription(entitlements);
   const showFullAnswers = hasFeature(entitlements.plan, "fullAnswers");
   const promptMap = new Map(prompts.map((prompt) => [prompt.id, prompt]));
@@ -57,7 +83,7 @@ export default async function AIAnswersPage({
   // collected answer is dropped.
   const groups = new Map<string, ExplorerQuestion>();
   for (const result of results) {
-    const key = result.tracked_prompt_id ?? "untracked";
+    const key = questionKey(result);
     const prompt = result.tracked_prompt_id
       ? promptMap.get(result.tracked_prompt_id)
       : null;
@@ -65,7 +91,11 @@ export default async function AIAnswersPage({
     if (!group) {
       group = {
         promptId: key,
-        question: prompt?.prompt ?? "Buyer question",
+        question:
+          scanQuestions.find((row) => row.position === result.question_position)
+            ?.prompt ??
+          prompt?.prompt ??
+          "Question text not recorded",
         promptType: prompt?.prompt_type ?? null,
         answers: [],
       };
@@ -95,11 +125,16 @@ export default async function AIAnswersPage({
         assistantNames([result.provider])[0] ??
         providerDisplayName(result.provider),
       mentioned: result.brand_mentioned,
+      error:
+        result.error ||
+        (!(result.raw_answer?.trim() || result.answer_summary?.trim())
+          ? "No usable saved response"
+          : null),
+      summary: result.answer_summary,
       position: result.brand_position,
       answer,
       recommended: recommended
         .filter((company) => Boolean(company.name))
-        .slice(0, 5)
         .map((company) => ({
           name: company.name ?? "",
           position: company.position ?? null,
@@ -111,7 +146,7 @@ export default async function AIAnswersPage({
         )
         .map((citation) => ({
           url: citation.url,
-          label: citation.title || citation.domain || citation.url,
+          label: sourceLabel(citation),
         })),
     });
   }
@@ -137,10 +172,11 @@ export default async function AIAnswersPage({
         isPaid={isPaid}
       />
 
+      {coverage ? <AuditCoverageNotice coverage={coverage} /> : null}
       {results.length === 0 ? (
         <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No AI answers yet. Run an audit to collect prompt-level evidence.
+            No AI answers yet. Run an audit to collect answers to your buyer questions.
           </p>
         </div>
       ) : (
@@ -151,8 +187,8 @@ export default async function AIAnswersPage({
                 Questions and answers
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                {questions.length} questions · {assistantCount} AI providers ·{" "}
-                {results.length} saved answers. Open a question to read what
+                {questions.length} questions · {assistantCount} AI assistants ·{" "}
+                {results.length} AI answers. Open a question to read what
                 each provider said, with {brand.name} highlighted.
               </p>
             </div>

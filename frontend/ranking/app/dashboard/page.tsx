@@ -16,6 +16,7 @@ import {
   accountOverviewSeries,
   listBrandsForOwner,
   listScansForBrands,
+  listScanHistoryForBrands,
   scoresForBrand,
 } from "@/lib/db/repository";
 import { PLAN_CONFIG } from "@/lib/billing/entitlements";
@@ -27,7 +28,11 @@ import {
   type ProviderBarRow,
 } from "@/components/dashboard/overview-charts";
 import { roundForDisplay } from "@/lib/scores/format";
-import { accountTrend, average as avg, comparableDelta } from "@/lib/scores/overview";
+import {
+  accountTrend,
+  average as avg,
+  comparableDelta,
+} from "@/lib/scores/overview";
 import { routes } from "@/lib/routes";
 import {
   getUsageWarningLevel,
@@ -69,7 +74,9 @@ function Delta({
   if (value === null || value === 0) {
     return (
       <p className="mt-3 text-[13px] text-muted-foreground">
-        {value === null ? "no previous audit to compare" : `no change ${suffix}`}
+        {value === null
+          ? "No comparison yet"
+          : `no change ${suffix}`}
       </p>
     );
   }
@@ -95,8 +102,9 @@ export default async function DashboardPage() {
   if (brands.length === 0) redirect(routes.newScan());
   const plan = PLAN_CONFIG[entitlements.plan];
 
-  const [series, ...brandScores] = await Promise.all([
+  const [series, history, ...brandScores] = await Promise.all([
     accountOverviewSeries(user.id),
+    listScanHistoryForBrands(brands.map((brand) => brand.id)),
     ...brands.map((brand) => scoresForBrand(brand.id, 2)),
   ]);
   const brandCards = brands.map((brand, index) => ({
@@ -104,8 +112,9 @@ export default async function DashboardPage() {
     latest: brandScores[index][0],
     previous: brandScores[index][1],
   }));
-  const recentScans = (
-    await listScansForBrands(brands.map((brand) => brand.id), 6)
+  const recentScans = await listScansForBrands(
+    brands.map((brand) => brand.id),
+    6,
   );
   const brandNameById = new Map(brands.map((brand) => [brand.id, brand.name]));
 
@@ -117,10 +126,25 @@ export default async function DashboardPage() {
   const avgMention = avg(
     withLatest.map((card) => Number(card.latest!.mention_rate) * 100),
   );
-  const scoreChange = comparableDelta(brandCards, (score) => Number(score.overall_score));
-  const mentionChange = comparableDelta(brandCards, (score) => Number(score.mention_rate) * 100);
+  const sampleKeys = new Map(history.map((row) => [row.id, row.sample_key]));
+  const comparableCards = brandCards.filter(
+    (card) =>
+      card.latest &&
+      card.previous &&
+      sampleKeys.get(card.latest.scan_run_id) &&
+      sampleKeys.get(card.latest.scan_run_id) ===
+        sampleKeys.get(card.previous.scan_run_id),
+  );
+  const scoreChange = comparableDelta(comparableCards, (score) =>
+    Number(score.overall_score),
+  );
+  const mentionChange = comparableDelta(
+    comparableCards,
+    (score) => Number(score.mention_rate) * 100,
+  );
   const scoreDelta = scoreChange === null ? null : roundForDisplay(scoreChange);
-  const mentionDelta = mentionChange === null ? null : roundForDisplay(mentionChange);
+  const mentionDelta =
+    mentionChange === null ? null : roundForDisplay(mentionChange);
 
   const usagePct = Math.min(
     100,
@@ -190,17 +214,13 @@ export default async function DashboardPage() {
       icon: Gauge,
       label: "Visibility score",
       value: avgScore !== null ? String(roundForDisplay(avgScore)) : " - ",
-      delta: (
-        <Delta value={scoreDelta} suffix="vs. previous audits" />
-      ),
+      delta: <Delta value={scoreDelta} suffix="vs. previous audits" />,
     },
     {
       icon: MessageSquare,
       label: "Mention rate",
       value: avgMention !== null ? `${roundForDisplay(avgMention)}%` : " - ",
-      delta: (
-        <Delta value={mentionDelta} suffix="pts vs. previous audits" />
-      ),
+      delta: <Delta value={mentionDelta} suffix="pts vs. previous audits" />,
     },
     {
       icon: Globe,
@@ -220,8 +240,8 @@ export default async function DashboardPage() {
       value: String(entitlements.providerChecksUsed),
       delta: (
         <p className="mt-3 text-[13px] text-muted-foreground">
-          <span className="text-foreground">{usagePct}%</span>{" "}
-          of {plan.features.providerChecksPerMonth} this month
+          <span className="text-foreground">{usagePct}%</span> of{" "}
+          {plan.features.providerChecksPerMonth} this month
         </p>
       ),
     },
@@ -398,7 +418,13 @@ export default async function DashboardPage() {
                 ? roundForDisplay(Number(previous.overall_score))
                 : null;
               const delta =
-                current !== null && prior !== null
+                current !== null &&
+                prior !== null &&
+                latest &&
+                previous &&
+                sampleKeys.get(latest.scan_run_id) &&
+                sampleKeys.get(latest.scan_run_id) ===
+                  sampleKeys.get(previous.scan_run_id)
                   ? Math.round((current - prior) * 10) / 10
                   : null;
               return (
@@ -473,7 +499,9 @@ export default async function DashboardPage() {
                       {brandNameById.get(scan.brand_id) ?? "Website"}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-                      {scan.scan_type === "free" ? "Free audit" : scan.scan_type}
+                      {scan.scan_type === "free"
+                        ? "Free audit"
+                        : scan.scan_type}
                       {" · "}
                       {new Date(scan.created_at).toLocaleDateString()}
                     </p>
@@ -489,6 +517,10 @@ export default async function DashboardPage() {
           </div>
         </section>
       </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer py-2">About scores and comparisons</summary>
+        <p>The overall score averages the latest result for each audited website. A comparison needs two complete audits with matching questions, AI assistants, market and scoring method. Completeness points can contribute to a score even without a brand mention.</p>
+      </details>
     </div>
   );
 }

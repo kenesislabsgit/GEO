@@ -538,7 +538,7 @@ export default async function HomePage() {
 
       <div aria-hidden className="arc-grain" />
 
-      <main className="overflow-x-clip">
+      <main id="main-content" tabIndex={-1} className="overflow-x-clip">
         <LandingHero />
 
         {/* The shift - why AI answers decide who gets found */}

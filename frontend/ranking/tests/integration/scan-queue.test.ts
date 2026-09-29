@@ -95,6 +95,19 @@ describe("the durable scan queue", () => {
     expect(reservation?.units).toBe(10); // 2 providers × 5 questions
   });
 
+  it("timestamps fresh queued audits correctly in a non-UTC database session", async () => {
+    const { enqueueScan } = await import("@/lib/scans/queue");
+    const { exec, withTransaction } = await import("@/lib/db/pg");
+    const user = await makeUser("queue-timezone");
+    const brand = await makeBrand(user, "queue-timezone.example");
+    await withTransaction(async () => {
+      await exec("set local timezone = 'Asia/Calcutta'");
+      const result = await enqueueScan({ brand, initiatedBy: user, scanType: "manual", snapshot: snapshot(brand.canonical_domain), checksLimit: 400 });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(Math.abs(Date.now() - new Date(result.scan.queued_at!).getTime())).toBeLessThan(5000);
+    });
+  });
+
   it("returns the same scan for the same idempotency key", async () => {
     const { enqueueScan } = await import("@/lib/scans/queue");
     const user = await makeUser("queue-user-2");

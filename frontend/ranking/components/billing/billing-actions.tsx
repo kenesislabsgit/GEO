@@ -36,11 +36,13 @@ export function BillingActions({
   highlightedPlan,
   highlightedInterval,
   hasSubscription,
+  currentPlan,
   returnTo = null,
 }: {
   highlightedPlan?: string;
   highlightedInterval?: BillingInterval;
   hasSubscription: boolean;
+  currentPlan?: string;
   returnTo?: string | null;
 }) {
   const router = useRouter();
@@ -115,9 +117,9 @@ export function BillingActions({
                     : "border-border"
                 }`}
               >
-                {highlight ? (
+                {highlight || currentPlan === planId ? (
                   <Badge className="absolute -top-2.5 left-4 rounded-full px-2.5 text-[11px]">
-                    Selected
+                    {currentPlan === planId ? "Current plan" : "Selected"}
                   </Badge>
                 ) : null}
                 {locked ? (
@@ -175,7 +177,12 @@ export function BillingActions({
                   </div>
                 ) : null}
                 <div className="mt-4 flex flex-col gap-2">
-                  {locked ? (
+                  {currentPlan === planId ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">You already have this plan. View your actual price, switch billing frequency, or cancel in the subscription portal.</p>
+                      <Button variant="outline" disabled={loading !== null} onClick={openPortal}>Manage plan or billing frequency</Button>
+                    </>
+                  ) : locked ? (
                     <Button asChild size="sm" variant="outline">
                       <Link href={PRO_CONTACT_HREF}>Contact us</Link>
                     </Button>
@@ -267,9 +274,8 @@ export function BillingActions({
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Payments are processed by Dodo Payments (test mode supported). When API
-        keys are missing, checkout simulates an active subscription locally for
-        development.
+        Payments are processed securely by Dodo Payments.
+        {!currentPlan ? " Your subscription activates after payment is confirmed." : ""}
       </p>
     </div>
   );

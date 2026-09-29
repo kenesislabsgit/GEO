@@ -41,22 +41,25 @@ const EMPTY: FormState = {
   hp: "",
 };
 
-function FieldError({ message }: { message?: string }) {
+function FieldError({ message, id }: { message?: string; id: string }) {
   if (!message) return null;
-  return <p className="mt-1 text-xs text-destructive">{message}</p>;
+  return <p id={id} className="mt-1 text-xs text-destructive">{message}</p>;
 }
 
 export function ContactForm({
   defaultEmail = "",
   defaultInterest = "pro",
+  defaultNeeds = "",
 }: {
   defaultEmail?: string;
   defaultInterest?: ContactInterestId;
+  defaultNeeds?: string;
 }) {
   const [form, setForm] = useState<FormState>({
     ...EMPTY,
     workEmail: defaultEmail,
     interest: defaultInterest,
+    needs: defaultNeeds,
   });
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
@@ -85,6 +88,8 @@ export function ContactForm({
         }
       }
       setErrors(next);
+      const firstInvalid = Object.keys(next)[0];
+      requestAnimationFrame(() => document.getElementById(firstInvalid)?.focus());
       return;
     }
 
@@ -113,7 +118,7 @@ export function ContactForm({
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
+      <div role="status" className="rounded-2xl border border-border bg-card p-6 md:p-8">
         <h2 className="font-heading text-xl font-semibold tracking-tight">
           We got it.
         </h2>
@@ -154,6 +159,7 @@ export function ContactForm({
             id="interest"
             className="mt-1.5 h-9 w-full rounded-xl"
             aria-invalid={Boolean(errors.interest)}
+            aria-describedby={errors.interest ? "interest-error" : undefined}
           >
             <SelectValue placeholder="Select one" />
           </SelectTrigger>
@@ -165,7 +171,7 @@ export function ContactForm({
             ))}
           </SelectContent>
         </Select>
-        <FieldError message={errors.interest} />
+        <FieldError id="interest-error" message={errors.interest} />
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -183,6 +189,7 @@ export function ContactForm({
               id="companySize"
               className="mt-1.5 h-9 w-full rounded-xl"
               aria-invalid={Boolean(errors.companySize)}
+            aria-describedby={errors.companySize ? "companySize-error" : undefined}
             >
               <SelectValue placeholder="Please select" />
             </SelectTrigger>
@@ -194,7 +201,7 @@ export function ContactForm({
               ))}
             </SelectContent>
           </Select>
-          <FieldError message={errors.companySize} />
+          <FieldError id="companySize-error" message={errors.companySize} />
         </div>
         <div hidden={!sales}>
           <Label htmlFor="companyName">
@@ -207,8 +214,9 @@ export function ContactForm({
             value={form.companyName}
             onChange={(event) => setField("companyName", event.target.value)}
             aria-invalid={Boolean(errors.companyName)}
+            aria-describedby={errors.companyName ? "companyName-error" : undefined}
           />
-          <FieldError message={errors.companyName} />
+          <FieldError id="companyName-error" message={errors.companyName} />
         </div>
         <div>
           <Label htmlFor="firstName">
@@ -227,8 +235,9 @@ export function ContactForm({
             value={form.firstName}
             onChange={(event) => setField("firstName", event.target.value)}
             aria-invalid={Boolean(errors.firstName)}
+            aria-describedby={errors.firstName ? "firstName-error" : undefined}
           />
-          <FieldError message={errors.firstName} />
+          <FieldError id="firstName-error" message={errors.firstName} />
         </div>
         <div hidden={!sales}>
           <Label htmlFor="lastName">
@@ -241,8 +250,9 @@ export function ContactForm({
             value={form.lastName}
             onChange={(event) => setField("lastName", event.target.value)}
             aria-invalid={Boolean(errors.lastName)}
+            aria-describedby={errors.lastName ? "lastName-error" : undefined}
           />
-          <FieldError message={errors.lastName} />
+          <FieldError id="lastName-error" message={errors.lastName} />
         </div>
         <div>
           <Label htmlFor="workEmail">
@@ -257,8 +267,9 @@ export function ContactForm({
             value={form.workEmail}
             onChange={(event) => setField("workEmail", event.target.value)}
             aria-invalid={Boolean(errors.workEmail)}
+            aria-describedby={errors.workEmail ? "workEmail-error" : undefined}
           />
-          <FieldError message={errors.workEmail} />
+          <FieldError id="workEmail-error" message={errors.workEmail} />
         </div>
         <div hidden={!sales}>
           <Label htmlFor="phone">Phone number</Label>
@@ -270,8 +281,9 @@ export function ContactForm({
             value={form.phone}
             onChange={(event) => setField("phone", event.target.value)}
             aria-invalid={Boolean(errors.phone)}
+            aria-describedby={errors.phone ? "phone-error" : undefined}
           />
-          <FieldError message={errors.phone} />
+          <FieldError id="phone-error" message={errors.phone} />
         </div>
       </div>
 
@@ -288,8 +300,9 @@ export function ContactForm({
           value={form.website}
           onChange={(event) => setField("website", event.target.value)}
           aria-invalid={Boolean(errors.website)}
+            aria-describedby={errors.website ? "website-error" : undefined}
         />
-        <FieldError message={errors.website} />
+        <FieldError id="website-error" message={errors.website} />
       </div>
 
       <div className="mt-4">
@@ -308,8 +321,9 @@ export function ContactForm({
           value={form.needs}
           onChange={(event) => setField("needs", event.target.value)}
           aria-invalid={Boolean(errors.needs)}
+            aria-describedby={errors.needs ? "needs-error" : undefined}
         />
-        <FieldError message={errors.needs} />
+        <FieldError id="needs-error" message={errors.needs} />
       </div>
 
       <div

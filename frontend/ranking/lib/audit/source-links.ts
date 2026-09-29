@@ -5,7 +5,7 @@
  *
  * Every assistant that cites the same page adds its own row, so one page
  * appeared once per assistant that read it. The page looked padded, and the
- * one number that matters - how many distinct places write about a company - 
+ * one number that matters - how many distinct places write about a company -
  * could not be counted off the screen.
  *
  * And every row was labelled with its domain, so kenesis.ai/products and
@@ -40,8 +40,14 @@ export function canonicalUrl(raw: string): string {
 }
 
 /** One page may mention several companies; preserve each relationship. */
-export function companyMentionKey(mention: { url: string; company_name?: string | null }): string {
-  return JSON.stringify([(mention.company_name?.trim() || "Other").toLowerCase(), canonicalUrl(mention.url)]);
+export function companyMentionKey(mention: {
+  url: string;
+  company_name?: string | null;
+}): string {
+  return JSON.stringify([
+    (mention.company_name?.trim() || "Other").toLowerCase(),
+    canonicalUrl(mention.url),
+  ]);
 }
 
 /**
@@ -55,6 +61,14 @@ export function sourceLabel(source: {
   domain?: string | null;
 }): string {
   const title = source.title?.trim();
+  try {
+    if (new URL(source.url).hostname === "vertexaisearch.cloud.google.com")
+      return title && !title.includes("vertexaisearch.cloud.google.com")
+        ? `${title} (Google grounding reference)`
+        : "Google grounding reference · publisher destination not saved";
+  } catch {
+    /* Keep the original label for non-URL evidence. */
+  }
   if (title) return title;
   const canonical = canonicalUrl(source.url);
   return canonical || source.domain || source.url;

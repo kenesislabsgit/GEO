@@ -70,13 +70,16 @@ test("public report exposes sample details and an actionable remaining-evidence 
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto("/report/sample");
   const panel = page.getByRole("region", { name: "Run methodology" });
+  await expect(panel.locator("details")).not.toHaveAttribute("open");
+  await panel.locator("summary").click();
   await expect(panel).toContainText("gpt-5-mini-2025-08-07");
   await expect(panel).toContainText("UTC");
   await expect(panel).toContainText("5 usable answers");
   await expect(panel).toContainText("1 saved answer per question/provider pair");
   await expect(panel).toContainText("not recorded");
   await expect(page.getByRole("link", { name: "Compare plans for full evidence" })).toHaveAttribute("href", "/pricing");
-  await expect(page.getByText(/Score weights: mentions 65%/)).toBeVisible();
+  await page.getByText("How this score is calculated", { exact: true }).click();
+  await expect(page.getByText(/Mentions contribute 65%/)).toBeVisible();
   await expect(page.getByText("buyer_question", { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   await panel.screenshot({ path: test.info().outputPath("methodology-panel.png") });

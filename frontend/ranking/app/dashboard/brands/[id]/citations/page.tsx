@@ -1,3 +1,4 @@
+import { providerDisplayName } from "@/lib/constants";
 import { notFound } from "next/navigation";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
@@ -8,13 +9,18 @@ import {
   getBrandById,
   getLatestCompletedScanForBrand,
   getQueryResults,
+  getScanQuestions,
   listAllPrompts,
 } from "@/lib/db/repository";
 import { Badge } from "@/components/ui/badge";
 import { BrandPageHeader } from "@/components/dashboard/brand-page-header";
 import { ProviderStack } from "@/components/providers/provider-logo";
 import { ProReportLock } from "@/components/dashboard/pro-report-lock";
-import { canonicalUrl, companyMentionKey, sourceLabel } from "@/lib/audit/source-links";
+import {
+  canonicalUrl,
+  companyMentionKey,
+  sourceLabel,
+} from "@/lib/audit/source-links";
 import type { ProviderId } from "@/types/database";
 
 type Citation = {
@@ -53,8 +59,10 @@ function hostOfUrl(url: string, domain?: string | null): string | null {
 
 export default async function SourcesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string; provider?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) return null;
@@ -69,7 +77,12 @@ export default async function SourcesPage({
   ]);
   const isPaid = isPaidSubscription(entitlements);
   const results = latestScan ? await getQueryResults(latestScan.id) : [];
-  const promptMap = new Map(prompts.map((prompt) => [prompt.id, prompt.prompt]));
+  const questions = latestScan ? await getScanQuestions(latestScan.id) : [];
+  const filters = await searchParams;
+  const search = filters.q?.trim().toLowerCase() ?? "";
+  const promptMap = new Map(
+    prompts.map((prompt) => [prompt.id, prompt.prompt]),
+  );
   // One row per page, not one row per assistant that read it. Four assistants
   // citing the same comparison article is one page on this list, and the fact
   // that four of them read it belongs on that row rather than as four rows.
@@ -79,9 +92,12 @@ export default async function SourcesPage({
       if (!citation?.url) continue;
       const key = canonicalUrl(citation.url);
       const existing = citationMap.get(key);
-      const question = result.tracked_prompt_id
-        ? promptMap.get(result.tracked_prompt_id)
-        : null;
+      const question =
+        questions.find((row) => row.position === result.question_position)
+          ?.prompt ??
+        (result.tracked_prompt_id
+          ? promptMap.get(result.tracked_prompt_id)
+          : null);
       if (existing) {
         if (!existing.providers.includes(result.provider)) {
           existing.providers.push(result.provider);
@@ -96,7 +112,16 @@ export default async function SourcesPage({
       });
     }
   }
-  const citations = Array.from(citationMap.values());
+  const citations = Array.from(citationMap.values()).filter(
+    (row) =>
+      (!filters.provider ||
+        row.providers.includes(filters.provider as ProviderId)) &&
+      (!search ||
+        [row.url, row.title, row.question]
+          .join(" ")
+          .toLowerCase()
+          .includes(search)),
+  );
   // One disclosure per website rather than one heavy row per link: the list
   // reads as "which places" first, and the individual pages stay a click away.
   const citationsByDomain = new Map<
@@ -163,7 +188,10 @@ export default async function SourcesPage({
     });
   // A company with nothing written about it has no group of its own, and the
   // absence is the finding. Say it rather than leave the brand off the page.
-  if (!mentionGroups.some((group) => group.own) && verifiedMentions.length > 0) {
+  if (
+    !mentionGroups.some((group) => group.own) &&
+    verifiedMentions.length > 0
+  ) {
     mentionGroups.unshift({ company: brand.name, rows: [], own: true });
   }
 
@@ -206,7 +234,8 @@ export default async function SourcesPage({
   const showCitationGaps = hasFeature(entitlements.plan, "citationGaps");
 
   // The page's headline numbers, so the lists below are detail, not the pitch.
-  const ownMentionCount = mentionGroups.find((group) => group.own)?.rows.length ?? 0;
+  const ownMentionCount =
+    mentionGroups.find((group) => group.own)?.rows.length ?? 0;
   const competitorMentionCount = verifiedMentions.length - ownMentionCount;
   const allDomains = new Set<string>([
     ...citationGroups.map((group) => group.domain),
@@ -219,9 +248,47 @@ export default async function SourcesPage({
         brandId={brand.id}
         brandName={brand.name}
         title="Sources & Mentions"
-        description="What the internet says about you and your competitors, and why it decides who gets recommended."
+        description="Sources cited in AI answers and independent web mentions."
         isPaid={isPaid}
       />
+      {isPaid ? (
+        <form className="flex flex-wrap items-end gap-3" method="get">
+          <label className="flex min-w-0 flex-1 basis-full flex-col gap-1 text-xs sm:basis-auto">
+            Search citations
+            <input
+              name="q"
+              defaultValue={filters.q}
+              placeholder="Page, company or question"
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            AI assistant
+            <select
+              name="provider"
+              defaultValue={filters.provider ?? ""}
+              className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All AI assistants</option>
+              {Array.from(new Set(results.map((row) => row.provider))).map(
+                (provider) => (
+                  <option key={provider} value={provider}>
+                    {providerDisplayName(provider)}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <button className="min-h-11 rounded-md border border-input px-4 text-sm">
+            Filter
+          </button>
+          <p className="w-full text-xs text-muted-foreground">
+            Citation counts reflect matching results. Search and provider
+            filters apply to AI citations; independent web mentions below are
+            collected separately.
+          </p>
+        </form>
+      ) : null}
       {!isPaid ? (
         <ProReportLock
           title="Unlock source intelligence"
@@ -231,8 +298,7 @@ export default async function SourcesPage({
       ) : citations.length === 0 && verifiedMentions.length === 0 ? (
         <div className="arc-empty p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No grounded citations or verified web mentions are available for this
-            audit.
+            No sources match this view. Try clearing the filters or opening another audit.
           </p>
         </div>
       ) : (
@@ -241,14 +307,14 @@ export default async function SourcesPage({
           <section className="arc-panel grid grid-cols-2 divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
             {(
               [
-                [citations.length, "Pages AI read"],
+                [citations.length, "Sources cited"],
                 [allDomains.size, "Websites involved"],
-                [ownMentionCount, "Write about you"],
-                [competitorMentionCount, "About competitors"],
+                [verifiedMentions.length ? ownMentionCount : "Unavailable", "Mentions of you"],
+                [verifiedMentions.length ? competitorMentionCount : "Unavailable", "Mentions of competitors"],
               ] as const
             ).map(([value, label]) => (
               <div key={label} className="px-5 py-4">
-                <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight">
+                <p className={`arc-tabular font-heading font-semibold tracking-tight ${typeof value === "number" ? "text-2xl" : "text-base"}`}>
                   {value}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
@@ -258,11 +324,15 @@ export default async function SourcesPage({
 
           <section className="space-y-3">
             <div>
-              <h2 className="text-base font-semibold">Pages the AI actually read</h2>
+              <h2 className="text-base font-semibold">
+                URLs cited in AI answers
+              </h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Opened by an assistant while it answered, grouped by website.
-                Open a website to see the exact pages and the questions they
-                decided.
+                Open a website to see cited URLs and the questions whose answers
+                linked to them. A citation does not prove the model read the
+                whole page; fetched pages and saved passages are separate
+                evidence.
               </p>
             </div>
             {citationGroups.length === 0 ? (
@@ -281,9 +351,11 @@ export default async function SourcesPage({
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {group.rows.length}{" "}
-                          {group.rows.length === 1 ? "page" : "pages"} · read by{" "}
+                          {group.rows.length === 1 ? "page" : "pages"} · cited by{" "}
                           {group.providers.length}{" "}
-                          {group.providers.length === 1 ? "assistant" : "assistants"}
+                          {group.providers.length === 1
+                            ? "assistant"
+                            : "assistants"}
                         </span>
                       </span>
                       <span className="ml-auto flex shrink-0 items-center gap-3">
@@ -376,7 +448,7 @@ export default async function SourcesPage({
             </div>
             {verifiedMentions.length === 0 ? (
               <div className="arc-empty p-5 text-sm text-muted-foreground">
-                No independently verified mentions were collected.
+                Independent web mentions aren’t available for this audit.
               </div>
             ) : (
               <div className="arc-list divide-y divide-border">
@@ -391,7 +463,10 @@ export default async function SourcesPage({
                         {group.company}
                       </span>
                       {group.own ? (
-                        <Badge variant="secondary" className="rounded-full text-[11px]">
+                        <Badge
+                          variant="secondary"
+                          className="rounded-full text-[11px]"
+                        >
                           You
                         </Badge>
                       ) : null}
@@ -406,9 +481,9 @@ export default async function SourcesPage({
                     <div className="border-t border-border">
                       {group.rows.length === 0 ? (
                         <p className="bg-background/40 px-5 py-4 text-sm text-muted-foreground">
-                          No page on the open web was found writing about you. An
-                          assistant asked to recommend a company in this category
-                          has nothing to read.
+                          No mentions of you in the collected sources.
+                          An assistant asked to recommend a company in this
+                          category has nothing to read.
                         </p>
                       ) : (
                         <div className="divide-y divide-border">
@@ -430,7 +505,10 @@ export default async function SourcesPage({
                                 variant="outline"
                                 className="ml-auto shrink-0 rounded-full text-[10px] text-muted-foreground"
                               >
-                                {(mention.source_type ?? "web").replaceAll("_", " ")}
+                                {(mention.source_type ?? "web").replaceAll(
+                                  "_",
+                                  " ",
+                                )}
                               </Badge>
                             </div>
                           ))}

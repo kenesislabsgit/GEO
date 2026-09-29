@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBrandById, getScanRun } from "@/lib/db/repository";
 import { getScanEvents } from "@/lib/scans/queue";
-import {
-  assertScanProgressAccess,
-  ScanAccessError,
-} from "@/lib/scans/access";
+import { assertScanProgressAccess, ScanAccessError } from "@/lib/scans/access";
 
 export async function GET(
   request: Request,
@@ -48,7 +45,8 @@ export async function GET(
     brandId: scan.brand_id,
     providers: scan.provider_ids ?? [],
     slug: brand?.slug ?? null,
-    queuedAt: scan.queued_at ?? null,
+    queuedAt: scan.queued_at ?? scan.created_at,
+    heartbeatAt: scan.heartbeat_at ?? null,
     cancelRequested: Boolean(scan.cancel_requested_at),
     progress:
       (scan.progress ?? 0) > 0
