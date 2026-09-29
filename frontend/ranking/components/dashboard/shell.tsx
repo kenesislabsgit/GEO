@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   ChevronsLeft,
@@ -156,12 +156,15 @@ export function DashboardShell({
   brands?: ShellBrand[];
 }) {
   const pathname = usePathname();
+  const params = useParams<{ id?: string | string[] }>();
   const router = useRouter();
   const [rememberedBrand, setRememberedBrand] = useState<string | null>(null);
   // The analysis group follows the website being viewed; anywhere else it
   // shows the account's most recent website so the sections are always one
   // click away.
-  const pathBrandId = pathname.match(/^\/dashboard\/brands\/([^/]+)/)?.[1];
+  const routeBrandId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const pathBrandId =
+    routeBrandId ?? pathname.match(/^\/dashboard\/brands\/([^/]+)/)?.[1];
   const activeBrand =
     brands.find((brand) => brand.id === pathBrandId) ??
     brands.find((brand) => brand.id === rememberedBrand) ??
@@ -218,6 +221,21 @@ export function DashboardShell({
     });
   };
 
+  const rememberLinkedWebsite = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const anchor = (event.target as HTMLElement).closest("a[href]");
+    const href = anchor?.getAttribute("href");
+    const linkedBrandId = href?.match(/^\/dashboard\/brands\/([^/?#]+)/)?.[1];
+    if (!linkedBrandId || !brands.some((brand) => brand.id === linkedBrandId)) {
+      return;
+    }
+    setRememberedBrand(linkedBrandId);
+    try {
+      sessionStorage.setItem("arcanoris-selected-website", linkedBrandId);
+    } catch {
+      /* The URL remains the source of truth if storage is unavailable. */
+    }
+  };
+
   const alertBadge =
     unreadAlerts > 0 ? (
       <span className="ml-auto rounded-full bg-[color:var(--arc-accent)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -226,7 +244,10 @@ export function DashboardShell({
     ) : null;
 
   return (
-    <div className="arc-dash flex min-h-screen flex-col">
+    <div
+      className="arc-dash flex min-h-screen flex-col"
+      onClickCapture={rememberLinkedWebsite}
+    >
       {/* ── Mobile top bar (below lg) ─────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background lg:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
