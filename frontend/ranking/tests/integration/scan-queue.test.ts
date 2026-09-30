@@ -101,7 +101,7 @@ describe("the durable scan queue", () => {
     const user = await makeUser("queue-timezone");
     const brand = await makeBrand(user, "queue-timezone.example");
     await withTransaction(async () => {
-      await exec("set local timezone = 'Asia/Calcutta'");
+      await exec("set local timezone = 'Asia/Kolkata'");
       const result = await enqueueScan({ brand, initiatedBy: user, scanType: "manual", snapshot: snapshot(brand.canonical_domain), checksLimit: 400 });
       expect(result.ok).toBe(true);
       if (result.ok) expect(Math.abs(Date.now() - new Date(result.scan.queued_at!).getTime())).toBeLessThan(5000);
