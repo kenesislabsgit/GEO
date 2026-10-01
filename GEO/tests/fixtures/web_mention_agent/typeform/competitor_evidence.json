@@ -1,0 +1,9 @@
+{
+  "competitors": [
+    {"company_name": "Jotform", "website_url": "https://www.jotform.com"},
+    {"company_name": "Formstack", "website_url": "https://www.formstack.com"},
+    {"company_name": "Qualtrics", "website_url": "https://www.qualtrics.com"},
+    {"company_name": "SurveyMonkey", "website_url": "https://www.surveymonkey.com"},
+    {"company_name": "UserTesting", "website_url": "https://usertesting.com"}
+  ]
+}

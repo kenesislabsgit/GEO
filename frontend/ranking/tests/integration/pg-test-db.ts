@@ -7,6 +7,9 @@
  *   psql -U postgres -c "create database geo_test"
  *   pg_dump -U postgres --schema-only geo_dev | psql -U postgres -d geo_test
  */
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5432/geo_test";
@@ -18,29 +21,64 @@ export function pointAtTestDb(): void {
 export async function resetTestDb(): Promise<void> {
   pointAtTestDb();
   const { q, exec } = await import("@/lib/db/pg");
-  const questionsMigration = await readFile(
-    path.join(process.cwd(), "db/migrations/0005_scan_questions.sql"),
-    "utf8",
+  // Production applies Better Auth's migration before ours. Recreate the
+  // tables it owns here so an empty disposable database follows that order.
+  await exec(`
+    create table if not exists "user" (
+      id text primary key,
+      name text not null,
+      email text not null unique,
+      "emailVerified" boolean not null default false,
+      image text,
+      "createdAt" timestamptz not null default now(),
+      "updatedAt" timestamptz not null default now()
+    );
+    create table if not exists session (
+      id text primary key,
+      "expiresAt" timestamptz not null,
+      token text not null unique,
+      "createdAt" timestamptz not null default now(),
+      "updatedAt" timestamptz not null default now(),
+      "ipAddress" text,
+      "userAgent" text,
+      "userId" text not null references "user" (id) on delete cascade
+    );
+    create table if not exists account (
+      id text primary key,
+      "accountId" text not null,
+      "providerId" text not null,
+      "userId" text not null references "user" (id) on delete cascade,
+      "accessToken" text,
+      "refreshToken" text,
+      "idToken" text,
+      "accessTokenExpiresAt" timestamptz,
+      "refreshTokenExpiresAt" timestamptz,
+      scope text,
+      password text,
+      "createdAt" timestamptz not null default now(),
+      "updatedAt" timestamptz not null default now()
+    );
+    create table if not exists verification (
+      id text primary key,
+      identifier text not null,
+      value text not null,
+      "expiresAt" timestamptz not null,
+      "createdAt" timestamptz not null default now(),
+      "updatedAt" timestamptz not null default now()
+    );
+  `);
+  const migrationsDirectory = path.join(process.cwd(), "db/migrations");
+  const [{ brandsTable }] = await q<{ brandsTable: string | null }>(
+    "select to_regclass('public.brands') as \"brandsTable\"",
   );
-  await exec(questionsMigration);
-  const monitoringQuestionsMigration = await readFile(
-    path.join(process.cwd(), "db/migrations/0006_monitoring_questions.sql"),
-    "utf8",
-  );
-  await exec(monitoringQuestionsMigration);
-  const profileCacheMigration = await readFile(
-    path.join(process.cwd(), "db/migrations/0007_brand_profile_cache.sql"),
-    "utf8",
-  );
-  await exec(profileCacheMigration);
-  const questionPositionMigration = await readFile(
-    path.join(
-      process.cwd(),
-      "db/migrations/0008_query_result_question_position.sql",
-    ),
-    "utf8",
-  );
-  await exec(questionPositionMigration);
+  if (!brandsTable) {
+    const migrations = (await readdir(migrationsDirectory))
+      .filter((name) => name.endsWith(".sql"))
+      .sort();
+    for (const migration of migrations) {
+      await exec(await readFile(path.join(migrationsDirectory, migration), "utf8"));
+    }
+  }
   await q(
     `truncate table brands, scan_runs, scan_questions, query_results, score_snapshots,
        recommendations, tracked_prompts, competitors, subscriptions,
@@ -60,5 +98,3 @@ export async function closeTestDb(): Promise<void> {
     .catch(() => {});
   (globalThis as { __rbaiPgPool?: unknown }).__rbaiPgPool = undefined;
 }
-import { readFile } from "node:fs/promises";
-import path from "node:path";

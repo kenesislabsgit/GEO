@@ -41,7 +41,7 @@ class RecordingSearchClient:
 
 
 class WebMentionAgentExperimentTests(unittest.TestCase):
-    SOURCE = Path(__file__).parents[1] / "outputs" / "20260818-224605-typeform.com"
+    SOURCE = Path(__file__).parent / "fixtures" / "web_mention_agent" / "typeform"
 
     def test_input_uses_top_five_and_withholds_one_real_link(self):
         payload, private = build_experiment_input(

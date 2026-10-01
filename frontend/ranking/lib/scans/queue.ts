@@ -111,13 +111,13 @@ export async function enqueueScan(
           ? await one<{ id: string }>(
               `update scan_runs set
                  status = 'cancelled', step = 'cancelled',
-                 cancel_requested_at = timezone('utc', now()),
-                 cancelled_at = timezone('utc', now()),
-                 completed_at = timezone('utc', now()),
+                 cancel_requested_at = now(),
+                 cancelled_at = now(),
+                 completed_at = now(),
                  error_summary = 'Cancelled because the audit sat in queue too long.',
                  failure_reason = 'stale_queue'
                where id = $1 and status = 'queued'
-                 and queued_at < timezone('utc', now()) - ($2 * interval '1 millisecond')
+                 and queued_at < now() - ($2 * interval '1 millisecond')
                returning id`,
               [active.id, STALE_QUEUED_MS],
             )

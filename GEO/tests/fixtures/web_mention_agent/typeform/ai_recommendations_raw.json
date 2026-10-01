@@ -1,0 +1,16 @@
+[
+  {
+    "assistant": "openai_search",
+    "prompt_index": 1,
+    "prompt": "Which form and survey platforms should I compare?",
+    "raw_response": "Typeform, Jotform, Formstack, Qualtrics, SurveyMonkey, and UserTesting are established options for different form, survey, and research workflows.",
+    "recommended_companies": [
+      {"company_name": "Typeform"},
+      {"company_name": "Jotform"},
+      {"company_name": "Formstack"},
+      {"company_name": "Qualtrics"},
+      {"company_name": "SurveyMonkey"},
+      {"company_name": "UserTesting"}
+    ]
+  }
+]

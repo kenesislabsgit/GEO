@@ -1833,6 +1833,10 @@ class PipelineChangeTests(unittest.TestCase):
                 "geo_audit.recommendations.analyze_provider_answer_batch",
                 side_effect=AssertionError("Analyzer should not run"),
             ),
+            patch(
+                "geo_audit.recommendations.collect_llama_search_context",
+                return_value={},
+            ),
         ):
             results, _payloads, errors = collect_multi_model_recommendations(
                 prompts,
