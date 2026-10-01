@@ -9,6 +9,7 @@ const columns = [
     title: "Product",
     links: [
       { href: routes.freeAuditSignup, label: "Free audit" },
+      { href: routes.sampleReport, label: "Sample report" },
       { href: routes.pricing, label: "Pricing" },
       ...PRODUCT_PAGES.map((page) => ({ href: page.href, label: page.label })),
       { href: routes.dashboard, label: "Dashboard" },

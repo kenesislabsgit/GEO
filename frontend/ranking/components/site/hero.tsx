@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { HeroCrowd } from "@/components/site/hero-crowd";
 import { HeroDomainInput } from "@/components/site/hero-domain-input";
@@ -99,7 +100,7 @@ export function LandingHero() {
         </h1>
 
         <p className="arc-fade-up arc-fade-up-delay-1 mt-5 max-w-lg text-sm text-pretty text-foreground/65 sm:text-base md:text-lg">
-          The free audit checks ChatGPT. Plus and Pro add Claude, Gemini and
+          The free report checks ChatGPT. Plus and Pro add Claude, Gemini and
           more, so you see who outranks you and what to fix.
         </p>
 
@@ -130,6 +131,12 @@ export function LandingHero() {
             <ArrowRight className="size-4" aria-hidden />
           </RainbowButton>
         </form>
+        <Link
+          href={routes.sampleReport}
+          className="arc-fade-up arc-fade-up-delay-3 relative mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border border-foreground/20 bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+        >
+          View a sample report <ArrowRight className="size-4" aria-hidden />
+        </Link>
         <p className="arc-fade-up arc-fade-up-delay-3 mt-4 text-xs text-foreground/45">
           Free account · no card · ~2 min on ChatGPT
         </p>

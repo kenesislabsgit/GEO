@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: routes.pricing, label: "Pricing" },
+  { href: routes.sampleReport, label: "Sample report" },
   { href: routes.methodology, label: "Methodology" },
   { href: routes.blog, label: "Blog" },
 ];
