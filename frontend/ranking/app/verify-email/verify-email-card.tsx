@@ -37,6 +37,15 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
     }
   }
 
+  async function signOut() {
+    const result = await authClient.signOut();
+    if (result.error) {
+      setSendError("Could not sign out. Try again.");
+      return;
+    }
+    window.location.assign(routes.login({ mode: "signin" }));
+  }
+
   if (linkError) {
     return (
       <div className="text-center">
@@ -77,11 +86,13 @@ export function VerifyEmailCard({ email }: { email: string | null }) {
       />
       {sendError ? <p role="alert" className="mt-3 text-sm text-destructive">{sendError}</p> : null}
       {email ? (
-        <form action="/api/auth/signout" method="post" className="mt-4">
-          <button type="submit" className="text-xs text-muted-foreground underline hover:text-foreground">
-            Sign out and use a different account
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="mt-4 text-xs text-muted-foreground underline hover:text-foreground"
+        >
+          Sign out and use a different account
+        </button>
       ) : null}
     </div>
   );

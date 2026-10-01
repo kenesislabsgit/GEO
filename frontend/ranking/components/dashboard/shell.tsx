@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { APP_NAME } from "@/lib/constants";
+import { authClient } from "@/lib/auth/client";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -228,6 +229,13 @@ export function DashboardShell({
     });
   };
 
+  const signOut = async () => {
+    const result = await authClient.signOut();
+    if (!result.error) {
+      window.location.assign(routes.login({ mode: "signin" }));
+    }
+  };
+
   const rememberLinkedWebsite = (event: ReactMouseEvent<HTMLDivElement>) => {
     const anchor = (event.target as HTMLElement).closest("a[href]");
     const href = anchor?.getAttribute("href");
@@ -266,16 +274,15 @@ export function DashboardShell({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <ThemeToggle />
-            <form action="/api/auth/signout" method="POST">
-              <button
-                type="submit"
-                title="Sign out"
-                className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <LogOut className="size-3.5" />
-                <span className="sr-only">Sign out</span>
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              title="Sign out"
+              className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <LogOut className="size-3.5" />
+              <span className="sr-only">Sign out</span>
+            </button>
           </div>
         </div>
         <details className="border-t border-border">
@@ -447,16 +454,15 @@ export function DashboardShell({
                       {email[0] ?? "?"}
                     </span>
                     <ThemeToggle className="size-8 text-muted-foreground" />
-                    <form action="/api/auth/signout" method="POST">
-                      <button
-                        type="submit"
-                        title="Sign out"
-                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <LogOut className="size-3.5" />
-                        <span className="sr-only">Sign out</span>
-                      </button>
-                    </form>
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      title="Sign out"
+                      className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <LogOut className="size-3.5" />
+                      <span className="sr-only">Sign out</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2.5 px-3 py-3">
@@ -488,16 +494,15 @@ export function DashboardShell({
                       </div>
                     </div>
                     <ThemeToggle className="size-8 shrink-0 text-muted-foreground" />
-                    <form action="/api/auth/signout" method="POST">
-                      <button
-                        type="submit"
-                        title="Sign out"
-                        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <LogOut className="size-3.5" />
-                        <span className="sr-only">Sign out</span>
-                      </button>
-                    </form>
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      title="Sign out"
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <LogOut className="size-3.5" />
+                      <span className="sr-only">Sign out</span>
+                    </button>
                   </div>
                 )}
               </div>
