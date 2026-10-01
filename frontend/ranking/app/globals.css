@@ -613,24 +613,7 @@
     animation: rainbow 2s infinite linear;
   }
 
-  /* The provider radar: a sweeping beam that circles the dial, showing the
-     scan touching every model. Sits in a rounded-full parent. */
-  .arc-radar-sweep {
-    border-radius: 9999px;
-    background: conic-gradient(
-      from 0deg,
-      color-mix(in srgb, var(--arc-accent) 35%, transparent),
-      color-mix(in srgb, var(--arc-accent) 8%, transparent) 55deg,
-      transparent 85deg
-    );
-    animation: arc-spin 7s linear infinite;
-  }
-
-  /* Ambient motion: floating chips, glowing dots, a breathing badge. */
-  .arc-drift {
-    animation: arc-drift 7s ease-in-out infinite;
-    animation-delay: var(--arc-delay, 0ms);
-  }
+  /* Ambient motion: glowing dots and breathing badges. */
   .arc-pulse-dot {
     animation: arc-pulse-dot 3s ease-in-out infinite;
     animation-delay: var(--arc-delay, 0ms);
@@ -769,16 +752,6 @@
   }
 }
 
-@keyframes arc-drift {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-7px);
-  }
-}
-
 @keyframes arc-pulse-dot {
   0%,
   100% {
@@ -839,11 +812,9 @@
     background-size: 100% 100% !important;
     transition: none !important;
   }
-  .arc-drift,
   .arc-pulse-dot,
   .arc-pulse-soft,
   .arc-spin-slow,
-  .arc-radar-sweep,
   .arc-rainbow-btn,
   .arc-rainbow-btn::before,
   .arc-marquee,
@@ -852,6 +823,27 @@
   }
   .arc-motion-dot {
     display: none !important;
+  }
+}
+
+/* Small screens have less room to hide upcoming content. Keep the landing
+   page immediately readable there instead of waiting for scroll observers. */
+@media (max-width: 767px) {
+  .arc-fade-up,
+  .arc-reveal,
+  .arc-rise,
+  .arc-grow-x,
+  .arc-grow-y,
+  .arc-light-up,
+  .arc-fade-late {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .arc-reveal {
+    transition-delay: 0ms !important;
   }
 }
 

@@ -75,8 +75,8 @@ function HeroAiStack() {
  */
 export function LandingHero() {
   return (
-    <section className="relative isolate overflow-hidden bg-background text-foreground md:min-h-[100svh]">
-      <div className="relative z-30 mx-auto flex max-w-5xl flex-col items-center justify-start px-6 pt-8 pb-8 text-center sm:pt-12 md:min-h-[100svh] md:pt-20 md:pb-20">
+    <section className="relative isolate overflow-hidden bg-background text-foreground md:min-h-[min(88svh,760px)]">
+      <div className="relative z-30 mx-auto flex max-w-5xl flex-col items-center justify-start px-6 pt-8 pb-8 text-center sm:pt-12 md:min-h-[min(88svh,760px)] md:pt-20 md:pb-20">
         <p className="arc-fade-up inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-background/50 px-2.5 py-1 text-xs text-foreground/80 backdrop-blur-sm">
           <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-background uppercase">
             New
@@ -137,7 +137,7 @@ export function LandingHero() {
       <div
         aria-hidden
         data-hero-illustration
-        className="relative isolate h-72 overflow-hidden bg-background md:absolute md:inset-0 md:h-auto"
+        className="hidden bg-background md:absolute md:inset-0 md:block md:h-auto"
       >
         <HeroCrowd />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-background via-background/50 to-transparent" />

@@ -473,14 +473,6 @@ const PROVIDER_STRIP = ALL_PROVIDERS;
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
-/** One mark per catalog provider, placed on an ellipse around the dial. */
-const RADAR_BLIPS = ALL_PROVIDERS.map((id, index) => {
-  const angle = (index / ALL_PROVIDERS.length) * Math.PI * 2 - Math.PI / 2;
-  const left = 50 + Math.cos(angle) * 40;
-  const top = 50 + Math.sin(angle) * 38;
-  return { id, left, top };
-});
-
 /* ----------------------------------------------------------------- page -- */
 
 export default async function HomePage() {
@@ -546,7 +538,7 @@ export default async function HomePage() {
           <SectionFrame />
 
           <div className="relative overflow-hidden">
-            <div className="relative mx-auto max-w-6xl px-4 pt-24 md:px-6 md:pt-32">
+            <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-20">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">The shift</p>
@@ -568,10 +560,10 @@ export default async function HomePage() {
                   ].map(([stat, label], index) => (
                     <div
                       key={label}
-                      className="arc-rise px-4 py-4 first:pl-0"
+                      className="arc-rise px-2 py-4 first:pl-0 sm:px-4"
                       style={delayStyle(200 + index * 100)}
                     >
-                      <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+                      <p className="arc-tabular font-heading text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">
                         {stat}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
@@ -659,32 +651,37 @@ export default async function HomePage() {
               {/* Providers - floating pills */}
               <Reveal delay={150}>
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="relative min-h-52 flex-1 sm:min-h-72">
-                  {/* The radar dial: rings, crosshair, and a sweeping beam. */}
-                  <div aria-hidden className="absolute inset-0 grid place-items-center">
-                    <div className="relative aspect-square w-[72%] sm:w-[86%]">
-                      <div className="absolute inset-0 rounded-full border border-border" />
-                      <div className="absolute inset-[17%] rounded-full border border-border" />
-                      <div className="absolute inset-[34%] rounded-full border border-border" />
-                      <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
-                      <div className="arc-radar-sweep absolute inset-0" />
-                      <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
+                <div className="flex min-h-52 flex-1 flex-col justify-between p-5 sm:min-h-72 sm:p-6">
+                  <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
+                      Shared buyer questions
+                    </span>
+                    <span className="shrink-0 font-mono tracking-wide">20 prompts</span>
+                  </div>
+                  <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
+                    <div className="min-w-0 border border-border bg-background px-3 py-3">
+                      <p className="text-xs font-medium text-foreground">One question set</p>
+                      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Same inputs for every check</p>
+                    </div>
+                    <ArrowRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 border border-border bg-background px-3 py-3">
+                      <p className="text-xs font-medium text-foreground">Provider answers</p>
+                      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Comparable results</p>
                     </div>
                   </div>
-                  {RADAR_BLIPS.map((blip, index) => (
-                    <span
-                      key={blip.id}
-                      className="arc-drift absolute grid size-8 place-items-center rounded-full border border-border bg-background shadow-sm"
-                      style={{
-                        ...delayStyle(index * 280),
-                        left: `calc(${blip.left}% - 16px)`,
-                        top: `calc(${blip.top}% - 16px)`,
-                      }}
-                    >
-                      <ProviderLogo provider={blip.id} className="size-3.5" />
-                    </span>
-                  ))}
+                  <div className="mt-5 grid grid-cols-5 gap-2 sm:grid-cols-7 sm:gap-2.5">
+                    {ALL_PROVIDERS.map((provider) => (
+                      <span
+                        key={provider}
+                        title={providerDisplayName(provider)}
+                        className="flex aspect-square items-center justify-center border border-border bg-background"
+                      >
+                        <ProviderLogo provider={provider} className="size-4 sm:size-[18px]" />
+                        <span className="sr-only">{providerDisplayName(provider)}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="p-5 sm:p-6 md:p-8">
                   <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
