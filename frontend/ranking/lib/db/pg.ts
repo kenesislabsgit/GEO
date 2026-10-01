@@ -121,7 +121,14 @@ function toParam(value: unknown): unknown {
   // instead of letting an otherwise complete audit fail during import.
   if (typeof value === "string") return value.replaceAll("\u0000", "");
   if (value !== null && typeof value === "object") {
-    return JSON.stringify(value).replaceAll("\\u0000", "");
+    // Strip real NULs before JSON escapes them. Editing the serialized JSON
+    // would also match the second slash in a literal "\\u0000" value and
+    // leave malformed JSON behind.
+    return JSON.stringify(value, (_key, nestedValue) =>
+      typeof nestedValue === "string"
+        ? nestedValue.replaceAll("\u0000", "")
+        : nestedValue,
+    );
   }
   return value;
 }
