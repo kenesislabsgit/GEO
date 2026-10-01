@@ -493,6 +493,21 @@ const STAT_CHIPS_ROWS = [
   ],
 ] as const;
 
+// Vary the distance from the centre, like signals picked up by a radar.
+// Every mark is an actual provider in the current catalog.
+const RADAR_BLIPS = [
+  { id: "openai_search", left: 48, top: 10 },
+  { id: "bedrock_claude", left: 76, top: 25 },
+  { id: "gemini", left: 20, top: 26 },
+  { id: "perplexity", left: 10, top: 51 },
+  { id: "grok", left: 86, top: 51 },
+  { id: "deepseek", left: 22, top: 75 },
+  { id: "groq", left: 76, top: 76 },
+  { id: "bedrock_mistral", left: 49, top: 88 },
+  { id: "kimi", left: 38, top: 43 },
+  { id: "bedrock_nova", left: 63, top: 62 },
+] as const;
+
 /* ----------------------------------------------------------------- page -- */
 
 export default async function HomePage() {
@@ -558,7 +573,7 @@ export default async function HomePage() {
           <SectionFrame />
 
           <div className="relative overflow-hidden">
-            <div className="relative mx-auto max-w-6xl px-4 pt-16 md:px-6 md:pt-20">
+            <div className="relative mx-auto max-w-6xl px-4 pt-24 md:px-6 md:pt-32">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
               <Reveal direction="left">
                 <p className="arc-eyebrow">The shift</p>
@@ -580,10 +595,10 @@ export default async function HomePage() {
                   ].map(([stat, label], index) => (
                     <div
                       key={label}
-                      className="arc-rise px-2 py-4 first:pl-0 sm:px-4"
+                      className="arc-rise px-4 py-4 first:pl-0"
                       style={delayStyle(200 + index * 100)}
                     >
-                      <p className="arc-tabular font-heading text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">
+                      <p className="arc-tabular font-heading text-2xl font-semibold tracking-tight md:text-3xl">
                         {stat}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
@@ -690,37 +705,30 @@ export default async function HomePage() {
               </div>
               </Reveal>
 
-              {/* Providers - one comparable question set across the catalog. */}
+              {/* Providers - floating pills */}
               <Reveal delay={150} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
-                <div className="flex min-h-52 flex-1 flex-col justify-between p-5 sm:min-h-72 sm:p-6">
-                  <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span aria-hidden className="size-1.5 rounded-full bg-[color:var(--arc-accent)]" />
-                      Shared buyer questions
-                    </span>
-                    <span className="shrink-0 font-mono tracking-wide">20 prompts</span>
-                  </div>
-                  <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
-                    <div className="min-w-0 border border-border bg-background px-3 py-3">
-                      <p className="text-xs font-medium text-foreground">One question set</p>
-                      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Same inputs for every check</p>
-                    </div>
-                    <ArrowRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 border border-border bg-background px-3 py-3">
-                      <p className="text-xs font-medium text-foreground">Provider answers</p>
-                      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Comparable results</p>
-                    </div>
-                  </div>
-                  <div className="mt-5 grid grid-cols-5 gap-2 sm:grid-cols-7 sm:gap-2.5">
-                    {ALL_PROVIDERS.map((provider) => (
+                <div className="relative grid min-h-72 flex-1 place-items-center py-5 sm:min-h-80" aria-hidden>
+                  {/* The radar dial: rings, crosshair, and a sweeping beam. */}
+                  <div className="relative aspect-square w-[86%] max-w-[360px]">
+                    <div className="absolute inset-0 rounded-full border border-border" />
+                    <div className="absolute inset-[17%] rounded-full border border-border" />
+                    <div className="absolute inset-[34%] rounded-full border border-border" />
+                    <div className="absolute top-1/2 right-0 left-0 h-px bg-border" />
+                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border" />
+                    <div className="arc-radar-sweep absolute inset-0" />
+                    <span className="arc-pulse-dot absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--arc-accent)] shadow-[0_0_16px_4px_color-mix(in_srgb,var(--arc-accent)_45%,transparent)]" />
+                    {RADAR_BLIPS.map((blip, index) => (
                       <span
-                        key={provider}
-                        title={providerDisplayName(provider)}
-                        className="flex aspect-square items-center justify-center border border-border bg-background"
+                        key={blip.id}
+                        className="arc-drift absolute grid size-9 place-items-center rounded-full border border-border bg-background shadow-[0_3px_12px_-4px_rgba(0,0,0,0.25)]"
+                        style={{
+                          ...delayStyle(index * 550),
+                          left: `calc(${blip.left}% - 18px)`,
+                          top: `calc(${blip.top}% - 18px)`,
+                        }}
                       >
-                        <ProviderLogo provider={provider} className="size-4 sm:size-[18px]" />
-                        <span className="sr-only">{providerDisplayName(provider)}</span>
+                        <ProviderLogo provider={blip.id} className="size-4" />
                       </span>
                     ))}
                   </div>

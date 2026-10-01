@@ -185,6 +185,12 @@ export function CrowdCanvas({
   const controlsRef = useRef<CrowdControls | null>(null);
 
   useEffect(() => {
+    pausedRef.current = paused;
+    slowedRef.current = slowed;
+    onPeepsRef.current = onPeeps;
+  }, [paused, slowed, onPeeps]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -192,6 +198,7 @@ export function CrowdCanvas({
     if (!ctx) return;
 
     const stage: StageSize = { width: 0, height: 0 };
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     const allPeeps: Peep[] = [];
     const availablePeeps: Peep[] = [];
     const crowd: Peep[] = [];
@@ -209,7 +216,7 @@ export function CrowdCanvas({
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      ctx.scale(devicePixelRatio, devicePixelRatio);
+      ctx.scale(pixelRatio, pixelRatio);
       for (const peep of crowd) {
         peep.render(ctx);
       }
@@ -230,7 +237,7 @@ export function CrowdCanvas({
     };
 
     const applyRates = () => {
-      const freeze = pausedRef.current;
+      const freeze = pausedRef.current || document.hidden;
       const slow = slowedRef.current;
       for (const peep of crowd) {
         if (!peep.walk) continue;
@@ -249,6 +256,7 @@ export function CrowdCanvas({
     };
 
     controlsRef.current = { applyRates };
+    document.addEventListener("visibilitychange", applyRates);
 
     const stopWalks = () => {
       for (const peep of crowd) {
@@ -305,8 +313,8 @@ export function CrowdCanvas({
 
       stage.width = width;
       stage.height = height;
-      canvas.width = Math.floor(width * devicePixelRatio);
-      canvas.height = Math.floor(height * devicePixelRatio);
+      canvas.width = Math.floor(width * pixelRatio);
+      canvas.height = Math.floor(height * pixelRatio);
 
       stopWalks();
       crowd.length = 0;
@@ -376,6 +384,7 @@ export function CrowdCanvas({
       img.removeEventListener("error", onError);
       img.src = "";
       observer.disconnect();
+      document.removeEventListener("visibilitychange", applyRates);
       stopTicker();
       stopWalks();
       controlsRef.current = null;
@@ -386,11 +395,8 @@ export function CrowdCanvas({
   }, [src, rows, cols]);
 
   useEffect(() => {
-    pausedRef.current = paused;
-    slowedRef.current = slowed;
-    onPeepsRef.current = onPeeps;
     controlsRef.current?.applyRates();
-  }, [paused, slowed, onPeeps]);
+  }, [paused, slowed]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden />;
 }

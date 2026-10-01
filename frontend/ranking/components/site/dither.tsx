@@ -1,8 +1,6 @@
 "use client";
 
-/* Three.js uniforms are intentionally mutable objects updated every frame. */
-/* eslint-disable react-hooks/refs */
-import { Component, forwardRef, useEffect, useRef, type ReactNode } from "react";
+import { Component, forwardRef, useEffect, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, wrapEffect } from "@react-three/postprocessing";
 import { Effect } from "postprocessing";
@@ -163,13 +161,7 @@ void mainImage(in vec4 inputColor, in vec2 uv, out vec4 outputColor) {
 `;
 
 class RetroEffectImpl extends Effect {
-  constructor({
-    colorNum = DEFAULT_COLOR_NUM,
-    pixelSize = DEFAULT_PIXEL_SIZE,
-  }: {
-    colorNum?: number;
-    pixelSize?: number;
-  } = {}) {
+  constructor({ colorNum = 4, pixelSize = 2 }: { colorNum?: number; pixelSize?: number } = {}) {
     const uniforms = new Map<string, THREE.Uniform<number>>([
       ["colorNum", new THREE.Uniform(colorNum)],
       ["pixelSize", new THREE.Uniform(pixelSize)],
@@ -236,11 +228,12 @@ function DitheredWaves({
   mouseRadius,
 }: DitheredWavesProps) {
   const mouseRef = useRef(new THREE.Vector2());
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { viewport, size, gl } = useThree();
   const prevColor = useRef<Rgb>([...waveColor]);
   const prevBg = useRef<Rgb>([...waveBg]);
 
-  const waveUniformsRef = useRef({
+  const [waveUniforms] = useState(() => ({
     time: new THREE.Uniform(0),
     resolution: new THREE.Uniform(new THREE.Vector2(0, 0)),
     waveSpeed: new THREE.Uniform(waveSpeed),
@@ -251,13 +244,14 @@ function DitheredWaves({
     mousePos: new THREE.Uniform(new THREE.Vector2(0, 0)),
     enableMouseInteraction: new THREE.Uniform(enableMouseInteraction ? 1 : 0),
     mouseRadius: new THREE.Uniform(mouseRadius),
-  });
+  }));
 
   useEffect(() => {
     const dpr = gl.getPixelRatio();
     const w = Math.floor(size.width * dpr);
     const h = Math.floor(size.height * dpr);
-    const res = waveUniformsRef.current.resolution.value;
+    const res = materialRef.current?.uniforms.resolution.value as THREE.Vector2 | undefined;
+    if (!res) return;
     if (res.x !== w || res.y !== h) {
       res.set(w, h);
     }
@@ -277,8 +271,11 @@ function DitheredWaves({
     return () => window.removeEventListener("pointermove", onMove);
   }, [enableMouseInteraction, gl]);
 
+  // Three.js owns the material: its GPU uniforms are updated imperatively each frame.
+  /* eslint-disable react-hooks/immutability */
   useFrame(({ clock }) => {
-    const u = waveUniformsRef.current;
+    const u = materialRef.current?.uniforms;
+    if (!u) return;
 
     if (!disableAnimation) {
       u.time.value = clock.getElapsedTime();
@@ -309,14 +306,17 @@ function DitheredWaves({
     }
   });
 
+  /* eslint-enable react-hooks/immutability */
+
   return (
     <>
       <mesh scale={[viewport.width, viewport.height, 1]}>
         <planeGeometry args={[1, 1]} />
         <shaderMaterial
+          ref={materialRef}
           vertexShader={waveVertexShader}
           fragmentShader={waveFragmentShader}
-          uniforms={waveUniformsRef.current}
+          uniforms={waveUniforms}
         />
       </mesh>
       <EffectComposer multisampling={0}>
