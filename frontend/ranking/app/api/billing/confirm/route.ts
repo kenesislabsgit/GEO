@@ -1,89 +1,84 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
-import {
-  getLatestSubscription,
-  upsertSubscription,
-} from "@/lib/db/repository";
+import { upsertSubscription } from "@/lib/db/repository";
 import { resolvePlanFromProductId } from "@/lib/billing/entitlements";
 import {
-  fetchDodoSubscription,
-  listDodoSubscriptions,
-  mapDodoSubscriptionStatus,
-  type DodoSubscription,
+  fetchDodoCheckout, fetchDodoPayment, fetchDodoSubscription,
+  latestDodoPayment, mapDodoSubscriptionStatus, type DodoPayment,
 } from "@/lib/billing/dodo";
+import { log } from "@/lib/log";
 
-const schema = z.object({
-  subscriptionId: z.string().max(200).optional().nullable(),
-});
+const id = z.string().min(1).max(200).optional().nullable();
+const schema = z.object({ subscriptionId: id, paymentId: id, sessionId: id });
+const unknown = { paymentStatus: "unknown", status: "inactive", plan: "free", currentPeriodEnd: null };
 
-/**
- * Reconcile the signed-in user's subscription with Dodo directly, instead of
- * waiting for a webhook that may be delayed - or, on localhost, can never
- * arrive at all. Nothing from the browser is believed: the subscription id
- * from the redirect is only a hint, and the subscription counts only if
- * Dodo's own record carries this user's id in its metadata (written by our
- * checkout, never by the client).
- */
+/** Verify this checkout attempt, not an unrelated existing subscription. */
 export async function POST(request: Request) {
   const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = schema.safeParse(await request.json().catch(() => null));
+  if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
-  const body = schema.safeParse(await request.json().catch(() => ({})));
-  const hintedId = body.success ? body.data.subscriptionId ?? null : null;
-
-  if (process.env.DODO_PAYMENTS_API_KEY) {
-    let dodoSub: DodoSubscription | null = null;
-
-    if (hintedId) {
-      const fetched = await fetchDodoSubscription(hintedId);
-      if (fetched?.metadata?.user_id === user.id) {
-        dodoSub = fetched;
+  try {
+    let payment: DodoPayment | null = null;
+    let paymentId = body.data.paymentId;
+    if (!paymentId && body.data.sessionId) {
+      paymentId = (await fetchDodoCheckout(body.data.sessionId)).payment_id;
+    }
+    if (paymentId) {
+      payment = await fetchDodoPayment(paymentId);
+      if (payment.metadata?.user_id !== user.id) {
+        return NextResponse.json({ error: "Checkout not found" }, { status: 404 });
       }
     }
-
-    if (!dodoSub) {
-      // No usable hint - find this user's newest subscription at Dodo.
-      const candidates = (await listDodoSubscriptions()).filter(
-        (sub) => sub.metadata?.user_id === user.id,
-      );
-      candidates.sort((a, b) =>
-        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
-      );
-      dodoSub = candidates[0] ?? null;
+    const subscriptionId = payment?.subscription_id ?? body.data.subscriptionId;
+    if (!subscriptionId) return NextResponse.json(unknown);
+    if (payment && body.data.subscriptionId && subscriptionId !== body.data.subscriptionId) {
+      return NextResponse.json({ error: "Checkout references do not match" }, { status: 400 });
     }
-
-    // "pending" means the mandate has not gone through yet; write nothing
-    // and let the success page keep polling.
-    if (dodoSub && dodoSub.status !== "pending") {
-      const plan =
-        (dodoSub.metadata?.plan as "founder" | "growth" | "agency" | undefined) ||
-        resolvePlanFromProductId(dodoSub.product_id);
-
-      if (plan !== "free") {
-        await upsertSubscription({
-          user_id: user.id,
-          provider: "dodo",
-          provider_customer_id: dodoSub.customer?.customer_id ?? null,
-          provider_subscription_id: dodoSub.subscription_id,
-          plan,
-          status: mapDodoSubscriptionStatus(dodoSub.status),
-          current_period_start: dodoSub.previous_billing_date ?? null,
-          current_period_end: dodoSub.next_billing_date ?? null,
-          cancel_at_period_end: Boolean(dodoSub.cancel_at_next_billing_date),
-        });
+    const subscription = await fetchDodoSubscription(subscriptionId);
+    if (!subscription) return NextResponse.json(unknown, { status: 503 });
+    if (subscription.metadata?.user_id !== user.id) {
+      return NextResponse.json({ error: "Checkout not found" }, { status: 404 });
+    }
+    if (!payment) {
+      payment = await latestDodoPayment(subscriptionId);
+      if (payment && payment.metadata?.user_id !== user.id) {
+        return NextResponse.json({ error: "Checkout not found" }, { status: 404 });
       }
     }
+    const metadataPlan = subscription.metadata?.plan;
+    const plan = metadataPlan === "founder" || metadataPlan === "growth" || metadataPlan === "agency"
+      ? metadataPlan : resolvePlanFromProductId(subscription.product_id);
+    const status = mapDodoSubscriptionStatus(subscription.status);
+    if (plan !== "free" && subscription.status !== "pending") {
+      await upsertSubscription({
+        user_id: user.id, provider: "dodo",
+        provider_customer_id: subscription.customer?.customer_id ?? null,
+        provider_subscription_id: subscription.subscription_id,
+        plan, status,
+        current_period_start: subscription.previous_billing_date ?? null,
+        current_period_end: subscription.next_billing_date ?? null,
+        cancel_at_period_end: Boolean(subscription.cancel_at_next_billing_date),
+      });
+    }
+    const paymentStatus = payment?.status ??
+      (subscription.status === "failed" ? "failed" :
+        subscription.status === "cancelled" ? "cancelled" : "unknown");
+    return NextResponse.json({
+      plan, status, paymentStatus,
+      providerSubscriptionStatus: subscription.status,
+      paymentId: payment?.payment_id ?? null,
+      paymentError: paymentStatus === "failed"
+        ? payment?.error_message?.slice(0, 300) ?? null : null,
+      paymentErrorCode: paymentStatus === "failed" ? payment?.error_code ?? null : null,
+      currentPeriodEnd: subscription.next_billing_date ?? null,
+    });
+  } catch (error) {
+    log.error("dodo_confirmation_failed", {
+      error: error instanceof Error ? error.message : "Provider lookup failed",
+    });
+    return NextResponse.json(unknown, { status: 503 });
   }
-
-  // Answer in the same shape as /api/billing/status so the success page can
-  // treat this as its first poll.
-  const subscription = await getLatestSubscription(user.id);
-  return NextResponse.json({
-    plan: subscription?.plan ?? "free",
-    status: subscription?.status ?? "inactive",
-    currentPeriodEnd: subscription?.current_period_end ?? null,
-  });
 }

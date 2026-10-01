@@ -28,6 +28,44 @@ export type DodoSubscription = {
   created_at?: string | null;
 };
 
+export type DodoPayment = {
+  payment_id: string;
+  subscription_id?: string | null;
+  status?: string | null;
+  metadata?: Record<string, string> | null;
+  created_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+};
+
+async function dodoRead<T>(path: string): Promise<T> {
+  if (!process.env.DODO_PAYMENTS_API_KEY) throw new Error("Payment provider unavailable");
+  const response = await fetch(`${dodoApiBase()}${path}`, {
+    headers: { Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}` },
+    cache: "no-store",
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error(`Payment provider returned ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+export function fetchDodoPayment(id: string): Promise<DodoPayment> {
+  return dodoRead(`/payments/${encodeURIComponent(id)}`);
+}
+
+export function fetchDodoCheckout(id: string): Promise<{ payment_id?: string | null }> {
+  return dodoRead(`/checkouts/${encodeURIComponent(id)}`);
+}
+
+export async function latestDodoPayment(subscriptionId: string): Promise<DodoPayment | null> {
+  const data = await dodoRead<{ items?: DodoPayment[] }>(
+    `/payments?subscription_id=${encodeURIComponent(subscriptionId)}&page_size=100`,
+  );
+  const payments = (data.items ?? []).filter((p) => p.subscription_id === subscriptionId);
+  payments.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+  return payments[0] ? fetchDodoPayment(payments[0].payment_id) : null;
+}
+
 /**
  * Dodo's subscription statuses are pending, active, on_hold, cancelled,
  * failed and expired. Ours differ; translate rather than store theirs.
@@ -89,6 +127,7 @@ export async function fetchDodoSubscription(
     {
       headers: { Authorization: `Bearer ${key}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(10000),
     },
   );
   if (!response.ok) return null;

@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import { ConfirmSubscription } from "./confirm-subscription";
 
-export const metadata = { title: "Confirming your subscription" };
+export const metadata = { title: "Payment status" };
 
 function safePath(value: string | undefined): string | null {
   if (!value) return null;
@@ -14,9 +14,8 @@ function safePath(value: string | undefined): string | null {
 }
 
 /**
- * Where Dodo sends people back after checkout. Nothing in the URL is
- * believed: the webhook writes the subscription into the database, and this
- * page simply waits until the database says so.
+ * Redirect references identify an attempt, but only Dodo's authenticated
+ * payment and subscription records determine its outcome.
  */
 export default async function BillingSuccessPage({
   searchParams,
@@ -25,17 +24,21 @@ export default async function BillingSuccessPage({
     returnTo?: string;
     status?: string;
     subscription_id?: string;
+    payment_id?: string;
+    session_id?: string;
+    checkout_session_id?: string;
   }>;
 }) {
-  const user = await getSessionUser();
-  if (!user) redirect(routes.login({ returnTo: routes.billingSuccess() }));
   const params = await searchParams;
-
-  // The one thing the redirect may tell us is that the person cancelled - 
-  // showing the cancelled state is harmless even if the parameter lies,
-  // because no entitlement is granted or removed by it.
-  if (params.status === "cancelled" || params.status === "canceled") {
-    redirect(routes.billing({ status: "cancelled" }));
+  const user = await getSessionUser();
+  if (!user) {
+    const query = new URLSearchParams();
+    for (const key of ["subscription_id", "payment_id", "session_id", "checkout_session_id"] as const) {
+      if (params[key]) query.set(key, params[key]);
+    }
+    const next = safePath(params.returnTo);
+    if (next) query.set("returnTo", next);
+    redirect(routes.login({ returnTo: `${routes.billingSuccess()}?${query}` }));
   }
 
   // The subscription id from the redirect is a hint for server-side
@@ -44,6 +47,8 @@ export default async function BillingSuccessPage({
     <ConfirmSubscription
       returnTo={safePath(params.returnTo)}
       subscriptionId={params.subscription_id ?? null}
+      paymentId={params.payment_id ?? null}
+      sessionId={params.session_id ?? params.checkout_session_id ?? null}
     />
   );
 }

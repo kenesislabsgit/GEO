@@ -690,23 +690,37 @@ export async function getLatestSubscription(
 export async function upsertSubscription(
   row: Omit<Subscription, "id" | "created_at" | "updated_at"> & { id?: string },
 ) {
-  // A payment provider retries webhooks, so the same subscription arrives more
-  // than once: match on the provider's id first, then on the user's live
-  // subscription, and only insert when neither exists.
-  const existing = row.provider_subscription_id
-    ? await one<Subscription>(
-        `select * from subscriptions where provider_subscription_id = $1`,
-        [row.provider_subscription_id],
-      )
-    : null;
-  const target =
-    existing ??
-    (await one<Subscription>(
+  // Webhooks, confirmation and workers can reconcile the same record at once.
+  // Keep different checkout attempts separate from an existing paid plan.
+  if (row.provider_subscription_id) {
+    const stored = await one<Subscription>(
+      `insert into subscriptions
+         (user_id, provider, provider_customer_id, provider_subscription_id, plan,
+          status, current_period_start, current_period_end, cancel_at_period_end)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       on conflict (provider_subscription_id) do update set
+         provider_customer_id = excluded.provider_customer_id,
+         plan = excluded.plan, status = excluded.status,
+         current_period_start = excluded.current_period_start,
+         current_period_end = excluded.current_period_end,
+         cancel_at_period_end = excluded.cancel_at_period_end,
+         updated_at = timezone('utc', now())
+       where subscriptions.user_id = excluded.user_id
+         and subscriptions.provider = excluded.provider
+       returning *`,
+      [row.user_id, row.provider, row.provider_customer_id,
+        row.provider_subscription_id, row.plan, row.status,
+        row.current_period_start, row.current_period_end, row.cancel_at_period_end],
+    );
+    if (!stored) throw new Error("Subscription owner mismatch.");
+    return stored;
+  }
+  const target = await one<Subscription>(
       `select * from subscriptions
        where user_id = $1 and status in ('active', 'trialing')
        order by created_at desc limit 1`,
       [row.user_id],
-    ));
+    );
   if (target) {
     const { id: _rowId, ...fields } = row;
     void _rowId;

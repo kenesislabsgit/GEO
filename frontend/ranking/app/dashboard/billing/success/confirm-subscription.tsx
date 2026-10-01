@@ -1,147 +1,147 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLAN_CONFIG, type PlanId } from "@/lib/billing/entitlements";
+import { paymentConfirmationState, type PaymentConfirmation, type ConfirmationState } from "@/lib/billing/payment-status";
 import { routes } from "@/lib/routes";
 
-type BillingStatus = {
-  plan: string;
-  status: string;
-  currentPeriodEnd: string | null;
-};
-
 const POLL_MS = 3000;
-// Webhooks normally land within seconds; two minutes of patience covers a
-// slow retry without pretending failure to someone whose card was charged.
 const MAX_POLLS = 40;
 
 export function ConfirmSubscription({
-  returnTo,
-  subscriptionId,
+  returnTo, subscriptionId, paymentId = null, sessionId = null,
 }: {
   returnTo: string | null;
   subscriptionId: string | null;
+  paymentId?: string | null;
+  sessionId?: string | null;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<"pending" | "confirmed" | "slow">("pending");
-  const [confirmed, setConfirmed] = useState<BillingStatus | null>(null);
-  const polls = useRef(0);
-  const askedServer = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const [state, setState] = useState<ConfirmationState>("pending");
+  const [result, setResult] = useState<PaymentConfirmation | null>(null);
+  const [retry, setRetry] = useState(0);
   const destination = returnTo ?? routes.dashboard;
 
-  // The poll re-arms itself via this ref so the callback never has to name
-  // itself before it exists.
-  const pollRef = useRef<() => Promise<void>>(async () => {});
-  const poll = useCallback(async () => {
-    let status: BillingStatus | null = null;
-    try {
-      if (!askedServer.current) {
-        // First ask the server to reconcile with Dodo directly - webhooks
-        // can be slow, and on localhost they never arrive at all.
-        askedServer.current = true;
-        const res = await fetch(routes.api.billingConfirm, {
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let polls = 0;
+    const poll = async () => {
+      let nextState: ConfirmationState = "pending";
+      try {
+        const response = await fetch(routes.api.billingConfirm, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subscriptionId }),
+          body: JSON.stringify({ subscriptionId, paymentId, sessionId }),
+          signal: controller.signal,
+          cache: "no-store",
         });
-        if (res.ok) status = (await res.json()) as BillingStatus;
-      } else {
-        const res = await fetch(routes.api.billingStatus);
-        if (res.ok) status = (await res.json()) as BillingStatus;
+        if (controller.signal.aborted) return;
+        if (response.ok) {
+          const data = await response.json() as PaymentConfirmation;
+          if (controller.signal.aborted) return;
+          setResult(data);
+          nextState = paymentConfirmationState(data);
+        } else if ([400, 401, 404].includes(response.status)) {
+          nextState = "slow";
+        }
+      } catch {
+        if (controller.signal.aborted) return;
       }
-    } catch {
-      // A dropped poll is not a failed payment; just ask again.
-    }
-    if (status && (status.status === "active" || status.status === "trialing")) {
-      setConfirmed(status);
-      setState("confirmed");
-      router.refresh(); // server-rendered pages pick up the new plan
-      return;
-    }
-    polls.current += 1;
-    if (polls.current >= MAX_POLLS) {
-      setState("slow");
-      return;
-    }
-    timer.current = setTimeout(() => void pollRef.current(), POLL_MS);
-  }, [router, subscriptionId]);
-
-  useEffect(() => {
-    pollRef.current = poll;
+      if (!subscriptionId && !paymentId && !sessionId) nextState = "slow";
+      if (nextState !== "pending") {
+        setState(nextState);
+        if (nextState === "confirmed") router.refresh();
+        return;
+      }
+      polls += 1;
+      if (polls >= MAX_POLLS) {
+        setState("slow");
+        return;
+      }
+      setState("pending");
+      timer = setTimeout(() => void poll(), POLL_MS);
+    };
     void poll();
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      controller.abort();
+      if (timer) clearTimeout(timer);
     };
-  }, [poll]);
+  }, [router, subscriptionId, paymentId, sessionId, retry]);
 
+  const failed = state === "failed";
+  const cancelled = state === "cancelled";
+  const needsAction = state === "action";
   return (
     <div className="mx-auto max-w-md">
-      <div className="arc-panel p-8 text-center">
+      <div className="arc-panel p-8 text-center" role="status" aria-live="polite">
         {state === "pending" ? (
           <>
             <Loader2 className="mx-auto size-8 animate-spin text-muted-foreground" aria-hidden />
-            <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
-              Confirming your subscription
-            </h1>
+            <h1 className="font-heading mt-4 text-xl font-semibold">Checking payment status</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your payment provider is telling us the payment went through.
-              This usually takes a few seconds - you can leave this page and
-              your plan will still activate.
+              We are checking this payment with Dodo. Your subscription is not confirmed yet.
             </p>
           </>
         ) : null}
 
-        {state === "confirmed" && confirmed ? (
+        {state === "confirmed" && result ? (
           <>
             <CheckCircle2 className="mx-auto size-8 text-[color:var(--arc-accent)]" aria-hidden />
-            <h1 className="font-heading mt-4 text-xl font-semibold tracking-tight">
-              You&apos;re on the{" "}
-              {PLAN_CONFIG[confirmed.plan as PlanId]?.name ?? confirmed.plan} plan
+            <h1 className="font-heading mt-4 text-xl font-semibold">
+              Payment successful
             </h1>
-            {confirmed.currentPeriodEnd ? (
+            <p className="mt-2 text-sm">
+              You are on the {PLAN_CONFIG[result.plan as PlanId]?.name ?? result.plan} plan.
+            </p>
+            {result.currentPeriodEnd ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                Current period runs until{" "}
-                {new Date(confirmed.currentPeriodEnd).toLocaleDateString()}.
+                Current period runs until {new Date(result.currentPeriodEnd).toLocaleDateString()}.
               </p>
             ) : null}
-            <Button asChild className="mt-6 w-full">
-              <Link href={destination}>Continue</Link>
-            </Button>
+            <Button asChild className="mt-6 w-full"><Link href={destination}>Continue</Link></Button>
+          </>
+        ) : null}
+
+        {failed || cancelled || needsAction ? (
+          <>
+            <XCircle className="mx-auto size-8 text-destructive" aria-hidden />
+            <h1 className="font-heading mt-4 text-xl font-semibold">
+              {failed ? "Payment failed" : cancelled ? "Payment cancelled" : "Payment not completed"}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {failed
+                ? result?.paymentError || "Dodo reported that this payment failed. Your subscription was not activated by this payment. Try another payment method or contact your bank."
+                : cancelled
+                  ? "Dodo reported that this payment was cancelled. This payment did not activate a subscription."
+                  : "Your payment requires another payment method or additional authorization. Return to Billing to try again."}
+            </p>
+            {result?.paymentErrorCode && result.paymentErrorCode !== "UNKNOWN_ERROR" ? (
+              <p className="mt-2 break-words text-xs text-muted-foreground">Provider reason: {result.paymentErrorCode}</p>
+            ) : null}
+            <Button asChild className="mt-6 w-full"><Link href={routes.billing()}>Return to Billing</Link></Button>
           </>
         ) : null}
 
         {state === "slow" ? (
           <>
-            <h1 className="font-heading text-xl font-semibold tracking-tight">
-              Taking longer than usual
-            </h1>
+            <CircleAlert className="mx-auto size-8 text-muted-foreground" aria-hidden />
+            <h1 className="font-heading mt-4 text-xl font-semibold">Payment status unavailable</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your payment is not lost - confirmation is just slow to arrive.
-              Check again in a moment, or come back later; your plan activates
-              automatically once confirmation lands.
+              We could not confirm this payment. Do not pay again until you check its status in Billing or with support.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <Button
-                onClick={() => {
-                  polls.current = 0;
-                  askedServer.current = false; // re-reconcile with Dodo
-                  setState("pending");
-                  void poll();
-                }}
-              >
-                Check again
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={routes.dashboard}>Go to dashboard</Link>
-              </Button>
+              <Button onClick={() => { setState("pending"); setRetry((value) => value + 1); }}>Check again</Button>
+              <Button asChild variant="outline"><Link href={routes.billing()}>Go to Billing</Link></Button>
             </div>
           </>
+        ) : null}
+        {result?.paymentId ? (
+          <p className="mt-4 break-all text-xs text-muted-foreground">Payment reference: {result.paymentId}</p>
         ) : null}
       </div>
     </div>
