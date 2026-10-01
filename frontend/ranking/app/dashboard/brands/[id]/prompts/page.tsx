@@ -108,15 +108,13 @@ export default async function AIAnswersPage({
     const citations = Array.isArray(result.citations)
       ? (result.citations as Citation[])
       : [];
-    const answer = showFullAnswers
-      ? (
-          result.raw_answer ||
-          result.answer_summary ||
-          "No answer saved"
-        )
-          .replaceAll("**", "")
-          .replace(/^#+\s*/gm, "")
-      : "";
+    const answer = showFullAnswers ? (
+      result.raw_answer ||
+      result.answer_summary ||
+      "No answer saved"
+    )
+      .replaceAll("**", "")
+      .replace(/^#+\s*/gm, "") : "";
 
     group.answers.push({
       id: result.id,
@@ -130,7 +128,7 @@ export default async function AIAnswersPage({
         (!(result.raw_answer?.trim() || result.answer_summary?.trim())
           ? "No usable saved response"
           : null),
-      summary: result.answer_summary,
+      summary: showFullAnswers ? result.answer_summary : null,
       position: result.brand_position,
       answer,
       recommended: recommended
@@ -170,6 +168,7 @@ export default async function AIAnswersPage({
         title="Audit Details"
         description="The complete question and answer record behind the competitor findings."
         isPaid={isPaid}
+        newAudit
       />
 
       {coverage ? <AuditCoverageNotice coverage={coverage} /> : null}

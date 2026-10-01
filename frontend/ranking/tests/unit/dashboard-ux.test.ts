@@ -22,6 +22,21 @@ afterEach(() => {
 });
 
 describe("dashboard state and evidence clarity", () => {
+  it("keeps answer filters and upgrade links while hiding paid prose and raw output", () => {
+    render(createElement(AnswerExplorer, {
+      brandName: "Acme", brandId: "brand", showFullAnswers: false,
+      questions: [{ promptId: "q1", question: "Which platform?", promptType: null, answers: [{
+        id: "a", provider: "gemini", assistantName: "Gemini", mentioned: true, position: 1,
+        answer: '{"answer":"Private prose"}', summary: "Private summary", recommended: [], citations: [],
+      }] }],
+    }));
+    expect(screen.getByLabelText("Filter answer provider")).toBeTruthy();
+    expect(screen.getByText(/Full answer text is on Plus/)).toBeTruthy();
+    expect(screen.queryByText("Private prose")).toBeNull();
+    expect(screen.queryByText("Private summary")).toBeNull();
+    expect(screen.queryByText("View original response")).toBeNull();
+    expect(screen.getByRole("link", { name: "Continue with Plus" }).getAttribute("href")).toContain("returnTo=%2Fdashboard%2Fbrands%2Fbrand%2Fupgrade");
+  });
   it("keeps invalid comparisons in optional history and lets their unread notification be cleared", () => {
     render(createElement(AlertList, { alerts: [{ id: "old", title: "Unreliable score gain", body: "Old performance claim", type: "score_change", created_at: "2026-09-01T00:00:00Z", read_at: null, website_name: "Kenesis", comparison_notice: "Different samples" } as Alert] }));
     expect(screen.queryByText("Unreliable score gain")).toBeNull();

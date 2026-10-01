@@ -28,7 +28,7 @@ export function UpgradeAuditProgress({
   const { loading, error, progress, step, events, start } = useDetachedAudit({
     userId,
     storageKey: `rbai_audit_upgrade_${brandId}`,
-    onEmailUnverified: () => router.push(routes.verifyEmail),
+    onEmailUnverified: () => router.push(`${routes.verifyEmail}?returnTo=${encodeURIComponent(routes.brandUpgrade(brandId))}`),
     onDone: (doneBrandId) => {
       router.replace(`${routes.brand(doneBrandId)}?completed=1`);
       router.refresh();
@@ -52,7 +52,7 @@ export function UpgradeAuditProgress({
   return (
     <div className="mx-auto max-w-2xl">
       <div className="arc-panel p-6">
-        <h1 className="font-heading text-2xl font-semibold">Completing your Plus audit</h1>
+        <h1 className="font-heading text-2xl font-semibold">Completing your full report</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Reusing the existing website crawl and free results, then collecting the additional provider, competitor, source, and improvement evidence.
         </p>
@@ -74,13 +74,13 @@ export function UpgradeAuditProgress({
             </p>
             <Button className="mt-4 w-full" onClick={startAudit}>
               <Play data-icon="inline-start" />
-              Start my Plus audit
+              Start my Pro audit
             </Button>
           </div>
         )}
         {error ? (
           <Alert variant="destructive" className="mt-5">
-            <AlertTitle>Could not complete the audit</AlertTitle>
+            <AlertTitle>Could not complete the report</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}

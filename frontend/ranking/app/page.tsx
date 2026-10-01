@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { LandingHero } from "@/components/site/hero";
 import { MonitoringChart } from "@/components/site/monitoring-chart";
+import { RegionalGlobe } from "@/components/site/regional-globe";
 import { Reveal } from "@/components/site/reveal";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -40,11 +41,11 @@ const faqs = [
   },
   {
     q: "Can results change between runs?",
-    a: "Yes. AI answers are non-deterministic. Every audit stores its methodology version, timestamp, models, and sample size so results stay comparable in context.",
+    a: "Yes. AI answers are non-deterministic. Every report stores methodology version, timestamp, models, and sample size so results stay comparable in context.",
   },
   {
     q: "Do free scans require an account?",
-    a: "Yes - a free account, no card. If you sign up with email, confirm the inbox before the audit starts. Google sign-in skips that step. Your results are saved to the dashboard.",
+    a: "Yes - a free account, no card. If you sign up with email, confirm the inbox before the audit starts. Google sign-in skips that step. Your report is saved to the dashboard.",
   },
   {
     q: "Do you guarantee ranking improvements?",
@@ -473,6 +474,25 @@ const PROVIDER_STRIP = ALL_PROVIDERS;
 
 /* ---------------------------------------------------- bento mini-visuals -- */
 
+const STAT_CHIPS_ROWS = [
+  [
+    `${CATALOG_COUNT} providers available`,
+    "Cited sources",
+    "Share of voice",
+    "Position tracking",
+    "Competitor benchmarking",
+    "Citation gaps",
+  ],
+  [
+    "Full answer text",
+    "Scheduled monitoring",
+    "Action centre",
+    "Email alerts",
+    "Country comparisons",
+    "CSV exports",
+  ],
+] as const;
+
 /* ----------------------------------------------------------------- page -- */
 
 export default async function HomePage() {
@@ -506,7 +526,7 @@ export default async function HomePage() {
               url: SITE_URL,
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
-              description: `${APP_TAGLINE} Sampled AI visibility audits across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
+              description: `${APP_TAGLINE} Sampled AI visibility reports across ChatGPT, Claude, Gemini and more, with mention rate, position, and cited sources.`,
               offers: {
                 "@type": "Offer",
                 price: "0",
@@ -604,7 +624,7 @@ export default async function HomePage() {
           <SectionFrame />
           <div className="relative mx-auto max-w-6xl px-4 py-24 md:px-6 md:py-36">
             <Reveal className="max-w-2xl">
-              <p className="arc-eyebrow">The evidence</p>
+              <p className="arc-eyebrow">The report</p>
               <h2 className="font-heading mt-3 text-4xl font-semibold tracking-[-0.03em] leading-[1.05] md:text-5xl">
                 Evidence, not vibes
               </h2>
@@ -648,8 +668,30 @@ export default async function HomePage() {
               </div>
               </Reveal>
 
-              {/* Providers - floating pills */}
-              <Reveal delay={150}>
+              {/* Regional growth - the tall globe balances the staggered grid. */}
+              <Reveal delay={100} className="lg:row-span-2">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
+                <div className="relative flex min-h-60 flex-1 items-center justify-center sm:min-h-72" aria-hidden>
+                  <div className="arc-glow absolute inset-0" />
+                  <RegionalGlobe className="relative aspect-square w-full max-w-[280px] sm:max-w-[380px]" />
+                </div>
+                <div className="p-5 sm:p-6 md:p-8">
+                  <p className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                    Regional growth · Pro
+                  </p>
+                  <h3 className="font-heading mt-2 text-lg font-semibold tracking-tight sm:text-xl">
+                    See where your brand travels
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    Compare country-specific buyer questions and discover where
+                    your brand gets named. Geographic markets are available on Pro.
+                  </p>
+                </div>
+              </div>
+              </Reveal>
+
+              {/* Providers - one comparable question set across the catalog. */}
+              <Reveal delay={150} className="lg:row-span-2">
               <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card arc-card-hover">
                 <div className="flex min-h-52 flex-1 flex-col justify-between p-5 sm:min-h-72 sm:p-6">
                   <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
@@ -700,7 +742,7 @@ export default async function HomePage() {
               </Reveal>
 
               {/* Big stat card */}
-              <Reveal delay={100}>
+              <Reveal delay={100} className="min-w-0 sm:col-span-2 lg:col-span-1">
               <div className="relative h-full overflow-hidden rounded-2xl border border-border bg-[radial-gradient(ellipse_130%_100%_at_50%_-20%,var(--arc-accent-soft),var(--card)_65%)] p-5 text-center sm:p-6 md:p-8 arc-card-hover">
                 <p className="arc-tabular font-heading relative bg-gradient-to-b from-foreground via-foreground/75 to-foreground/15 bg-clip-text text-5xl font-semibold tracking-tight text-transparent sm:text-6xl">
                   200
@@ -708,6 +750,23 @@ export default async function HomePage() {
                 <p className="relative mt-1 px-1 text-sm text-foreground/70 sm:text-base">
                   provider answers per Pro audit - 20 questions × 10 selected providers
                 </p>
+                <div className="mt-6 flex flex-col gap-2">
+                  {STAT_CHIPS_ROWS.map((chips, row) => (
+                    <div key={row} className="arc-marquee-mask -mx-5 sm:-mx-6 md:-mx-8">
+                      <div className={`arc-marquee flex w-max items-center${row === 1 ? " arc-marquee--reverse" : ""}`}>
+                        {[0, 1].map((copy) => (
+                          <div key={copy} aria-hidden={copy === 1 ? true : undefined} className="flex shrink-0 items-center gap-2 pr-2">
+                            {chips.map((chip) => (
+                              <span key={chip} className="shrink-0 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               </Reveal>
 
@@ -830,6 +889,14 @@ export default async function HomePage() {
                       Every fix tied to its exact prompts
                     </CheckItem>
                   </ul>
+                  <p className="mt-5">
+                    <Link
+                      href={routes.sampleReport}
+                      className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      Open a real sample report
+                    </Link>
+                  </p>
                 </Reveal>
                 <Reveal direction="right">
                   <VisualTile>
@@ -844,11 +911,11 @@ export default async function HomePage() {
                     Monitor and share
                   </span>
                   <h3 className="font-heading mt-5 max-w-md text-3xl font-semibold tracking-tight md:text-4xl">
-                    Track progress over time
+                    Track progress and share the proof
                   </h3>
                   <p className="mt-4 max-w-md text-muted-foreground">
-                    Scheduled scans flag meaningful changes while keeping the
-                    underlying answers available in your dashboard.
+                    Scheduled scans flag meaningful changes, while shareable
+                    reports keep the underlying answers one click away.
                   </p>
                   <ul className="mt-6 space-y-3.5">
                     <CheckItem>
@@ -858,7 +925,7 @@ export default async function HomePage() {
                       Email alerts when visibility shifts
                     </CheckItem>
                     <CheckItem>
-                      Saved audit history and CSV exports on Pro
+                      Public sharing on Free; private-report controls on Plus; PDF and CSV on Pro
                     </CheckItem>
                   </ul>
                   <p className="mt-5">
@@ -866,7 +933,7 @@ export default async function HomePage() {
                       href={routes.reporting}
                       className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      Monitoring, alerts, and exports
+                      Reporting, alerts, and exports
                     </Link>
                   </p>
                 </Reveal>
@@ -1028,7 +1095,7 @@ export default async function HomePage() {
               className="arc-rise mx-auto mt-3 max-w-lg text-sm text-muted-foreground"
               style={delayStyle(200)}
             >
-              Your score, top competitor, and first fix in one free ChatGPT audit.
+              Your score, top competitor, and first fix in one free ChatGPT report.
               No card required.
             </p>
             <div

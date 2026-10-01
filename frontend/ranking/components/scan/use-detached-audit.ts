@@ -206,6 +206,11 @@ export function useDetachedAudit(options: {
         // A started job survives navigation; retain its ID for the next visit.
         if (res.ok && data.scanRunId) storeAuditRun(storageKey, data.scanRunId);
         if (!alive.current || generation.current !== run) return;
+        if (data.code === "email_unverified" && onEmailUnverifiedRef.current) {
+          setLoading(false);
+          onEmailUnverifiedRef.current();
+          return;
+        }
         if (!res.ok || !data.scanRunId) {
           throw new Error(data.error || "Could not start audit");
         }

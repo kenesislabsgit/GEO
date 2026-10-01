@@ -15,6 +15,7 @@ import {
   PRO_AUDIT_QUESTION_COUNT,
 } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { VisibilityNotice } from "@/components/report/visibility-notice";
 import type { ProviderId } from "@/types/database";
 
 const STORAGE_KEY = "rbai_audit_add_brand";
@@ -38,7 +39,7 @@ export function AddBrandScanForm({
   const { loading, error, progress, step, events, start } = useDetachedAudit({
     userId,
     storageKey: STORAGE_KEY,
-    onEmailUnverified: () => router.push(routes.verifyEmail),
+    onEmailUnverified: () => router.push(`${routes.verifyEmail}?returnTo=${encodeURIComponent(routes.addWebsite)}`),
     onDone: (brandId) => router.push(`${routes.brand(brandId)}?completed=1`),
   });
 
@@ -101,6 +102,7 @@ export function AddBrandScanForm({
           ? `${PRO_AUDIT_QUESTION_COUNT} buyer questions will be checked across ${providers.length} AI ${providers.length === 1 ? "provider" : "providers"}.`
           : `The free audit checks ${FREE_AUDIT_QUESTION_COUNT} buyer questions with one AI provider.`}
       </p>
+      <VisibilityNotice />
       <form
         className="mt-5"
         onSubmit={(event) => {

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { ChevronDown, ExternalLink } from "lucide-react";
-import { ProviderLogo } from "@/components/providers/provider-logo";
 import { FilterField } from "@/components/ui/filter-field";
+
 import { readableAnswer } from "@/lib/reports/answer-presentation";
 import { providerDisplayName } from "@/lib/constants";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { routes } from "@/lib/routes";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { ProviderLogo } from "@/components/providers/provider-logo";
 
 export type ExplorerCitation = {
   url: string;
@@ -32,6 +33,8 @@ export type ExplorerAnswer = {
   error?: string | null;
   recommended: ExplorerRecommendation[];
   citations: ExplorerCitation[];
+  /** Present only for an explicitly labelled sample, never a measured answer. */
+  simulation?: { sourceProvider: string };
 };
 
 export type ExplorerQuestion = {
@@ -61,14 +64,28 @@ export function AnswerExplorer({
   const [search, setSearch] = useState(params.get("q") ?? "");
   const [provider, setProvider] = useState(params.get("provider") ?? "");
   const [outcome, setOutcome] = useState("");
-  const providers = [...new Set(questions.flatMap((question) => question.answers.map((answer) => answer.provider)))];
+  const providers = [
+    ...new Set(
+      questions.flatMap((question) =>
+        question.answers.map((answer) => answer.provider),
+      ),
+    ),
+  ];
   const filtered = questions
     .map((question) => ({
       ...question,
-      answers: question.answers.filter((answer) =>
-        `${question.question} ${showFullAnswers ? answer.answer : ""} ${answer.recommended.map((company) => company.name).join(" ")}`.toLowerCase().includes(search.toLowerCase()) &&
-        (!provider || answer.provider === provider) &&
-        (!outcome || (outcome === "mentioned" ? answer.mentioned && !answer.error : outcome === "unavailable" ? Boolean(answer.error) : !answer.mentioned && !answer.error)),
+      answers: question.answers.filter(
+        (answer) =>
+          `${question.question} ${answer.answer} ${answer.recommended.map((company) => company.name).join(" ")}`
+            .toLowerCase()
+            .includes(search.toLowerCase()) &&
+          (!provider || answer.provider === provider) &&
+          (!outcome ||
+            (outcome === "mentioned"
+              ? answer.mentioned && !answer.error
+              : outcome === "unavailable"
+                ? Boolean(answer.error)
+                : !answer.mentioned && !answer.error)),
       ),
     }))
     .filter((question) => question.answers.length > 0);
@@ -76,29 +93,54 @@ export function AnswerExplorer({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <FilterField label="Search answers" wide>
-          <input aria-label="Search questions and answers" placeholder="Search questions, answers or companies" value={search} onChange={(event) => setSearch(event.target.value)} className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm" />
+          <input
+            aria-label="Search questions and answers"
+            placeholder="Search questions, answers or companies"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-11 w-full min-w-0 shrink-0 rounded-md border border-border bg-background px-3 text-sm"
+          />
         </FilterField>
         <FilterField label="AI assistant">
-          <select aria-label="Filter answer provider" value={provider} onChange={(event) => setProvider(event.target.value)} className="h-11 rounded-md border border-border bg-background px-2 text-sm">
+          <select
+            aria-label="Filter answer provider"
+            value={provider}
+            onChange={(event) => setProvider(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
             <option value="">All AI assistants</option>
-            {providers.map((value) => <option key={value} value={value}>{providerDisplayName(value)}</option>)}
+            {providers.map((value) => (
+              <option key={value} value={value}>
+                {providerDisplayName(value)}
+              </option>
+            ))}
           </select>
         </FilterField>
         <FilterField label="Mention outcome">
-          <select aria-label="Filter mention outcome" value={outcome} onChange={(event) => setOutcome(event.target.value)} className="h-11 rounded-md border border-border bg-background px-2 text-sm">
-            <option value="">All outcomes</option><option value="mentioned">Mentioned</option><option value="absent">Not mentioned</option><option value="unavailable">Unavailable</option>
+          <select
+            aria-label="Filter mention outcome"
+            value={outcome}
+            onChange={(event) => setOutcome(event.target.value)}
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">All outcomes</option>
+            <option value="mentioned">Mentioned</option>
+            <option value="absent">Not mentioned</option>
+            <option value="unavailable">Unavailable</option>
           </select>
         </FilterField>
       </div>
-      <p className="text-xs text-muted-foreground">{filtered.length} of {questions.length} questions shown</p>
+      <p className="text-xs text-muted-foreground">
+        {filtered.length} of {questions.length} questions shown
+      </p>
       {filtered.map((question) => (
         <QuestionCard
           key={question.promptId}
           question={question}
           brandName={brandName}
+          initiallyOpen={Boolean(params.get("q"))}
           showFullAnswers={showFullAnswers}
           brandId={brandId}
-          initiallyOpen={Boolean(params.get("q"))}
         />
       ))}
     </div>
@@ -108,15 +150,15 @@ export function AnswerExplorer({
 function QuestionCard({
   question,
   brandName,
+  initiallyOpen = false,
   showFullAnswers,
   brandId,
-  initiallyOpen = false,
 }: {
   question: ExplorerQuestion;
   brandName: string;
+  initiallyOpen?: boolean;
   showFullAnswers: boolean;
   brandId?: string;
-  initiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
 
@@ -129,7 +171,9 @@ function QuestionCard({
         className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
       >
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium leading-snug">{question.question}</p>
+          <p className="text-sm font-medium leading-snug">
+            {question.question}
+          </p>
           {question.promptType ? (
             <p className="mt-1 text-xs capitalize text-muted-foreground">
               {question.promptType.replaceAll("_", " ")}
@@ -205,7 +249,10 @@ function AnswerBlock({
   const { prose, structured } = readableAnswer(answer.answer, answer.summary);
 
   return (
-    <div id={`answer-${answer.id}`} className="grid min-w-0 gap-5 px-5 py-5 [overflow-wrap:anywhere] lg:grid-cols-[minmax(0,1fr)_240px]">
+    <div
+      id={`answer-${answer.id}`}
+      className="grid min-w-0 gap-5 px-5 py-5 [overflow-wrap:anywhere] lg:grid-cols-[minmax(0,1fr)_240px]"
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-full border border-border bg-background">
@@ -224,29 +271,16 @@ function AnswerBlock({
                 : `Does not mention ${brandName}`}
           </span>
         </div>
-        {showFullAnswers ? (
-          <>
-            <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
-              {answer.error
-                ? `No usable response: ${answer.error}`
-                : highlightBrand(prose, brandName)}
-            </div>
-            {structured ? (
-              <details className="mt-4 min-w-0 text-xs text-muted-foreground">
-                <summary className="min-h-11 cursor-pointer py-3">View original response</summary>
-                <pre className="max-h-80 max-w-full overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-3 [overflow-wrap:anywhere]">{answer.answer}</pre>
-              </details>
-            ) : null}
-          </>
-        ) : (
+        {showFullAnswers ? <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
+          {answer.error
+            ? `No usable response: ${answer.error}`
+            : highlightBrand(prose, brandName)}
+        </div> : (
           <p className="mt-2 text-sm text-muted-foreground">
             Full answer text is on Plus.{" "}
             {brandId ? (
               <Link
-                href={routes.billing({
-                  plan: "founder",
-                  returnTo: routes.brandUpgrade(brandId),
-                })}
+                href={routes.billing({ plan: "founder", returnTo: routes.brandUpgrade(brandId) })}
                 className="font-medium text-foreground underline underline-offset-4"
               >
                 Continue with Plus
@@ -254,6 +288,16 @@ function AnswerBlock({
             ) : null}
           </p>
         )}
+        {showFullAnswers && structured ? (
+          <details className="mt-4 min-w-0 text-xs text-muted-foreground">
+            <summary className="min-h-11 cursor-pointer py-3">
+              View original response
+            </summary>
+            <pre className="max-h-80 max-w-full overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-3 [overflow-wrap:anywhere]">
+              {answer.answer}
+            </pre>
+          </details>
+        ) : null}
       </div>
 
       <div className="space-y-5">
@@ -262,8 +306,7 @@ function AnswerBlock({
           {answer.recommended.length ? (
             <ol className="mt-2 space-y-1.5">
               {answer.recommended.map((company, index) => {
-                const isBrand =
-                  company.name.trim().toLowerCase() === brandKey;
+                const isBrand = company.name.trim().toLowerCase() === brandKey;
                 return (
                   <li
                     key={`${company.name}-${index}`}
@@ -298,14 +341,17 @@ function AnswerBlock({
                   rel="noreferrer"
                   className="flex items-start gap-1.5 text-xs text-[color:var(--arc-accent)] hover:underline"
                 >
-                  <ExternalLink aria-hidden className="mt-0.5 size-3 shrink-0" />
+                  <ExternalLink
+                    aria-hidden
+                    className="mt-0.5 size-3 shrink-0"
+                  />
                   <span className="break-all">{citation.label}</span>
                 </a>
               ))}
             </div>
           ) : (
             <p className="mt-2 text-xs text-muted-foreground">
-              No sources returned.
+              {answer.simulation ? "No citations attached to this example." : "No sources returned."}
             </p>
           )}
         </div>

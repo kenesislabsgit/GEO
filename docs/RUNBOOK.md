@@ -45,10 +45,11 @@ so a missed webhook heals within a day.
 
 Alert emails set `emailed_at` only on confirmed acceptance; check worker
 logs for `alert_email_failed`. Verify `BREVO_API_KEY` and that `EMAIL_FROM`
-uses a domain verified in both Brevo and AWS SES. `email_provider_failed`
-identifies the failed provider; `email_fallback_succeeded` confirms SES took
-over. If both fail, inspect `email_delivery_failed` and the SES permission for
-the web or worker role. Verification/reset mail failures surface in web logs.
+uses a verified sender. Retryable Brevo failures fall back to AWS SES in
+`AWS_REGION`; its sending identity and application-role permissions must be
+configured too. Check `email_provider_failed` and `email_delivery_failed`
+in web/worker logs. Verification and password-reset failures are returned
+to the caller instead of being reported as successful delivery.
 
 ## Database incident
 

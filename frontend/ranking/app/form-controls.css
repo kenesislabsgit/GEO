@@ -1,0 +1,35 @@
+/* Keep native keyboard/mobile pickers, with the same chevron inset as our
+   custom selects. Exclude Radix's hidden form controls and listboxes. */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+select:not([multiple]):not([size]):not([aria-hidden="true"]) {
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding-inline: 12px 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.dark select:not([multiple]):not([size]):not([aria-hidden="true"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+select:disabled { cursor: not-allowed; opacity: .5; }
+select option { background: var(--popover); color: var(--popover-foreground); }
+[dir="rtl"] select:not([multiple]):not([size]):not([aria-hidden="true"]) {
+  background-position: left 12px center;
+}
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]):not([aria-hidden="true"]),
+  .dark select:not([multiple]):not([size]):not([aria-hidden="true"]) {
+    appearance: auto;
+    background-image: none;
+  }
+}
+@media (pointer: coarse) {
+  [data-slot="select-item"] { min-height: 44px; }
+}

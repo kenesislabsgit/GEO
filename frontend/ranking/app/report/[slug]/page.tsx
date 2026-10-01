@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AnswerExplorer } from "@/components/dashboard/answer-explorer";
 import { AuditCoverageNotice } from "@/components/dashboard/audit-coverage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -13,7 +15,11 @@ import { SiteFooter } from "@/components/site/footer";
 import { JsonLd } from "@/components/site/json-ld";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ShareControls } from "@/components/report/share-controls";
+import { PrintReportButton } from "@/components/report/print-report-button";
 import { SourceEvidence } from "@/components/report/source-evidence";
+import { getAccountEntitlements } from "@/lib/billing/account";
+import { hasFeature } from "@/lib/billing/entitlements";
 import { ScoreRing } from "@/components/report/score-ring";
 import { MethodologyPanel } from "@/components/report/methodology-panel";
 import {
@@ -32,6 +38,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { routes } from "@/lib/routes";
 import {
   loadSampleReport,
+  loadSampleQuestions,
   SAMPLE_REPORT_SLUG,
 } from "@/lib/reports/sample-report";
 import { SITE_URL } from "@/lib/site";
@@ -149,21 +156,49 @@ export async function generateMetadata({
         });
   if (!report) {
     return {
-      title: "Audit not found",
-      description: "This audit is unavailable.",
+      title: "Report not found",
+      description: "This report is unavailable.",
       robots: { index: false },
-      openGraph: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
-      twitter: { title: "Audit unavailable", description: "This audit is unavailable.", images: [] },
+      openGraph: {
+        title: "Report unavailable",
+        description: "This report is unavailable.",
+        images: [],
+      },
+      twitter: {
+        title: "Report unavailable",
+        description: "This report is unavailable.",
+        images: [],
+      },
     };
   }
+  const title = `${report.brand.name} AI Visibility Report`;
+  const description = `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`;
+  const reportPath = routes.publicReport(
+    slug,
+    selectedScanId(query.scan) ?? undefined,
+  );
+  const image = {
+    url: routes.publicReportImage(slug, report.scan.id),
+    width: 1200,
+    height: 630,
+    alt: `${report.brand.name} · Score ${report.score.overall}`,
+  };
   return {
-    title: `${report.brand.name} AI Visibility Audit`,
-    description: `${report.brand.name} scored ${report.score.overall} on ${APP_NAME}. Mention rate ${report.score.mentionRate}%.`,
+    title,
+    description,
     alternates: { canonical: routes.publicReport(slug) },
     openGraph: {
-      title: `${report.brand.name} · Score ${report.score.overall}`,
-      description: `Mention rate ${report.score.mentionRate}% · ${APP_NAME}`,
-      images: [{ url: routes.publicReportImage(slug, report.scan.id), width: 1200, height: 630 }],
+      title,
+      description,
+      type: "website",
+      url: reportPath,
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
     },
   };
 }
@@ -197,7 +232,7 @@ export default async function ReportPage({
         <SiteHeader />
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-2xl flex-1 px-4 py-24 text-center">
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Audit unavailable
+            Report unavailable
           </h1>
           <p className="mt-3 text-muted-foreground">
             No completed public audit was found for this website yet.
@@ -221,6 +256,11 @@ export default async function ReportPage({
   }
 
   const mentionedCount = report.promptMatrix.filter((r) => r.mentioned).length;
+  const canPrintPdf =
+    isOwner && user
+      ? hasFeature((await getAccountEntitlements(user.id)).plan, "pdfCsvExport")
+      : false;
+
   // Structured data only for genuinely public reports, mirroring
   // generateMetadata's own indexing rule above - a private report stays
   // invisible to crawlers even when its owner is the one rendering this page.
@@ -240,7 +280,7 @@ export default async function ReportPage({
                   {
                     "@type": "ListItem",
                     position: 2,
-                    name: `${report.brand.name} Audit`,
+                    name: `${report.brand.name} Report`,
                     item: reportUrl,
                   },
                 ],
@@ -248,7 +288,7 @@ export default async function ReportPage({
               {
                 "@type": "Dataset",
                 "@id": `${reportUrl}#dataset`,
-                name: `${report.brand.name} AI Visibility Audit`,
+                name: `${report.brand.name} AI Visibility Report`,
                 description: `AI visibility measurement for ${report.brand.name}: overall score ${report.score.overall}, mention rate ${report.score.mentionRate}%, sampled across ${report.scan.providerIds.length} AI provider${report.scan.providerIds.length === 1 ? "" : "s"}.`,
                 url: reportUrl,
                 dateCreated: report.scan.createdAt,
@@ -310,10 +350,10 @@ export default async function ReportPage({
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-[color:var(--arc-accent)] text-white hover:bg-[color:var(--arc-accent)]">
                 {isSample
-                  ? "Sample audit"
+                  ? "Plus sample report"
                   : brand?.visibility === "private"
-                    ? "Private audit"
-                    : "Audit results"}
+                    ? "Private report"
+                    : "Public report"}
               </Badge>
               {report.scan.demoMode ? (
                 <Badge
@@ -345,6 +385,11 @@ export default async function ReportPage({
                   {report.brand.domain}
                   {report.brand.category ? ` · ${report.brand.category}` : ""}
                 </p>
+                {isSample ? (
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70">
+                    See how {report.brand.name} appears across AI answers, which sources are cited, and where there’s room to improve.
+                  </p>
+                ) : null}
                 <div className="mt-8 grid grid-cols-2 gap-6 md:grid-cols-3 md:gap-8">
                   <div>
                     <p className="text-[11px] font-medium tracking-wide text-white/50 uppercase">
@@ -384,6 +429,15 @@ export default async function ReportPage({
               </div>
             </div>
 
+            <div className="mt-10 flex flex-wrap items-center gap-3 print:hidden">
+              <ShareControls
+                scanId={report.scan.id}
+                slug={report.brand.slug}
+                brandName={report.brand.name}
+                score={report.score.overall}
+              />
+              {canPrintPdf ? <PrintReportButton /> : null}
+            </div>
           </div>
         </section>
 
@@ -407,7 +461,16 @@ export default async function ReportPage({
               </p>
             </div>
           </div>
-          <div className="mt-6 overflow-hidden rounded-xl border border-border">
+          {isSample ? (
+            <div className="mt-6">
+              <p className="mb-5 text-xs leading-relaxed text-muted-foreground">
+                Demo note: Perplexity examples use saved ChatGPT answers and don’t contribute to scores.
+              </p>
+              <Suspense fallback={<p className="text-sm text-muted-foreground">Loading saved answers…</p>}>
+                <AnswerExplorer questions={loadSampleQuestions()} brandName={report.brand.name} />
+              </Suspense>
+            </div>
+          ) : <div className="mt-6 overflow-hidden rounded-xl border border-border">
             <div className="divide-y divide-border">
               {report.promptMatrix.map((row) => (
                 <div
@@ -453,7 +516,7 @@ export default async function ReportPage({
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </section>
 
         {/* Competitor preview */}
@@ -745,17 +808,17 @@ export default async function ReportPage({
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
                 {isSample
-                  ? "A real audit, not a mockup"
+                  ? "See what AI says about your business"
                   : isOwner
-                    ? "Audit preview"
+                    ? "Public report preview"
                     : "Is this your company?"}
               </h2>
               <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                 {isSample
-                  ? `This is a completed ChatGPT audit of ${report.brand.domain}. The score, the questions, and the sources are from that run.`
+                  ? "Explore your own visibility, competitor mentions, and evidence in one report."
                   : isOwner
-                    ? "Your complete provider answers, competitors, sources, improvements, and history are saved in the dashboard."
-                    : "Claim this audit to attach it to your account and track future changes."}
+                    ? "This is the shareable preview. Your complete provider answers, competitors, sources, improvements, and history remain in the dashboard."
+                    : "Claim this report to attach it to your account. Plus adds private-report controls, history, and the full action centre — your prioritized fix list."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -769,7 +832,7 @@ export default async function ReportPage({
               ) : isOwner && brand ? (
                 <Button asChild>
                   <Link href={routes.brand(brand.id)}>
-                    Open full audit
+                    Open full report
                     <ArrowRight data-icon="inline-end" />
                   </Link>
                 </Button>

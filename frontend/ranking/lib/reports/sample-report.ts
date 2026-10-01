@@ -1,20 +1,22 @@
-import audit from "@/tests/fixtures/free-audit-export.json";
+import audit from "@/lib/reports/data/sample-audit.json";
 import type { PublicReportDTO } from "@/lib/reports/public-dto";
 import { roundForDisplay } from "@/lib/scores/format";
 import { competitorEvidence, reportSources } from "@/lib/reports/evidence";
-import { categoryLabel, reportSampling, reportText } from "@/lib/reports/presentation";
+import {
+  categoryLabel,
+  reportSampling,
+  reportText,
+} from "@/lib/reports/presentation";
+import { providerDisplayName } from "@/lib/constants";
+import { readableAnswer } from "@/lib/reports/answer-presentation";
+import type { ExplorerQuestion } from "@/components/dashboard/answer-explorer";
 
-/** Public, logged-out report. The file is a real ChatGPT audit, not a mock. */
+/** Measured report data comes only from the saved live audit. */
 export const SAMPLE_REPORT_SLUG = "sample";
 
 type PromptRow = {
   prompt: string;
   prompt_type: string;
-  mentioned: boolean;
-  provider_results?: Array<{
-    user_rank: number | null;
-    top_recommendations?: string[];
-  }>;
 };
 
 type QueryRow = {
@@ -23,10 +25,19 @@ type QueryRow = {
   provider: string;
   raw_answer: string;
   brand_mentioned: boolean;
+  brand_position: number | null;
+  answer_summary?: string | null;
+  parse_error?: string | null;
+  recommended_brands?: Array<{
+    name: string;
+    position: number | null;
+    reasonRecommended?: string;
+  }>;
   citations?: Array<{
     url: string;
     title: string | null;
     domain: string | null;
+    citedForBrand?: boolean | null;
   }>;
 };
 
@@ -51,61 +62,40 @@ type EvidenceRow = {
   } | null;
 };
 
-/** Same weights the audit score uses. Mention is most of the number. */
-const MENTION_WEIGHT = 0.65;
-const POSITION_WEIGHT = 0.3;
-const CONFIDENCE_WEIGHT = 0.05;
-const POSITION_VALUES: Record<number, number> = {
-  1: 100,
-  2: 80,
-  3: 65,
-  4: 50,
-  5: 35,
-};
-
 function isBrandName(name: string, brand: string): boolean {
   const left = name.trim().toLowerCase();
   const right = brand.trim().toLowerCase();
   return left === right || left.startsWith(`${right} `);
 }
 
-function positionValue(position: number): number {
-  if (position in POSITION_VALUES) return POSITION_VALUES[position];
-  return position >= 6 ? 10 : 0;
-}
-
-/** Stripe Connect and Stripe Issuing are Stripe, not rival companies. */
-function brandHit(row: PromptRow, brand: string) {
-  const result = row.provider_results?.[0];
-  const names = result?.top_recommendations ?? [];
-  const index = names.findIndex((name) => isBrandName(name, brand));
-  if (index === -1) {
-    if (!row.mentioned) {
-      return {
-        mentioned: false,
-        position: null as number | null,
-        namedAs: null as string | null,
-        ahead: names,
-      };
-    }
-    const rank = result?.user_rank ?? null;
-    return {
-      mentioned: true,
-      position: rank,
-      namedAs: null as string | null,
-      ahead: typeof rank === "number" ? names.slice(0, Math.max(0, rank - 1)) : [],
-    };
-  }
-  const named = names[index];
+function brandHit(row: PromptRow, queries: QueryRow[], brand: string) {
+  const answers = queries.filter(
+    (query) => query.prompt === row.prompt && !query.parse_error,
+  );
+  const positions = answers.flatMap((query) =>
+    query.brand_mentioned && query.brand_position ? [query.brand_position] : [],
+  );
+  const position = positions.length ? Math.min(...positions) : null;
   return {
-    mentioned: true,
-    position: index + 1,
-    namedAs: named.toLowerCase() === brand.toLowerCase() ? null : named,
-    ahead: names.slice(0, index).filter((name) => !isBrandName(name, brand)),
+    mentioned: answers.some((query) => query.brand_mentioned),
+    position,
+    ahead: [
+      ...new Set(
+        answers.flatMap((query) =>
+          (query.recommended_brands ?? [])
+            .filter(
+              (item) =>
+                !isBrandName(item.name, brand) &&
+                (position === null || (item.position ?? 99) < position),
+            )
+            .map((item) => item.name),
+        ),
+      ),
+    ].slice(0, 3),
   };
 }
 
-function hostOf(url: string, domain?: string): string {
+function hostOf(url: string, domain?: string | null): string {
   if (domain) return domain.replace(/^www\./, "");
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -122,47 +112,28 @@ export function loadSampleReport(): PublicReportDTO {
   const evidence = audit.competitor_evidence as EvidenceRow[];
   const recommendation = audit.recommendations[0];
   const brandName = audit.brand.name;
-  const hits = prompts.map((row) => brandHit(row, brandName));
-  const mentionCount = hits.filter((hit) => hit.mentioned).length;
-  const positions = hits
-    .map((hit) => hit.position)
-    .filter((position): position is number => typeof position === "number");
-  const mentionScore = prompts.length ? (mentionCount / prompts.length) * 100 : 0;
-  const positionScore = prompts.length
-    ? positions.reduce((sum, position) => sum + positionValue(position), 0) /
-      prompts.length
-    : 0;
+  const hits = prompts.map((row) => brandHit(row, queries, brandName));
   const rivals = competitors.filter((row) => !isBrandName(row.name, brandName));
-  const rivalMentions = rivals.reduce((sum, row) => sum + row.mentions, 0);
-  const shareOfVoice =
-    mentionCount / Math.max(1, mentionCount + rivalMentions);
-  const overall =
-    mentionScore * MENTION_WEIGHT +
-    positionScore * POSITION_WEIGHT +
-    audit.score.data_confidence_score * CONFIDENCE_WEIGHT;
   const mentioned = queries.find((row) => row.brand_mentioned) ?? null;
   const investigated = evidence.find((row) => row.website_evidence) ?? null;
 
-  const sourceRows = new Map<
-    string,
-    PublicReportDTO["sources"][number]
-  >();
-  for (const citation of citations) {
+  const sourceRows = new Map<string, PublicReportDTO["sources"][number]>();
+  for (const citation of queries.flatMap((query) => query.citations ?? [])) {
     if (!citation.url) continue;
     const existing = sourceRows.get(citation.url);
     if (existing) {
       existing.citedInAnswers += 1;
-      if (citation.mentions_brand) existing.mentionsBrand = true;
+      if (citation.citedForBrand) existing.mentionsBrand = true;
       continue;
     }
     sourceRows.set(citation.url, {
       domain: hostOf(citation.url, citation.domain),
       url: citation.url,
-      title: null,
+      title: citation.title,
       citedInAnswers: 1,
       mentionsBrand:
-        typeof citation.mentions_brand === "boolean"
-          ? citation.mentions_brand
+        typeof citation.citedForBrand === "boolean"
+          ? citation.citedForBrand
           : null,
     });
   }
@@ -182,25 +153,33 @@ export function loadSampleReport(): PublicReportDTO {
     scan: {
       id: SAMPLE_REPORT_SLUG,
       status: audit.scan.status,
-      createdAt: audit.generated_at,
+      createdAt: audit.sample_metadata.started_at,
       completedAt: audit.generated_at,
       methodologyVersion: audit.scan.methodology_version,
       demoMode: false,
       providerIds: audit.scan.provider_ids,
       promptCount: prompts.length,
       confidence: citations.length > 0 ? "standard" : "low",
-      sampling: { ...reportSampling(queries.map((row) => ({ ...row, question: row.prompt }))), timestampLabel: "Export generated (original scan time not recorded)" },
+      sampling: {
+        ...reportSampling(
+          queries.map((row) => ({
+            ...row,
+            question: row.prompt,
+            error: row.parse_error,
+          })),
+        ),
+        timestampLabel: "Scan created",
+        settings: audit.sample_metadata.sampling_settings,
+      },
     },
     score: {
-      overall: roundForDisplay(overall),
-      mentionRate: roundForDisplay(mentionScore),
-      averagePosition: positions.length
-        ? roundForDisplay(
-            positions.reduce((sum, position) => sum + position, 0) /
-              positions.length,
-          )
-        : null,
-      shareOfVoice: roundForDisplay(shareOfVoice * 100),
+      overall: roundForDisplay(audit.score.overall_score),
+      mentionRate: roundForDisplay(audit.score.mention_rate * 100),
+      averagePosition:
+        audit.score.average_position === null
+          ? null
+          : roundForDisplay(audit.score.average_position),
+      shareOfVoice: roundForDisplay(audit.score.share_of_voice * 100),
     },
     promptMatrix: prompts.map((row, index) => ({
       prompt: row.prompt,
@@ -208,14 +187,15 @@ export function loadSampleReport(): PublicReportDTO {
       mentioned: hits[index].mentioned,
       position: hits[index].position,
       beatenBy: hits[index].ahead,
-      namedAs: hits[index].namedAs,
     })),
     topCompetitor: rivals[0]
       ? { name: rivals[0].name, mentions: rivals[0].mentions }
       : null,
     competitorPreview: rivals.slice(0, 5).map((row) => {
       const savedEvidence = competitorEvidence(
-        audit.score.competitor_scores.find((competitor) => competitor.name === row.name),
+        audit.score.competitor_scores.find(
+          (competitor) => competitor.name === row.name,
+        ),
       );
       return {
         name: row.name,
@@ -254,7 +234,8 @@ export function loadSampleReport(): PublicReportDTO {
       ? {
           prompt: mentioned.prompt,
           provider: mentioned.provider,
-          answer: mentioned.raw_answer,
+          answer: readableAnswer(mentioned.raw_answer, mentioned.answer_summary)
+            .prose,
           citations: (mentioned.citations ?? []).slice(0, 5),
         }
       : null,
@@ -286,4 +267,53 @@ export function loadSampleReport(): PublicReportDTO {
     },
     locked: true,
   };
+}
+
+/** Simulation is added only to the demo viewer, after measured scores are read. */
+export function loadSampleQuestions(): ExplorerQuestion[] {
+  const queries = audit.query_results as QueryRow[];
+  return audit.prompt_matrix.map((prompt, index) => {
+    const answers = queries
+      .filter((row) => row.prompt === prompt.prompt)
+      .map((row) => ({
+        id: `sample-${index}-${row.provider}`,
+        provider: row.provider,
+        assistantName: providerDisplayName(row.provider),
+        mentioned: row.brand_mentioned,
+        position: row.brand_position,
+        answer: row.raw_answer,
+        summary: row.answer_summary,
+        error: row.parse_error,
+        recommended: (row.recommended_brands ?? []).map((item) => ({
+          name: item.name,
+          position: item.position,
+          reason: item.reasonRecommended ?? null,
+        })),
+        citations: (row.citations ?? []).map((citation) => ({
+          url: citation.url,
+          label: citation.title || citation.domain || citation.url,
+        })),
+      }));
+    const source = answers.find(
+      (answer) => answer.provider === "openai_search",
+    );
+    return {
+      promptId: `sample-question-${index}`,
+      question: prompt.prompt,
+      promptType: categoryLabel(prompt.prompt_type),
+      answers: source
+        ? [
+            ...answers,
+            {
+              ...source,
+              id: `sample-${index}-perplexity-simulated`,
+              provider: "perplexity",
+              assistantName: "Perplexity",
+              citations: [],
+              simulation: { sourceProvider: source.provider },
+            },
+          ]
+        : answers,
+    };
+  });
 }
