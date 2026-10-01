@@ -5,6 +5,8 @@ node_modules
 .git
 .env
 .env*.local
+**/.env
+**/.env*.local
 outputs
 GEO/outputs
 __pycache__
