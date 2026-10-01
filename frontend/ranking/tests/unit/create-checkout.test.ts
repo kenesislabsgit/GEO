@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCheckoutSession } from "@/lib/billing/create-checkout";
 
 const user = { id: "user_1", email: "founder@example.com" };
-const advertisedPrice = { type: "recurring_price", currency: "USD", price: 7900, payment_frequency_count: 1, payment_frequency_interval: "Month", trial_period_days: 7, trial_payment_method_optional: false };
+const advertisedPrice = { type: "recurring_price", currency: "USD", price: 7900, payment_frequency_count: 1, payment_frequency_interval: "Month", trial_period_days: 0, trial_payment_method_optional: false };
 
 function checkoutFetch() {
   return vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ price: advertisedPrice }) })
@@ -167,7 +167,7 @@ describe("createCheckoutSession", () => {
     );
   });
 
-  it.each([{ price: 2900 }, { trial_period_days: 0 }, { trial_amount: 100 }, { trial_payment_method_optional: true }, { payment_frequency_interval: "Year" }])("blocks checkout when configured terms differ: %j", async (mismatch) => {
+  it.each([{ price: 2900 }, { trial_period_days: 7 }, { trial_amount: 100 }, { trial_payment_method_optional: true }, { payment_frequency_interval: "Year" }])("blocks checkout when configured terms differ: %j", async (mismatch) => {
     vi.stubEnv("DODO_PAYMENTS_API_KEY", "rk_test");
     vi.stubEnv("DODO_FOUNDER_MONTHLY_PRODUCT_ID", "prod_plus_monthly");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.arcanoris.in");

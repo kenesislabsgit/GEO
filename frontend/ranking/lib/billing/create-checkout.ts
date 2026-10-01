@@ -121,7 +121,7 @@ export async function createCheckoutSession(input: {
     input.plan === "founder" &&
     input.interval === "monthly";
   if (!paymentVerificationMode) {
-    // A checkout must honor the terms shown next to the trial button.
+    // A checkout must honor the advertised subscription terms.
     const productResponse = await fetch(`${dodoApiBase()}/products/${encodeURIComponent(productId)}`, {
       headers: { Authorization: `Bearer ${process.env.DODO_PAYMENTS_API_KEY}` },
       cache: "no-store",
@@ -137,7 +137,7 @@ export async function createCheckoutSession(input: {
         (price.trial_amount != null && price.trial_amount !== 0) ||
         Boolean(price.discount) || Boolean(price.discount_bps) || price.purchasing_power_parity === true) {
       log.error("dodo_checkout_terms_mismatch", { plan: input.plan, interval: input.interval });
-      return { ok: false, status: 503, error: "Checkout is temporarily unavailable while we align the billing setup with the advertised price and trial. No payment has been taken. Please contact support." };
+      return { ok: false, status: 503, error: "Checkout is temporarily unavailable while we align the billing setup with the advertised subscription terms. No payment has been taken. Please contact support." };
     }
   }
 

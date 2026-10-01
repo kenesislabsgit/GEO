@@ -21,7 +21,7 @@ import {
   publicSubscribeHref,
   SOLD_PLAN_IDS,
   yearlySavingsUsd,
-  trialCommitment,
+  subscriptionCommitment,
   type BillingInterval,
 } from "@/lib/billing/pricing";
 import { routes } from "@/lib/routes";
@@ -88,7 +88,7 @@ function planCta(
   }
   return {
     href: publicSubscribeHref(planId, interval, signedIn),
-    label: `Start ${PLAN_CONFIG[planId].trialDays}-day trial`,
+    label: interval === "yearly" ? "Subscribe yearly" : "Subscribe monthly",
   };
 }
 
@@ -143,7 +143,6 @@ function PlanPrice({
             {" "}· save ${saved}/year
           </span>
         ) : null}
-        {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
       </p>
       {planId === "founder" ? (
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -252,7 +251,7 @@ export function PricingPlans({
                   <Link href={cta.href}>{cta.label}</Link>
                 )}
               </Button>
-              {planId === "founder" ? <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{trialCommitment(interval)}</p> : <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Starting package includes the allowances above. Contact us to confirm your package before purchase.</p>}
+              {planId === "founder" ? <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{subscriptionCommitment(interval)}</p> : <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Starting package includes the allowances above. Contact us to confirm your package before purchase.</p>}
             </div>
           );
         })}

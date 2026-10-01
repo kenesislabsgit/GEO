@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { reportSampling, reportText, categoryLabel, utcTimestamp } from "@/lib/reports/presentation";
-import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
+import { selectedSubscription, subscriptionCommitment } from "@/lib/billing/pricing";
 import { loadSampleReport } from "@/lib/reports/sample-report";
 
 describe("historical report presentation", () => {
@@ -29,12 +29,18 @@ describe("historical report presentation", () => {
   });
 });
 
-describe("selected trial", () => {
+describe("selected subscription", () => {
   it("uses only a valid checkout selection", () => {
-    expect(selectedTrial("/dashboard/billing/start?plan=founder&interval=yearly")?.interval).toBe("yearly");
-    expect(selectedTrial("/dashboard/billing/start?plan=agency&interval=yearly")).toBeNull();
-    expect(selectedTrial("/dashboard/billing/start?plan=founder&interval=invalid")).toBeNull();
-    expect(trialCommitment("yearly")).toContain("$790/year");
-    expect(trialCommitment("monthly")).toContain("$79/month");
+    expect(selectedSubscription("/dashboard/billing/start?plan=founder&interval=yearly")?.interval).toBe("yearly");
+    expect(selectedSubscription("/dashboard/billing/start?plan=agency&interval=yearly")).toBeNull();
+    expect(selectedSubscription("/dashboard/billing/start?plan=founder&interval=invalid")).toBeNull();
+    expect(subscriptionCommitment("yearly")).toContain("$790/year");
+    expect(subscriptionCommitment("monthly")).toContain("$79/month");
+    for (const interval of ["monthly", "yearly"] as const) {
+      const commitment = subscriptionCommitment(interval);
+      expect(commitment).toContain("charged at checkout");
+      expect(commitment).not.toMatch(/trial|\$0|7.day/i);
+    }
+    expect(selectedSubscription("/dashboard/billing/start?plan=founder&interval=monthly")?.plan.trialDays).toBe(0);
   });
 });

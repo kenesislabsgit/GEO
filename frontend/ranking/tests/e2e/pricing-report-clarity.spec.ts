@@ -26,27 +26,27 @@ test("signup requires agreement while sign-in stays clear", async ({ page }) => 
 });
 
 for (const interval of ["monthly", "yearly"] as const) {
-  test(`trial signup explains ${interval} selection before credentials`, async ({ page }) => {
+  test(`subscription signup explains ${interval} selection before credentials`, async ({ page }) => {
     await page.goto("/pricing");
     if (interval === "yearly") await page.getByRole("radio", { name: /Yearly/i }).click();
     const card = page.getByRole("heading", { name: "Plus", exact: true }).locator("..");
-    await expect(card).toContainText(`then $${interval === "yearly" ? "790/year" : "79/month"}`);
+    await expect(card).toContainText(`${interval === "yearly" ? "790/year" : "79/month"}`);
     await expect(card).toContainText("Payment method required");
-    await page.getByRole("link", { name: "Start 7-day trial", exact: true }).click();
+    await page.getByRole("link", { name: interval === "yearly" ? "Subscribe yearly" : "Subscribe monthly", exact: true }).click();
     await page.waitForURL(/\/login\?/, { timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
-    const trial = page.getByRole("region", { name: "Selected trial" });
-    await expect(trial).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
-    await expect(trial).toContainText("Cancel in Billing before your 7-day trial ends");
+    const subscription = page.getByRole("region", { name: "Selected subscription" });
+    await expect(subscription).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
+    await expect(subscription).toContainText("charged at checkout");
     await expect(page.getByText(/New reports are public by default/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Report visibility and data handling" })).toHaveCount(0);
     await expect(page.locator('a[href="/terms"]').first()).toBeVisible();
     await expect(page.locator('a[href="/privacy"]').first()).toBeVisible();
     await page.getByRole("link", { name: "Sign in", exact: true }).click();
-    await expect(trial).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
+    await expect(subscription).toContainText(interval === "yearly" ? "Plus · Yearly" : "Plus · Monthly");
     await page.getByRole("link", { name: "Sign up", exact: true }).click();
     expect(new URL(new URL(page.url()).searchParams.get("returnTo")!, page.url()).searchParams.get("interval")).toBe(interval);
-    await page.screenshot({ path: test.info().outputPath("selected-trial.png"), fullPage: true });
+    await page.screenshot({ path: test.info().outputPath("selected-subscription.png"), fullPage: true });
   });
 }
 

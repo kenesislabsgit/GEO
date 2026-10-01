@@ -108,7 +108,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     description: `One website, multi-provider monitoring, and ${PLUS_CHECKS_SUMMARY}.`,
     monthlyPriceUsd: 79,
     yearlyPriceUsd: 790,
-    trialDays: 7,
+    trialDays: 0,
     monthlyProductEnv: "DODO_FOUNDER_MONTHLY_PRODUCT_ID",
     yearlyProductEnv: "DODO_FOUNDER_YEARLY_PRODUCT_ID",
     features: {

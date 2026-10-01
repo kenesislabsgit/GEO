@@ -1035,7 +1035,7 @@ export default async function HomePage() {
                 Start free. Scale when it matters.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                Start with a free ChatGPT audit. Plus adds a 7-day trial and
+                Start with a free ChatGPT audit. Plus adds
                 weekly monitoring across {PLUS_MODELS}.
               </p>
             </Reveal>

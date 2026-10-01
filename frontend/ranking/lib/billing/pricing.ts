@@ -27,7 +27,7 @@ export function publicSubscribeHref(
   return signedIn ? start : routes.login({ returnTo: start, mode: "signup" });
 }
 
-export function selectedTrial(returnTo: string | null) {
+export function selectedSubscription(returnTo: string | null) {
   if (!returnTo?.startsWith("/dashboard/billing/start?")) return null;
   const params = new URLSearchParams(returnTo.split("?")[1]);
   if (params.get("plan") !== "founder") return null;
@@ -35,11 +35,11 @@ export function selectedTrial(returnTo: string | null) {
   return interval === "monthly" || interval === "yearly" ? { plan: PLAN_CONFIG.founder, interval } as const : null;
 }
 
-export function trialCommitment(interval: BillingInterval): string {
+export function subscriptionCommitment(interval: BillingInterval): string {
   const plan = PLAN_CONFIG.founder;
   const price = interval === "yearly" ? plan.yearlyPriceUsd : plan.monthlyPriceUsd;
   const period = interval === "yearly" ? "year" : "month";
-  return `Payment method required. $0 for ${plan.trialDays} days, then $${price}/${period} plus applicable tax, billed automatically every ${period}. Cancel in Billing before your ${plan.trialDays}-day trial ends to avoid the first charge.`;
+  return `Payment method required. $${price}/${period} plus applicable tax, charged at checkout and renewed automatically every ${period}. Cancel in Billing before your next renewal to avoid future charges.`;
 }
 
 export function yearlySavingsUsd(plan: PlanConfig): number {

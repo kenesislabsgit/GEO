@@ -37,7 +37,7 @@ test("plan choice survives account creation while email confirmation is pending"
   const email = `plan-flow-${Date.now()}@example.com`;
 
   await page.goto("/pricing");
-  await page.getByRole("link", { name: /Start 7-day trial/i }).click();
+  await page.getByRole("link", { name: /Subscribe monthly/i }).click();
   await expect(page).toHaveURL(/\/login\?/);
 
   // The pricing CTA lands in sign-in mode; switch to signup for a new account.

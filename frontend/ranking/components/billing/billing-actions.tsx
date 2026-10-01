@@ -150,7 +150,6 @@ export function BillingActions({
                       {yearlySavingsUsd(plan) > 0
                         ? ` · save $${yearlySavingsUsd(plan)}`
                         : ""}
-                      {plan.trialDays > 0 ? ` · ${plan.trialDays}-day trial` : ""}
                     </p>
                   </>
                 )}

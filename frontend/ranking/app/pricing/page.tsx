@@ -176,8 +176,8 @@ const FAQS = [
     a: "Yes. Manage or cancel from the billing portal in one click. You can export your account as JSON from Settings while it exists. CSV exports are available on Pro and Growth.",
   },
   {
-    q: "How does the 7-day Plus trial work?",
-    a: "Full Plus features with the same usage limits as the paid plan. Checkout starts a 7-day trial; no charge until it ends. Cancel before then and you pay nothing. The free ChatGPT audit is separate — it is not the Plus trial.",
+    q: "When does my Plus subscription start?",
+    a: "Plus starts after payment at checkout and renews automatically monthly or yearly, depending on your selection. Cancel in Billing before the next renewal to avoid future charges. The free ChatGPT audit is separate from the paid subscription.",
   },
   {
     q: "Do you guarantee better AI rankings?",
@@ -255,7 +255,7 @@ export default async function PricingPage() {
           Start free. Scale when it matters.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Start with a free ChatGPT audit. Plus adds a 7-day trial, ChatGPT,
+          Start with a free ChatGPT audit. Plus adds ChatGPT,
           Claude, Grok, Llama Search, Mistral, and weekly monitoring. Pro starts
           at ${PLAN_CONFIG.agency.monthlyPriceUsd} per month.
         </p>

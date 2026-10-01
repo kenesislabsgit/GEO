@@ -19,7 +19,7 @@ const sections = [
   },
   {
     title: "Billing",
-    body: "Paid plans are billed through Dodo Payments and can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans, including trials.",
+    body: "Paid plans are charged at checkout through Dodo Payments and renew automatically at the selected billing interval. Subscriptions can be managed or cancelled from the customer portal at any time. Usage limits apply on all plans.",
   },
 ];
 

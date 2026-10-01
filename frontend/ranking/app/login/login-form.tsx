@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { resolveReturnTo, routes } from "@/lib/routes";
 import { authClient, signIn, signUp } from "@/lib/auth/client";
 import { GoogleButton } from "./google-button";
-import { selectedTrial, trialCommitment } from "@/lib/billing/pricing";
+import { selectedSubscription, subscriptionCommitment } from "@/lib/billing/pricing";
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
@@ -43,7 +43,7 @@ export function LoginForm({
     domain: params.get("domain"),
     mode,
   });
-  const trial = selectedTrial(returnTo);
+  const subscription = selectedSubscription(returnTo);
   const authError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -143,11 +143,11 @@ export function LoginForm({
           : "Sign in to your dashboard."}
       </p>
 
-      {trial ? (
-        <section aria-label="Selected trial" className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
-          <h2 className="text-sm font-semibold">Plus · {trial.interval === "yearly" ? "Yearly" : "Monthly"} · {trial.plan.trialDays}-day trial</h2>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{trialCommitment(trial.interval)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Your trial starts after checkout, not when you create this account.</p>
+      {subscription ? (
+        <section aria-label="Selected subscription" className="mt-4 rounded-lg border border-border bg-muted/40 p-3">
+          <h2 className="text-sm font-semibold">Plus · {subscription.interval === "yearly" ? "Yearly" : "Monthly"}</h2>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{subscriptionCommitment(subscription.interval)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Your subscription starts after payment, not when you create this account.</p>
         </section>
       ) : null}
 

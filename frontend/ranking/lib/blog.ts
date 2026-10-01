@@ -131,7 +131,7 @@ export const blogPosts: BlogPost[] = [
         rows: [
           [
             '"Powerful analytics for modern teams"',
-            '"Real-time event analytics with a 7-day free trial, from $29/month"',
+            '"Real-time event analytics, from $29/month"',
           ],
           [
             '"Trusted by companies worldwide"',
